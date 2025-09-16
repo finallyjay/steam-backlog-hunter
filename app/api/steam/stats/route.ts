@@ -1,0 +1,18 @@
+import { type NextRequest, NextResponse } from "next/server"
+import { getCurrentUser } from "@/lib/auth"
+import { getUserStats } from "@/lib/steam-api"
+
+export async function GET(request: NextRequest) {
+  try {
+    const user = await getCurrentUser()
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const stats = await getUserStats(user.steamId)
+    return NextResponse.json(stats)
+  } catch (error) {
+    console.error("Steam stats API error:", error)
+    return NextResponse.json({ error: "Failed to fetch stats" }, { status: 500 })
+  }
+}
