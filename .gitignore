@@ -1,0 +1,51 @@
+# Node modules
+node_modules/
+
+# Next.js build output
+.next/
+
+# Local environment variables
+.env*
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Editor folders
+.vscode/
+.idea/
+
+# Coverage
+coverage/
+
+# TypeScript
+*.tsbuildinfo
+
+# Misc
+*.swp
+*.swo
+
+# Optional: ignore public/uploads if you store user files
+public/uploads/
+
+# Optional: ignore local database
+*.sqlite
+*.db
+
+# Optional: ignore test output
+junit.xml
+
+# Optional: ignore build artifacts
+build/
+dist/
+
+# Optional: ignore lock files (if you want)
+# package-lock.json
+yarn.lock
+pnpm-lock.yaml
