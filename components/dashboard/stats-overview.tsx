@@ -1,41 +1,20 @@
 "use client"
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Skeleton } from "@/components/ui/skeleton"
 import { Trophy, Gamepad2, Clock, Target } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
+import { useRouter } from "next/navigation"
 import { useSteamStats } from "@/hooks/use-steam-data"
+import { CardGrid } from "@/components/ui/card-grid"
 
 export function StatsOverview() {
   const { stats, loading, error } = useSteamStats()
 
   if (loading) {
-    return (
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Card key={i} className="border-2">
-            <CardHeader className="pb-2">
-              <Skeleton className="h-4 w-24" />
-            </CardHeader>
-            <CardContent>
-              <Skeleton className="h-8 w-16 mb-2" />
-              <Skeleton className="h-3 w-20" />
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    )
+    return <CardGrid items={Array.from({ length: 4 }).map((_, i) => ({ title: "", value: "", description: "", icon: <Skeleton className="h-8 w-8" /> }))} />
   }
 
   if (error) {
-    return (
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="border-2 border-destructive/50">
-          <CardContent className="pt-6">
-            <p className="text-sm text-destructive">Failed to load stats</p>
-          </CardContent>
-        </Card>
-      </div>
-    )
+    return <CardGrid items={[{ title: "Error", description: "Failed to load stats", icon: <Trophy className="h-8 w-8 text-destructive" /> }]} />
   }
 
   const statsData = [
@@ -69,22 +48,17 @@ export function StatsOverview() {
     },
   ]
 
+  const router = useRouter()
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-      {statsData.map((stat) => (
-        <Card key={stat.title} className="border-2 hover:border-accent/50 transition-colors">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <stat.icon className={`h-4 w-4 ${stat.color}`} />
-              {stat.title}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stat.value}</div>
-            <p className="text-xs text-muted-foreground">{stat.description}</p>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
+    <CardGrid
+      items={statsData.map((stat, idx) => ({
+        title: stat.title,
+        value: stat.value,
+        description: stat.description,
+        icon: <stat.icon className={`h-4 w-4 ${stat.color}`} />,
+        onClick: idx === 0 ? () => router.push('/games') : undefined,
+        clickable: idx === 0,
+      }))}
+    />
   )
 }

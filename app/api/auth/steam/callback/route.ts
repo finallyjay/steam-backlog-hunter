@@ -58,6 +58,8 @@ export async function GET(request: NextRequest) {
               displayName: player.personaname,
               avatar: player.avatarfull,
               profileUrl: player.profileurl,
+              timecreated: player.timecreated || null,
+              personaState: player.personastate ?? null,
             }),
             {
               httpOnly: true,

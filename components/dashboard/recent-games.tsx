@@ -1,15 +1,30 @@
 "use client"
 
+import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Clock, Play } from "lucide-react"
-import { useSteamGames } from "@/hooks/use-steam-data"
+import { GameCard } from "@/components/ui/game-card"
+import { useSteamGames, useSteamAchievementsBatch } from "@/hooks/use-steam-data"
+import { useMemo } from "react"
 import { getSteamImageUrl } from "@/lib/steam-api"
+import { Progress } from "@/components/ui/progress"
 
 export function RecentGames() {
   const { games, loading, error } = useSteamGames("recent")
+  const recentGames = useMemo(() => (
+    games.slice(0, 6).map((game) => ({
+      id: game.appid.toString(),
+      name: game.name,
+      playtime: Math.round(game.playtime_forever / 60),
+      image: getSteamImageUrl(game.appid, game.img_icon_url, "icon"),
+      appid: game.appid,
+    }))
+  ), [games])
+  const appIds = useMemo(() => recentGames.map(g => g.appid), [recentGames])
+  const { achievementsMap, loading: achievementsLoading, error: achievementsError } = useSteamAchievementsBatch(appIds.length > 0 ? appIds : [])
 
+  // Renderizado
   if (loading) {
     return (
       <Card className="border-2">
@@ -53,15 +68,6 @@ export function RecentGames() {
     )
   }
 
-  const recentGames = games.slice(0, 6).map((game) => ({
-    id: game.appid.toString(),
-    name: game.name,
-    playtime: `${Math.round(game.playtime_forever / 60)} hours`,
-    lastPlayed: game.playtime_2weeks ? `${Math.round(game.playtime_2weeks / 60)} hours (2 weeks)` : "Not recently",
-    image: getSteamImageUrl(game.appid, game.img_icon_url, "icon"),
-    appid: game.appid,
-  }))
-
   return (
     <Card className="border-2">
       <CardHeader>
@@ -77,40 +83,22 @@ export function RecentGames() {
               No recently played games found. Make sure your Steam profile is public.
             </p>
           ) : (
-            recentGames.map((game) => (
-              <div
-                key={game.id}
-                className="flex items-center gap-4 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer"
-              >
-                <img
-                  src={game.image || "/placeholder.svg"}
-                  alt={game.name}
-                  className="w-16 h-16 rounded-lg border"
-                  onError={(e) => {
-                    e.currentTarget.src = "/generic-game-icon.png"
-                  }}
-                />
-
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold truncate">{game.name}</h3>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Clock className="h-3 w-3" />
-                    <span>{game.playtime}</span>
-                    {game.lastPlayed !== "Not recently" && (
-                      <>
-                        <span>•</span>
-                        <span>{game.lastPlayed}</span>
-                      </>
-                    )}
-                  </div>
-                  <div className="mt-1">
-                    <Badge variant="outline" className="text-xs">
-                      App ID: {game.appid}
-                    </Badge>
-                  </div>
+            recentGames.map((game) => {
+              const achievements = achievementsMap[game.appid] || []
+              return (
+                <div key={game.id}>
+                  <GameCard
+                    id={game.id}
+                    name={game.name}
+                    image={game.image}
+                    playtime={game.playtime}
+                    href={`/game/${game.id}`}
+                    achievements={achievements}
+                    achievementsLoading={achievementsLoading}
+                  />
                 </div>
-              </div>
-            ))
+              )
+            })
           )}
         </div>
       </CardContent>

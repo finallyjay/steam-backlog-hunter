@@ -62,7 +62,7 @@ async function steamAPIRequest(endpoint: string, params: Record<string, string>)
 
   try {
     const response = await fetch(url.toString(), {
-      next: { revalidate: 300 }, // Cache for 5 minutes
+      cache: 'no-store',
     })
 
     if (!response.ok) {
@@ -84,6 +84,7 @@ export async function getOwnedGames(steamId: string): Promise<SteamGame[]> {
       steamid: steamId,
       include_appinfo: "1",
       include_played_free_games: "1",
+      l: "es"
     })
 
     return data.response?.games || []
@@ -98,6 +99,7 @@ export async function getRecentlyPlayedGames(steamId: string): Promise<SteamGame
     const data = await steamAPIRequest("/IPlayerService/GetRecentlyPlayedGames/v0001/", {
       steamid: steamId,
       count: "10",
+      l: "es"
     })
 
     return data.response?.games || []
@@ -112,7 +114,7 @@ export async function getPlayerAchievements(steamId: string, appId: number): Pro
     const data = await steamAPIRequest("/ISteamUserStats/GetPlayerAchievements/v0001/", {
       steamid: steamId,
       appid: appId.toString(),
-      l: "english",
+      l: "es"
     })
 
     if (!data.playerstats?.success) {
@@ -156,16 +158,29 @@ export async function getUserStats(steamId: string): Promise<{
     let totalAchievements = 0
     let perfectGames = 0
 
-    // Get achievement counts for a sample of games (to avoid rate limiting)
-    const sampleGames = games.slice(0, 10).filter((game) => game.has_community_visible_stats)
+    // Filtrar por los IDs permitidos en el JSON
+    let allowedIds: Set<string> = new Set()
+    try {
+      const res = await fetch("/steam_games_with_achievements.json")
+      const json = await res.json()
+      allowedIds = new Set(json.map((g: any) => String(g.id)))
+    } catch {}
+
+    const sampleGames = games
+      .filter((game) => allowedIds.has(String(game.appid)))
 
     for (const game of sampleGames) {
       const achievements = await getPlayerAchievements(steamId, game.appid)
       if (achievements) {
-        const unlockedCount = achievements.achievements.filter((a) => a.achieved === 1).length
+        const unlockedAchievements = achievements.achievements.filter((a) => a.achieved === 1)
+        const unlockedCount = unlockedAchievements.length
         totalAchievements += unlockedCount
 
-        if (unlockedCount === achievements.achievements.length && achievements.achievements.length > 0) {
+        // Perfect game: all achievements unlocked and there is at least one achievement
+        if (
+          unlockedCount === achievements.achievements.length &&
+          achievements.achievements.length > 0
+        ) {
           perfectGames++
         }
       }

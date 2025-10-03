@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getCurrentUser } from "@/lib/auth"
+import { getCurrentUser } from "@/app/lib/server-auth"
 import { getOwnedGames, getRecentlyPlayedGames } from "@/lib/steam-api"
 
 export async function GET(request: NextRequest) {

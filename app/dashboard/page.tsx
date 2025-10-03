@@ -1,37 +1,48 @@
-import { getCurrentUser } from "@/lib/auth"
-import { redirect } from "next/navigation"
-import { DashboardHeader } from "@/components/dashboard/dashboard-header"
+"use client"
+
+import { useCurrentUser } from "@/hooks/use-current-user"
+import { useRouter } from "next/navigation"
 import { UserProfile } from "@/components/dashboard/user-profile"
 import { StatsOverview } from "@/components/dashboard/stats-overview"
 import { RecentGames } from "@/components/dashboard/recent-games"
 import { AchievementProgress } from "@/components/dashboard/achievement-progress"
+import { PageContainer } from "@/components/ui/page-container"
+import { useEffect } from "react"
+import { usePageTitle } from "@/components/ui/page-title-context"
+import { LoadingMessage } from "@/components/ui/loading-message"
 
-export default async function DashboardPage() {
-  const user = await getCurrentUser()
+export default function DashboardPage() {
+  const { user, loading } = useCurrentUser()
+  const router = useRouter()
 
+  const { setTitle } = usePageTitle()
+  useEffect(() => {
+    setTitle("")
+  }, [setTitle])
+
+  if (loading) {
+    return <LoadingMessage />
+  }
   if (!user) {
-    redirect("/")
+    router.push("/")
+    return null
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background to-muted">
-      <DashboardHeader user={user} />
+    <PageContainer>
+      <div className="grid gap-8">
+        {/* User Profile Section */}
+        {user ? <UserProfile user={user} /> : null}
 
-      <main className="container mx-auto px-4 py-8">
-        <div className="grid gap-8">
-          {/* User Profile Section */}
-          <UserProfile user={user} />
+        {/* Stats Overview */}
+        <StatsOverview />
 
-          {/* Stats Overview */}
-          <StatsOverview />
-
-          {/* Main Content Grid */}
-          <div className="grid lg:grid-cols-2 gap-8">
-            <RecentGames />
-            <AchievementProgress />
-          </div>
+        {/* Main Content Grid */}
+        <div className="grid lg:grid-cols-2 gap-8">
+          <RecentGames />
+          <AchievementProgress />
         </div>
-      </main>
-    </div>
+      </div>
+    </PageContainer>
   )
 }

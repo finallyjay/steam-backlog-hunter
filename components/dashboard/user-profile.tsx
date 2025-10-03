@@ -20,7 +20,6 @@ export function UserProfile({ user }: UserProfileProps) {
           />
           <div>
             <h2 className="text-2xl font-bold">{user.displayName}</h2>
-            <p className="text-muted-foreground text-sm">Steam ID: {user.steamId}</p>
           </div>
         </CardTitle>
       </CardHeader>
@@ -37,11 +36,24 @@ export function UserProfile({ user }: UserProfileProps) {
           <div className="flex gap-2">
             <Badge variant="secondary" className="gap-1">
               <Calendar className="h-3 w-3" />
-              Member since 2024
+              {user.timecreated
+                ? `Member since ${new Date(user.timecreated * 1000).getFullYear()}`
+                : "Member since ???"}
             </Badge>
             <Badge variant="secondary" className="gap-1">
               <MapPin className="h-3 w-3" />
-              Online
+              {(() => {
+                switch (user.personaState) {
+                  case 0: return "Offline"
+                  case 1: return "Online"
+                  case 2: return "Busy"
+                  case 3: return "Away"
+                  case 4: return "Snooze"
+                  case 5: return "Looking to trade"
+                  case 6: return "Looking to play"
+                  default: return "Unknown"
+                }
+              })()}
             </Badge>
           </div>
         </div>

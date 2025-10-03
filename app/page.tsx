@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Trophy, Gamepad2, TrendingUp, Users, AlertCircle } from "lucide-react"
 import { useSearchParams } from "next/navigation"
+import { PageHeader } from "@/components/ui/page-header"
+import { PageFooter } from "@/components/ui/page-footer"
 
 export default function HomePage() {
   const searchParams = useSearchParams()
@@ -17,20 +19,9 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted">
-      {/* Header */}
-      <header className="border-b bg-card/50 backdrop-blur-sm">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Gamepad2 className="h-8 w-8 text-accent" />
-              <h1 className="text-2xl font-bold text-balance">Steam Tracker</h1>
-            </div>
-            <Badge variant="secondary" className="text-sm">
-              Beta
-            </Badge>
-          </div>
-        </div>
-      </header>
+      <PageHeader title="Steam Pending Achievements" icon={<Gamepad2 className="h-8 w-8 text-accent" />}>
+        <Badge variant="secondary" className="text-sm">Beta</Badge>
+      </PageHeader>
 
       {/* Hero Section */}
       <main className="container mx-auto px-4 py-16">
@@ -57,18 +48,14 @@ export default function HomePage() {
 
           {/* Steam Sign-in Button */}
           <div className="flex justify-center">
-            <Button
-              onClick={handleSteamSignIn}
-              size="lg"
-              className="bg-[#1b2838] hover:bg-[#2a475e] text-white border-0 px-8 py-6 text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300 focus:ring-2 focus:ring-accent focus:ring-offset-2"
-              style={{
-                backgroundColor: "#1b2838",
-                color: "#ffffff",
-              }}
-            >
-              <img src="/steam-logo-white.jpg" alt="Steam" className="w-6 h-6 mr-3" />
-              Sign in with Steam
-            </Button>
+            <div className="flex justify-center">
+              <img
+                src="/steam-signin.png"
+                alt="Sign in with Steam"
+                className="cursor-pointer"
+                onClick={handleSteamSignIn}
+              />
+            </div>
           </div>
 
           {/* Features Grid */}
@@ -123,14 +110,7 @@ export default function HomePage() {
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t bg-card/50 mt-16">
-        <div className="container mx-auto px-4 py-8">
-          <div className="text-center text-muted-foreground">
-            <p>Built for gamers, by gamers. Not affiliated with Valve Corporation.</p>
-          </div>
-        </div>
-      </footer>
+      <PageFooter />
     </div>
   )
 }
