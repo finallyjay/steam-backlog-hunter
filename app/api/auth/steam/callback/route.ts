@@ -68,8 +68,11 @@ export async function GET(request: NextRequest) {
             },
           )
 
-          // Redirect to dashboard
-          return NextResponse.redirect(new URL("/dashboard", request.url))
+          // Redirect to dashboard usando el dominio de NEXTAUTH_URL si está definido
+          const dashboardUrl = process.env.NEXTAUTH_URL
+            ? `${process.env.NEXTAUTH_URL.replace(/\/$/, "")}/dashboard`
+            : new URL("/dashboard", request.url).toString();
+          return NextResponse.redirect(dashboardUrl)
         }
       }
     }
