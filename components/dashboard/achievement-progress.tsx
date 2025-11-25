@@ -61,7 +61,7 @@ export function AchievementProgress() {
 
   const gamesWithStats = games.filter((game) => game.has_community_visible_stats)
 
-  // Filtra solo los logros bloqueados y ordénalos por fecha descendente
+  // Filter only locked achievements and sort by unlock date desc
   const lockedAchievements = Array.isArray(achievements)
     ? achievements.filter((a: any) => !a.achieved).sort(sortByUnlockDateDesc)
     : []
@@ -121,7 +121,7 @@ export function AchievementProgress() {
                         {gamesWithStats.find(g => g.appid === selectedGameId)?.name || "Game"}
                       </h3>
                       <Badge variant="secondary">
-                        {lockedAchievements.length} pendientes
+                        {lockedAchievements.length} pending
                       </Badge>
                     </div>
 
@@ -143,7 +143,7 @@ export function AchievementProgress() {
                                   {achievement.displayName || achievement.apiname}
                                 </h4>
                                 <Badge variant="secondary" className="text-xs">
-                                  Pendiente
+                                  Pending
                                 </Badge>
                               </div>
                               <p className="text-xs text-muted-foreground mb-2">
@@ -170,7 +170,7 @@ export function AchievementProgress() {
                   </>
                 ) : (
                   <div className="text-center py-8">
-                    <p className="text-sm text-muted-foreground mb-2">¡No tienes logros pendientes en este juego!</p>
+                    <p className="text-sm text-muted-foreground mb-2">You have no pending achievements in this game!</p>
                     <Button
                       variant="outline"
                       size="sm"

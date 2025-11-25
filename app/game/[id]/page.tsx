@@ -29,7 +29,7 @@ export default function GameDetailPage({ params }: { params: { id: string } }) {
     setTitle("")
   }, [setTitle])
 
-  // Protección de usuario
+  // User protection
   if (loadingUser) {
     return <LoadingMessage />
   }
@@ -38,9 +38,9 @@ export default function GameDetailPage({ params }: { params: { id: string } }) {
     return null
   }
 
-  // Buscar el juego en la lista del usuario
+  // Find the game in the user's games list
   const game = games.find(g => g.appid === appId)
-  // Filtra solo los logros bloqueados y ordénalos por fecha descendente
+  // Filter only locked achievements and sort by unlock date desc
   const locked = (Array.isArray(achievements) ? achievements : [])
     .filter((ach) => !ach.achieved)
     .sort(sortByUnlockDateDesc)
@@ -58,7 +58,7 @@ export default function GameDetailPage({ params }: { params: { id: string } }) {
             </div>
           </div>
         ) : !game ? (
-          <EmptyState message="No se encontró el juego." />
+          <EmptyState message="Game not found." />
         ) : (
           <div className="flex items-center gap-6 mb-8">
             <img
@@ -68,11 +68,11 @@ export default function GameDetailPage({ params }: { params: { id: string } }) {
             />
             <div>
               <SectionTitle className="text-lg font-bold mb-1">{game.name}</SectionTitle>
-              <div className="text-muted-foreground text-sm">{Math.round(game.playtime_forever / 60)} horas jugadas</div>
+              <div className="text-muted-foreground text-sm">{Math.round(game.playtime_forever / 60)} hours played</div>
             </div>
           </div>
         )}
-        <SectionTitle>Logros pendientes</SectionTitle>
+        <SectionTitle>Pending achievements</SectionTitle>
         {loadingAchievements ? (
           <div className="grid gap-4">
             {Array.from({ length: 5 }).map((_, i) => (
@@ -87,11 +87,11 @@ export default function GameDetailPage({ params }: { params: { id: string } }) {
             ))}
           </div>
         ) : errorAchievements ? (
-          <EmptyState message="No se pudieron cargar los logros." />
+          <EmptyState message="Could not load achievements." />
         ) : (
           <ul className="grid gap-4">
             {locked.length === 0 ? (
-              <EmptyState message="¡No tienes logros pendientes en este juego!" />
+              <EmptyState message="You have no pending achievements for this game!" />
             ) : (
               locked.map((ach: any) => (
                 <li key={ach.apiname} className="p-4 bg-card rounded shadow flex items-center gap-4 opacity-60">

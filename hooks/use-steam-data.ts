@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 
-// Hook para obtener logros de varios juegos en batch
+// Hook to fetch achievements for multiple games in a batch
 export function useSteamAchievementsBatch(appIds: number[]) {
   const [achievementsMap, setAchievementsMap] = useState<Record<number, any[]>>({})
   const [loading, setLoading] = useState(false)
@@ -13,7 +13,7 @@ export function useSteamAchievementsBatch(appIds: number[]) {
     async function fetchBatch() {
       setLoading(true)
       try {
-        // Obtener la lista de juegos permitidos desde public
+        // Load allowed games list from public JSON
         const jsonRes = await fetch("/steam_games_with_achievements.json")
         const steamGamesList = await jsonRes.json()
         const allowedIds = new Set(steamGamesList.map((g: any) => String(g.id)))
@@ -42,7 +42,7 @@ export function useSteamAchievementsBatch(appIds: number[]) {
   return { achievementsMap, loading, error }
 }
 import type { SteamGame } from "@/lib/steam-api"
-// Usar fetch para obtener la lista desde public
+// Load allowed games list from public JSON
 
 interface SteamStats {
   totalGames: number

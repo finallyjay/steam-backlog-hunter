@@ -1,8 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { Card, CardContent } from "@/components/ui/card"
-import { Clock, CheckCircle } from "lucide-react"
+import { Clock } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
 
 interface GameCardProps {
@@ -45,18 +44,18 @@ export function GameCard({ id, name, image, playtime, achievements = [], achieve
         )}
         <div className="mt-2">
           {achievementsLoading ? (
-            <span className="text-xs text-muted-foreground">Cargando logros...</span>
+            <span className="text-xs text-muted-foreground">Loading achievements...</span>
           ) : total > 0 ? (
             <>
               <div className="flex items-center justify-between mb-1">
-                <span className="text-xs">Logros: {unlocked}/{total}</span>
+                <span className="text-xs">Achievements: {unlocked}/{total}</span>
               </div>
               <div>
                 <Progress value={percent} indicatorClassName={progressColor} />
               </div>
             </>
           ) : (
-            <span className="text-xs text-muted-foreground">Sin logros</span>
+            <span className="text-xs text-muted-foreground">No achievements</span>
           )}
         </div>
       </div>

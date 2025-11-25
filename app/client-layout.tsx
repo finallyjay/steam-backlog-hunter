@@ -14,7 +14,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
   return (
     <>
-      {/* Mostrar cabecera en todas las páginas menos la raíz (inicio de sesión) */}
+      {/* Show header on all pages except the root (login) */}
       {pathname !== '/' && (
         loading ? (
           <div className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-40">

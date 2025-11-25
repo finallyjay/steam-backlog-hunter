@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
             },
           )
 
-          // Redirect to dashboard usando el dominio de NEXTAUTH_URL si está definido
+          // Redirect to the dashboard; prefer the domain from NEXTAUTH_URL when available
           const dashboardUrl = process.env.NEXTAUTH_URL
             ? `${process.env.NEXTAUTH_URL.replace(/\/$/, "")}/dashboard`
             : new URL("/dashboard", request.url).toString();

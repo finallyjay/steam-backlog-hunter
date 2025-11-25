@@ -19,16 +19,16 @@ export function useCurrentUser() {
         } else {
           console.log('[useCurrentUser] response not ok:', res.status)
           toast({
-            title: "Error de autenticación",
-            description: "No se pudo obtener el usuario. Por favor, inicia sesión de nuevo.",
+            title: "Authentication error",
+            description: "Could not fetch user. Please sign in again.",
             variant: "destructive"
           })
         }
       } catch (error) {
         console.log('[useCurrentUser] fetch error:', error)
         toast({
-          title: "Error de red",
-          description: "No se pudo conectar con el servidor de autenticación.",
+          title: "Network error",
+          description: "Could not connect to the authentication server.",
           variant: "destructive"
         })
       }

@@ -15,7 +15,7 @@ import { ErrorMessage } from "@/components/ui/error-message"
 export default function GamesPage() {
   const { setTitle } = usePageTitle()
   useEffect(() => {
-    setTitle("Listado de Juegos")
+    setTitle("Games")
     return () => setTitle("")
   }, [setTitle])
   const { user, loading: loadingUser } = useCurrentUser()
@@ -26,7 +26,7 @@ export default function GamesPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Obtener logros en batch para todos los juegos
+  // Fetch achievements in batch for all games
   const appIds = useMemo(() => games.map(g => g.id), [games])
   const { achievementsMap, loading: achievementsLoading } = useSteamAchievementsBatch(appIds.length > 0 ? appIds : [])
 
@@ -35,18 +35,18 @@ export default function GamesPage() {
       try {
         setLoading(true)
 
-        // Obtener juegos del endpoint
+        // Fetch games from endpoint
         const gamesRes = await fetch("/api/steam/games?type=all")
-        if (!gamesRes.ok) throw new Error("No se pudo obtener los juegos")
+        if (!gamesRes.ok) throw new Error("Could not fetch games")
         const gamesData = await gamesRes.json()
         const ownedGames = gamesData.games || []
 
-        // Obtener lista de IDs permitidos
+        // Load allowed IDs list
         const jsonRes = await fetch("/steam_games_with_achievements.json")
         const steamGamesList = await jsonRes.json()
         const allowedIds = new Set(steamGamesList.map((g: any) => String(g.id)))
 
-        // Filtrar y mapear para mostrar nombre y portada
+        // Filter and map to show name and cover
         const filteredGames = ownedGames
           .filter((game: any) => allowedIds.has(String(game.appid)))
           .map((game: any) => ({
@@ -57,7 +57,7 @@ export default function GamesPage() {
           }))
         setGames(filteredGames)
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Error desconocido")
+        setError(err instanceof Error ? err.message : "Unknown error")
       } finally {
         setLoading(false)
       }
@@ -65,7 +65,7 @@ export default function GamesPage() {
     fetchData()
   }, [])
 
-  // Calcular % de logros y si está completo
+  // Calculate % achievements and completion status
   const gamesWithStats = useMemo(() => {
     let arr = games.map((game) => {
       const achievements = achievementsMap[game.id] || []
@@ -96,7 +96,7 @@ export default function GamesPage() {
     return arr
   }, [games, achievementsMap, order])
 
-  // Filtrar si se quiere ocultar completados
+  // Filter out completed games if requested
   const visibleGames = useMemo(() => (
     showCompleted ? gamesWithStats : gamesWithStats.filter(g => !g.completed)
   ), [gamesWithStats, showCompleted])
@@ -115,7 +115,7 @@ export default function GamesPage() {
         <UserProfile user={user} />
         <GamesFilterBar order={order} setOrder={setOrder} showCompleted={showCompleted} setShowCompleted={setShowCompleted} />
         {loading ? (
-          <p className="text-center text-muted-foreground">Cargando juegos...</p>
+          <p className="text-center text-muted-foreground">Loading games...</p>
         ) : error ? (
           <p className="text-center text-destructive">{error}</p>
         ) : achievementsLoading ? (

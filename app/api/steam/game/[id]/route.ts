@@ -16,7 +16,7 @@ export async function GET(
     return NextResponse.json({ error: "App ID required" }, { status: 400 })
   }
 
-  // Busca el juego en la lista de juegos del usuario
+  // Find the game in the user's owned games list
   const games = await getOwnedGames(user.steamId)
   const game = games.find((g) => g.appid.toString() === appId)
 

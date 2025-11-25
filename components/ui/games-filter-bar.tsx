@@ -14,23 +14,23 @@ export function GamesFilterBar({ order, setOrder, showCompleted, setShowComplete
   return (
     <div className="flex flex-wrap items-center gap-6 mb-6 justify-between">
       <div className="flex items-center gap-2">
-        <label className="text-sm font-medium">Ordenar por:</label>
+        <label className="text-sm font-medium">Sort by:</label>
         <Select value={order} onValueChange={setOrder}>
           <SelectTrigger className="w-44">
-            <SelectValue placeholder="Ordenar por..." />
+            <SelectValue placeholder="Sort by..." />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="completed">% Completado</SelectItem>
-            <SelectItem value="alphabetical">Alfabético</SelectItem>
-            <SelectItem value="achievementsAsc">Menos logros</SelectItem>
-            <SelectItem value="achievementsDesc">Más logros</SelectItem>
+            <SelectItem value="completed">% Completed</SelectItem>
+            <SelectItem value="alphabetical">Alphabetical</SelectItem>
+            <SelectItem value="achievementsAsc">Fewest achievements</SelectItem>
+            <SelectItem value="achievementsDesc">Most achievements</SelectItem>
           </SelectContent>
         </Select>
       </div>
       <div className="flex items-center gap-2">
         <Switch checked={showCompleted} onCheckedChange={setShowCompleted} id="showCompletedSwitch" />
         <label htmlFor="showCompletedSwitch" className="text-sm font-medium cursor-pointer">
-          Incluir completados
+          Include completed
         </label>
       </div>
     </div>
