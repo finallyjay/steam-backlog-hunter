@@ -3,11 +3,8 @@ import { PageTitleProvider } from '@/components/ui/page-title-context'
 import type { Metadata } from 'next'
 import { GeistSans } from 'geist/font/sans'
 import { GeistMono } from 'geist/font/mono'
-import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
-import { DashboardHeader } from '@/components/dashboard/dashboard-header'
-import { useCurrentUser } from '@/hooks/use-current-user'
-import { usePathname } from 'next/navigation'
+// Removed unused client-only imports (they cause errors in server components)
 
 export const metadata: Metadata = {
   title: 'Steam Pending Achievements',
