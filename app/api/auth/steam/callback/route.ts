@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
 
         if (player) {
           // Store user session (in a real app, you'd use a proper session store)
-          const cookieStore = cookies()
+          const cookieStore = await cookies()
           cookieStore.set(
             "steam_user",
             JSON.stringify({

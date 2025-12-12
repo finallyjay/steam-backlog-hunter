@@ -3,7 +3,7 @@ import type { SteamUser } from "@/lib/auth"
 
 export async function getCurrentUser(): Promise<SteamUser | null> {
   try {
-    const cookieStore = cookies()
+    const cookieStore = await cookies()
     const userCookie = cookieStore.get("steam_user")
 
     if (!userCookie?.value) {
