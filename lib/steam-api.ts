@@ -158,13 +158,16 @@ export async function getUserStats(steamId: string): Promise<{
     let totalAchievements = 0
     let perfectGames = 0
 
-    // Filtrar por los IDs permitidos en el JSON
+    // Load allowlisted games from public JSON (server-side safe).
     let allowedIds: Set<string> = new Set()
     try {
-      const res = await fetch("/steam_games_with_achievements.json")
-      const json = await res.json()
-      allowedIds = new Set(json.map((g: any) => String(g.id)))
-    } catch {}
+      const jsonPath = join(process.cwd(), "public", "steam_games_with_achievements.json")
+      const rawJson = await readFile(jsonPath, "utf-8")
+      const json = JSON.parse(rawJson) as Array<{ id: number | string }>
+      allowedIds = new Set(json.map((g) => String(g.id)))
+    } catch (error) {
+      console.error("Error loading allowed games list:", error)
+    }
 
     const sampleGames = games
       .filter((game) => allowedIds.has(String(game.appid)))
@@ -211,3 +214,5 @@ export function getSteamImageUrl(appId: number, imageHash: string, type: "icon" 
   const size = type === "icon" ? "32x32" : "184x69"
   return `https://media.steampowered.com/steamcommunity/public/images/apps/${appId}/${imageHash}.jpg`
 }
+import { readFile } from "node:fs/promises"
+import { join } from "node:path"
