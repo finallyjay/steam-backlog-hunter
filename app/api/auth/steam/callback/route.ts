@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { cookies } from "next/headers"
+import { isSteamIdWhitelisted } from "@/lib/whitelist"
 
 const STEAM_OPENID_URL = "https://steamcommunity.com/openid/login"
 
@@ -35,6 +36,10 @@ export async function GET(request: NextRequest) {
       const steamId = claimedId?.split("/").pop()
 
       if (steamId) {
+        if (!isSteamIdWhitelisted(steamId)) {
+          return NextResponse.redirect(new URL("/?error=not_whitelisted", request.url))
+        }
+
         // Fetch user info from Steam API
         const steamApiKey = process.env.STEAM_API_KEY
         if (!steamApiKey) {

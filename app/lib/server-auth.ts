@@ -1,5 +1,6 @@
 import { cookies } from "next/headers"
 import type { SteamUser } from "@/lib/auth"
+import { isSteamIdWhitelisted } from "@/lib/whitelist"
 
 export async function getCurrentUser(): Promise<SteamUser | null> {
   try {
@@ -10,7 +11,14 @@ export async function getCurrentUser(): Promise<SteamUser | null> {
       return null
     }
 
-    return JSON.parse(userCookie.value) as SteamUser
+    const user = JSON.parse(userCookie.value) as SteamUser
+
+    if (!isSteamIdWhitelisted(user.steamId)) {
+      cookieStore.delete("steam_user")
+      return null
+    }
+
+    return user
   } catch (error) {
     console.error("Error getting current user:", error)
     return null

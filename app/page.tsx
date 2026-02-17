@@ -32,6 +32,7 @@ export default function HomePage() {
               <AlertDescription>
                 {error === "auth_failed" && "Steam authentication failed. Please try again."}
                 {error === "auth_error" && "An error occurred during authentication. Please try again."}
+                {error === "not_whitelisted" && "Your Steam account is not authorized for this app."}
               </AlertDescription>
             </Alert>
           )}

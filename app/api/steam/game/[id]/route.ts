@@ -4,14 +4,14 @@ import { getOwnedGames } from "@/lib/steam-api"
 
 export async function GET(
   request: Request,
-  { params }: { params: { appId: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const user = await getCurrentUser()
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const appId = params.appId
+  const { id: appId } = await params
   if (!appId) {
     return NextResponse.json({ error: "App ID required" }, { status: 400 })
   }

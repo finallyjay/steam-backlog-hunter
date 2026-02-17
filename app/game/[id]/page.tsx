@@ -3,7 +3,7 @@
 import { useSteamAchievements, useSteamGames } from "@/hooks/use-steam-data"
 import { getSteamImageUrl } from "@/lib/steam-api"
 import { useCurrentUser } from "@/hooks/use-current-user"
-import { useRouter } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import { Skeleton } from "@/components/ui/skeleton"
 import { LoadingMessage } from "@/components/ui/loading-message"
 import { SectionTitle } from "@/components/ui/section-title"
@@ -18,7 +18,8 @@ function sortByUnlockDateDesc(a: any, b: any) {
   return b.unlocktime - a.unlocktime
 }
 
-export default function GameDetailPage({ params }: { params: { id: string } }) {
+export default function GameDetailPage() {
+  const params = useParams<{ id: string }>()
   const appId = Number(params.id)
   const { achievements, loading: loadingAchievements, error: errorAchievements } = useSteamAchievements(appId)
   const { games, loading: loadingGames } = useSteamGames("all")
