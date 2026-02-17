@@ -4,6 +4,14 @@ import { isSteamIdWhitelisted } from "@/lib/whitelist"
 
 const STEAM_OPENID_URL = "https://steamcommunity.com/openid/login"
 
+function getAppUrl(path: string, request: NextRequest): string {
+  const baseUrl = process.env.NEXTAUTH_URL?.replace(/\/$/, "")
+  if (baseUrl) {
+    return `${baseUrl}${path}`
+  }
+  return new URL(path, request.url).toString()
+}
+
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
 
@@ -37,7 +45,7 @@ export async function GET(request: NextRequest) {
 
       if (steamId) {
         if (!isSteamIdWhitelisted(steamId)) {
-          return NextResponse.redirect(new URL("/?error=not_whitelisted", request.url))
+          return NextResponse.redirect(getAppUrl("/?error=not_whitelisted", request))
         }
 
         // Fetch user info from Steam API
@@ -74,18 +82,16 @@ export async function GET(request: NextRequest) {
           )
 
           // Redirect to the dashboard; prefer the domain from NEXTAUTH_URL when available
-          const dashboardUrl = process.env.NEXTAUTH_URL
-            ? `${process.env.NEXTAUTH_URL.replace(/\/$/, "")}/dashboard`
-            : new URL("/dashboard", request.url).toString();
+          const dashboardUrl = getAppUrl("/dashboard", request)
           return NextResponse.redirect(dashboardUrl)
         }
       }
     }
 
     // If verification failed, redirect to home with error
-    return NextResponse.redirect(new URL("/?error=auth_failed", request.url))
+    return NextResponse.redirect(getAppUrl("/?error=auth_failed", request))
   } catch (error) {
     console.error("Steam auth error:", error)
-    return NextResponse.redirect(new URL("/?error=auth_error", request.url))
+    return NextResponse.redirect(getAppUrl("/?error=auth_error", request))
   }
 }
