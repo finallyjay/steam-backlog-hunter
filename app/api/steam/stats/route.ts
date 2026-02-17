@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getCurrentUser } from "@/app/lib/server-auth"
-import { getUserStats } from "@/lib/steam-api"
+import { getUserStats } from "@/lib/steam-stats"
 
 export async function GET(request: NextRequest) {
   try {

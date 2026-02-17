@@ -146,73 +146,9 @@ export async function getGameSchema(appId: number): Promise<any> {
   }
 }
 
-export async function getUserStats(steamId: string): Promise<{
-  totalGames: number
-  totalAchievements: number
-  totalPlaytime: number
-  perfectGames: number
-}> {
-  try {
-    const games = await getOwnedGames(steamId)
-
-    let totalAchievements = 0
-    let perfectGames = 0
-
-    // Load allowlisted games from public JSON (server-side safe).
-    let allowedIds: Set<string> = new Set()
-    try {
-      const jsonPath = join(process.cwd(), "public", "steam_games_with_achievements.json")
-      const rawJson = await readFile(jsonPath, "utf-8")
-      const json = JSON.parse(rawJson) as Array<{ id: number | string }>
-      allowedIds = new Set(json.map((g) => String(g.id)))
-    } catch (error) {
-      console.error("Error loading allowed games list:", error)
-    }
-
-    const sampleGames = games
-      .filter((game) => allowedIds.has(String(game.appid)))
-
-    for (const game of sampleGames) {
-      const achievements = await getPlayerAchievements(steamId, game.appid)
-      if (achievements) {
-        const unlockedAchievements = achievements.achievements.filter((a) => a.achieved === 1)
-        const unlockedCount = unlockedAchievements.length
-        totalAchievements += unlockedCount
-
-        // Perfect game: all achievements unlocked and there is at least one achievement
-        if (
-          unlockedCount === achievements.achievements.length &&
-          achievements.achievements.length > 0
-        ) {
-          perfectGames++
-        }
-      }
-    }
-
-    const totalPlaytime = games.reduce((sum, game) => sum + game.playtime_forever, 0)
-
-    return {
-      totalGames: games.length,
-      totalAchievements,
-      totalPlaytime: Math.round(totalPlaytime / 60), // Convert to hours
-      perfectGames,
-    }
-  } catch (error) {
-    console.error("Error fetching user stats:", error)
-    return {
-      totalGames: 0,
-      totalAchievements: 0,
-      totalPlaytime: 0,
-      perfectGames: 0,
-    }
-  }
-}
-
 export function getSteamImageUrl(appId: number, imageHash: string, type: "icon" | "logo" = "icon"): string {
   if (!imageHash) return "/placeholder.svg"
 
   const size = type === "icon" ? "32x32" : "184x69"
   return `https://media.steampowered.com/steamcommunity/public/images/apps/${appId}/${imageHash}.jpg`
 }
-import { readFile } from "node:fs/promises"
-import { join } from "node:path"
