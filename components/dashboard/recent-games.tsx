@@ -1,14 +1,12 @@
 "use client"
 
-import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Clock, Play } from "lucide-react"
+import { Play } from "lucide-react"
 import { GameCard } from "@/components/ui/game-card"
 import { useSteamGames, useSteamAchievementsBatch } from "@/hooks/use-steam-data"
 import { useMemo } from "react"
 import { getSteamImageUrl } from "@/lib/steam-api"
-import { Progress } from "@/components/ui/progress"
 
 export function RecentGames() {
   const { games, loading, error } = useSteamGames("recent")
@@ -17,12 +15,12 @@ export function RecentGames() {
       id: game.appid.toString(),
       name: game.name,
       playtime: Math.round(game.playtime_forever / 60),
-      image: getSteamImageUrl(game.appid, game.img_icon_url, "icon"),
+      image: getSteamImageUrl(game.appid, game.img_icon_url),
       appid: game.appid,
     }))
   ), [games])
   const appIds = useMemo(() => recentGames.map(g => g.appid), [recentGames])
-  const { achievementsMap, loading: achievementsLoading, error: achievementsError } = useSteamAchievementsBatch(appIds.length > 0 ? appIds : [])
+  const { achievementsMap, loading: achievementsLoading } = useSteamAchievementsBatch(appIds.length > 0 ? appIds : [])
 
   // Renderizado
   if (loading) {

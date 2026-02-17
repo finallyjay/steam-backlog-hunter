@@ -1,6 +1,21 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getCurrentUser } from "@/app/lib/server-auth"
 import { getPlayerAchievements, getGameSchema } from "@/lib/steam-api"
+import type { SteamAchievementView } from "@/lib/types/steam"
+
+type SchemaAchievement = {
+  name: string
+  displayName?: string
+  description?: string
+  icon?: string
+  icongray?: string
+}
+
+type GameSchema = {
+  availableGameStats?: {
+    achievements?: SchemaAchievement[]
+  }
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -22,12 +37,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Failed to fetch achievements" }, { status: 404 })
     }
 
-    const schema = await getGameSchema(Number(appId))
+    const schema = (await getGameSchema(Number(appId))) as GameSchema | null
 
     // Merge achievement data with schema for descriptions and icons
-    const enrichedAchievements = achievements.achievements.map((achievement) => {
+    const enrichedAchievements: SteamAchievementView[] = achievements.achievements.map((achievement) => {
       const schemaAchievement = schema?.availableGameStats?.achievements?.find(
-        (a: any) => a.name === achievement.apiname,
+        (schemaItem: SchemaAchievement) => schemaItem.name === achievement.apiname,
       )
 
       return {

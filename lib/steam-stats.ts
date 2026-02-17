@@ -1,28 +1,19 @@
 import "server-only"
 
-import { readFile } from "node:fs/promises"
-import { join } from "node:path"
-
+import { getAllowedGameIdsServer } from "@/lib/allowed-games"
 import { getOwnedGames, getPlayerAchievements } from "@/lib/steam-api"
+import type { SteamStatsResponse } from "@/lib/types/steam"
 
-export async function getUserStats(steamId: string): Promise<{
-  totalGames: number
-  totalAchievements: number
-  totalPlaytime: number
-  perfectGames: number
-}> {
+export async function getUserStats(steamId: string): Promise<SteamStatsResponse> {
   try {
     const games = await getOwnedGames(steamId)
 
     let totalAchievements = 0
     let perfectGames = 0
 
-    let allowedIds: Set<string> = new Set()
+    let allowedIds = new Set<string>()
     try {
-      const jsonPath = join(process.cwd(), "public", "steam_games_with_achievements.json")
-      const rawJson = await readFile(jsonPath, "utf-8")
-      const json = JSON.parse(rawJson) as Array<{ id: number | string }>
-      allowedIds = new Set(json.map((g) => String(g.id)))
+      allowedIds = await getAllowedGameIdsServer()
     } catch (error) {
       console.error("Error loading allowed games list:", error)
     }

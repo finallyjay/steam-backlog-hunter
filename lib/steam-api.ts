@@ -133,7 +133,7 @@ export async function getPlayerAchievements(steamId: string, appId: number): Pro
   }
 }
 
-export async function getGameSchema(appId: number): Promise<any> {
+export async function getGameSchema(appId: number): Promise<unknown> {
   try {
     const data = await steamAPIRequest("/ISteamUserStats/GetSchemaForGame/v2/", {
       appid: appId.toString(),
@@ -146,9 +146,8 @@ export async function getGameSchema(appId: number): Promise<any> {
   }
 }
 
-export function getSteamImageUrl(appId: number, imageHash: string, type: "icon" | "logo" = "icon"): string {
+export function getSteamImageUrl(appId: number, imageHash: string): string {
   if (!imageHash) return "/placeholder.svg"
 
-  const size = type === "icon" ? "32x32" : "184x69"
   return `https://media.steampowered.com/steamcommunity/public/images/apps/${appId}/${imageHash}.jpg`
 }

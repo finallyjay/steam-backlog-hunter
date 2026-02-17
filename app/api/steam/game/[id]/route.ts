@@ -3,7 +3,7 @@ import { getCurrentUser } from "@/app/lib/server-auth"
 import { getOwnedGames } from "@/lib/steam-api"
 
 export async function GET(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const user = await getCurrentUser()

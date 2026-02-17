@@ -1,9 +1,13 @@
 import { getCurrentUser } from "@/app/lib/server-auth"
+import { NextResponse } from "next/server"
+import type { AuthMeResponse } from "@/lib/types/api"
 
-export async function GET(request: Request) {
+export async function GET() {
   const user = await getCurrentUser()
   if (!user) {
-    return new Response(JSON.stringify({ user: null }), { status: 401 })
+    const response: AuthMeResponse = { user: null }
+    return NextResponse.json(response, { status: 401 })
   }
-  return new Response(JSON.stringify({ user }), { status: 200 })
+  const response: AuthMeResponse = { user }
+  return NextResponse.json(response, { status: 200 })
 }

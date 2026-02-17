@@ -8,9 +8,10 @@ import { CardGrid } from "@/components/ui/card-grid"
 
 export function StatsOverview() {
   const { stats, loading, error } = useSteamStats()
+  const router = useRouter()
 
   if (loading) {
-    return <CardGrid items={Array.from({ length: 4 }).map((_, i) => ({ title: "", value: "", description: "", icon: <Skeleton className="h-8 w-8" /> }))} />
+    return <CardGrid items={Array.from({ length: 4 }).map(() => ({ title: "", value: "", description: "", icon: <Skeleton className="h-8 w-8" /> }))} />
   }
 
   if (error) {
@@ -48,7 +49,6 @@ export function StatsOverview() {
     },
   ]
 
-  const router = useRouter()
   return (
     <CardGrid
       items={statsData.map((stat, idx) => ({

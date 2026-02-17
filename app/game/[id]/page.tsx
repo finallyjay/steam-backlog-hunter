@@ -10,8 +10,9 @@ import { SectionTitle } from "@/components/ui/section-title"
 import { EmptyState } from "@/components/ui/empty-state"
 import { useEffect } from "react"
 import { usePageTitle } from "@/components/ui/page-title-context"
+import type { SteamAchievementView } from "@/lib/types/steam"
 
-function sortByUnlockDateDesc(a: any, b: any) {
+function sortByUnlockDateDesc(a: SteamAchievementView, b: SteamAchievementView) {
   if (!a.unlocktime && !b.unlocktime) return 0
   if (!a.unlocktime) return 1
   if (!b.unlocktime) return -1
@@ -63,7 +64,7 @@ export default function GameDetailPage() {
         ) : (
           <div className="flex items-center gap-6 mb-8">
             <img
-              src={getSteamImageUrl(game.appid, game.img_icon_url, "icon")}
+              src={getSteamImageUrl(game.appid, game.img_icon_url)}
               alt={game.name}
               className="w-12 h-12 rounded-lg border object-contain"
             />
@@ -94,7 +95,7 @@ export default function GameDetailPage() {
             {locked.length === 0 ? (
               <EmptyState message="You have no pending achievements for this game!" />
             ) : (
-              locked.map((ach: any) => (
+              locked.map((ach) => (
                 <li key={ach.apiname} className="p-4 bg-card rounded shadow flex items-center gap-4 opacity-60">
                   <img
                     src={ach.icongray || ach.icon || "/placeholder.svg"}

@@ -1,15 +1,16 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useMemo, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Trophy, Star, RefreshCw, ArrowDownWideNarrow } from "lucide-react"
+import { Trophy, RefreshCw, ArrowDownWideNarrow } from "lucide-react"
 import { useSteamGames, useSteamAchievements } from "@/hooks/use-steam-data"
+import type { SteamAchievementView } from "@/lib/types/steam"
 
-function sortByUnlockDateDesc(a: any, b: any) {
+function sortByUnlockDateDesc(a: SteamAchievementView, b: SteamAchievementView) {
   if (!a.unlocktime && !b.unlocktime) return 0
   if (!a.unlocktime) return 1
   if (!b.unlocktime) return -1
@@ -19,16 +20,12 @@ function sortByUnlockDateDesc(a: any, b: any) {
 export function AchievementProgress() {
   const { games, loading: gamesLoading } = useSteamGames("recent")
   const [selectedGameId, setSelectedGameId] = useState<number | null>(null)
-  const { achievements, loading: achievementsLoading } = useSteamAchievements(selectedGameId)
-
-  useEffect(() => {
-    if (!gamesLoading && games.length > 0 && !selectedGameId) {
-      const gameWithStats = games.find((game) => game.has_community_visible_stats)
-      if (gameWithStats) {
-        setSelectedGameId(gameWithStats.appid)
-      }
-    }
-  }, [gamesLoading, games, selectedGameId])
+  const defaultGameId = useMemo(
+    () => games.find((game) => game.has_community_visible_stats)?.appid ?? null,
+    [games],
+  )
+  const activeGameId = selectedGameId ?? defaultGameId
+  const { achievements, loading: achievementsLoading } = useSteamAchievements(activeGameId)
 
   if (gamesLoading) {
     return (
@@ -63,7 +60,7 @@ export function AchievementProgress() {
 
   // Filter only locked achievements and sort by unlock date desc
   const lockedAchievements = Array.isArray(achievements)
-    ? achievements.filter((a: any) => !a.achieved).sort(sortByUnlockDateDesc)
+    ? achievements.filter((achievement) => !achievement.achieved).sort(sortByUnlockDateDesc)
     : []
 
   return (
@@ -86,7 +83,7 @@ export function AchievementProgress() {
               {gamesWithStats.slice(0, 5).map((game) => (
                 <Button
                   key={game.appid}
-                  variant={selectedGameId === game.appid ? "default" : "outline"}
+                  variant={activeGameId === game.appid ? "default" : "outline"}
                   size="sm"
                   onClick={() => setSelectedGameId(game.appid)}
                   className="text-xs"
@@ -97,7 +94,7 @@ export function AchievementProgress() {
             </div>
 
             {/* Achievement Display */}
-            {selectedGameId && (
+            {activeGameId && (
               <div className="space-y-4">
                 {achievementsLoading ? (
                   <div className="space-y-4">
@@ -118,7 +115,7 @@ export function AchievementProgress() {
                   <>
                     <div className="flex items-center justify-between">
                       <h3 className="font-semibold">
-                        {gamesWithStats.find(g => g.appid === selectedGameId)?.name || "Game"}
+                        {gamesWithStats.find((game) => game.appid === activeGameId)?.name || "Game"}
                       </h3>
                       <Badge variant="secondary">
                         {lockedAchievements.length} pending
@@ -126,7 +123,7 @@ export function AchievementProgress() {
                     </div>
 
                     <div className="space-y-3">
-                      {lockedAchievements.slice(0, 5).map((achievement: any, index: number) => (
+                      {lockedAchievements.slice(0, 5).map((achievement, index: number) => (
                         <div key={index} className="p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors opacity-60">
                           <div className="flex items-start gap-3">
                             <img
@@ -174,7 +171,7 @@ export function AchievementProgress() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setSelectedGameId(selectedGameId)}
+                      onClick={() => setSelectedGameId(activeGameId)}
                       className="gap-2"
                     >
                       <RefreshCw className="h-4 w-4" />

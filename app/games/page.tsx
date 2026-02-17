@@ -11,6 +11,13 @@ import { GamesFilterBar } from "@/components/ui/games-filter-bar"
 import { PageContainer } from "@/components/ui/page-container"
 import { LoadingMessage } from "@/components/ui/loading-message"
 import { ErrorMessage } from "@/components/ui/error-message"
+import { getAllowedGameIdsClient } from "@/lib/allowed-games"
+import { buildGamesWithStats, filterVisibleGames, mapOwnedGamesToGameCards, sortGames } from "@/lib/games-mapping"
+import type { SteamGamesApiResponse } from "@/lib/types/api"
+import type { SteamGame } from "@/lib/steam-api"
+import type { SteamGameCardModel } from "@/lib/types/steam"
+
+type GamesOrder = "completed" | "alphabetical" | "achievementsAsc" | "achievementsDesc"
 
 export default function GamesPage() {
   const { setTitle } = usePageTitle()
@@ -21,13 +28,13 @@ export default function GamesPage() {
   const { user, loading: loadingUser } = useCurrentUser()
 
   const [showCompleted, setShowCompleted] = useState(false)
-  const [order, setOrder] = useState("completed")
-  const [games, setGames] = useState<any[]>([])
+  const [order, setOrder] = useState<GamesOrder>("completed")
+  const [games, setGames] = useState<Array<{ id: number; name: string; image: string; playtime: number }>>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   // Fetch achievements in batch for all games
-  const appIds = useMemo(() => games.map(g => g.id), [games])
+  const appIds = useMemo(() => games.map((game) => game.id), [games])
   const { achievementsMap, loading: achievementsLoading } = useSteamAchievementsBatch(appIds.length > 0 ? appIds : [])
 
   useEffect(() => {
@@ -38,23 +45,16 @@ export default function GamesPage() {
         // Fetch games from endpoint
         const gamesRes = await fetch("/api/steam/games?type=all")
         if (!gamesRes.ok) throw new Error("Could not fetch games")
-        const gamesData = await gamesRes.json()
-        const ownedGames = gamesData.games || []
+        const gamesData = (await gamesRes.json()) as SteamGamesApiResponse
+        if (!("games" in gamesData) || !Array.isArray(gamesData.games)) {
+          throw new Error("Invalid games response")
+        }
+        const ownedGames: SteamGame[] = gamesData.games
 
-        // Load allowed IDs list
-        const jsonRes = await fetch("/steam_games_with_achievements.json")
-        const steamGamesList = await jsonRes.json()
-        const allowedIds = new Set(steamGamesList.map((g: any) => String(g.id)))
-
-        // Filter and map to show name and cover
-        const filteredGames = ownedGames
-          .filter((game: any) => allowedIds.has(String(game.appid)))
-          .map((game: any) => ({
-            id: game.appid,
-            name: game.name,
-            image: getSteamImageUrl(game.appid, game.img_icon_url, "icon"),
-            playtime: Math.round(game.playtime_forever / 60),
-          }))
+        const allowedIds = await getAllowedGameIdsClient()
+        const filteredGames = mapOwnedGamesToGameCards(ownedGames, allowedIds, (appid, imgHash) =>
+          getSteamImageUrl(appid, imgHash),
+        )
         setGames(filteredGames)
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unknown error")
@@ -66,40 +66,13 @@ export default function GamesPage() {
   }, [])
 
   // Calculate % achievements and completion status
-  const gamesWithStats = useMemo(() => {
-    let arr = games.map((game) => {
-      const achievements = achievementsMap[game.id] || []
-      const unlocked = achievements.filter((a: any) => a.achieved === 1).length
-      const total = achievements.length
-      const percent = total > 0 ? Math.round((unlocked / total) * 100) : 0
-      const completed = total > 0 && unlocked === total
-      return { ...game, achievements, percent, completed, totalAchievements: total }
-    })
-    switch (order) {
-      case "alphabetical":
-        arr = arr.sort((a, b) => a.name.localeCompare(b.name))
-        break
-      case "achievementsAsc":
-        arr = arr.sort((a, b) => a.totalAchievements - b.totalAchievements)
-        break
-      case "achievementsDesc":
-        arr = arr.sort((a, b) => b.totalAchievements - a.totalAchievements)
-        break
-      case "completed":
-      default:
-        arr = arr.sort((a, b) => {
-          if (a.completed !== b.completed) return b.completed - a.completed
-          return b.percent - a.percent
-        })
-        break
-    }
-    return arr
-  }, [games, achievementsMap, order])
+  const gamesWithStats = useMemo(
+    () => sortGames(buildGamesWithStats(games, achievementsMap), order),
+    [games, achievementsMap, order],
+  )
 
   // Filter out completed games if requested
-  const visibleGames = useMemo(() => (
-    showCompleted ? gamesWithStats : gamesWithStats.filter(g => !g.completed)
-  ), [gamesWithStats, showCompleted])
+  const visibleGames = useMemo(() => filterVisibleGames(gamesWithStats, showCompleted), [gamesWithStats, showCompleted])
 
   if (loadingUser) {
     return <LoadingMessage />
@@ -133,7 +106,7 @@ export default function GamesPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-            {visibleGames.map((game) => (
+            {visibleGames.map((game: SteamGameCardModel) => (
               <GameCard
                 key={game.id}
                 id={game.id}
@@ -151,4 +124,3 @@ export default function GamesPage() {
     </PageContainer>
   )
 }
-// ...existing code...

@@ -1,9 +1,14 @@
 "use client"
 import React, { createContext, useContext, useState } from "react"
 
-const PageTitleContext = createContext({
+interface PageTitleContextValue {
+  title: string
+  setTitle: (title: string) => void
+}
+
+const PageTitleContext = createContext<PageTitleContextValue>({
   title: "",
-  setTitle: (t: string) => {}
+  setTitle: () => {},
 })
 
 export function PageTitleProvider({ children }: { children: React.ReactNode }) {

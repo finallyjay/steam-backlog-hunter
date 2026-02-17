@@ -1,6 +1,5 @@
 "use client"
 
-import { Button } from "@/components/ui/button"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -88,7 +87,7 @@ export default function HomePage() {
 
           {/* Stats Preview */}
           <div className="mt-16 p-8 bg-card rounded-lg border">
-            <h3 className="text-2xl font-semibold mb-6 text-center">What You'll Get</h3>
+            <h3 className="text-2xl font-semibold mb-6 text-center">What You&apos;ll Get</h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
               <div className="text-center">
                 <div className="text-3xl font-bold text-accent">100%</div>

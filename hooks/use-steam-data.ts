@@ -1,54 +1,79 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useMemo, useState } from "react"
 
-// Hook to fetch achievements for multiple games in a batch
+import { getAllowedGameIdsClient } from "@/lib/allowed-games"
+import type { SteamGame } from "@/lib/steam-api"
+import type {
+  SteamAchievementsApiResponse,
+  SteamGamesApiResponse,
+  SteamStatsApiResponse,
+} from "@/lib/types/api"
+import type { SteamAchievementView, SteamStatsResponse } from "@/lib/types/steam"
+
 export function useSteamAchievementsBatch(appIds: number[]) {
-  const [achievementsMap, setAchievementsMap] = useState<Record<number, any[]>>({})
+  const [achievementsMap, setAchievementsMap] = useState<Record<number, SteamAchievementView[]>>({})
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const appIdsKey = useMemo(() => [...new Set(appIds)].sort((a, b) => a - b).join(","), [appIds])
+
   useEffect(() => {
-    if (!appIds || appIds.length === 0) return
+    if (!appIds.length) {
+      setAchievementsMap({})
+      return
+    }
+
+    let cancelled = false
+
     async function fetchBatch() {
       setLoading(true)
+      setError(null)
       try {
-        // Load allowed games list from public JSON
-        const jsonRes = await fetch("/steam_games_with_achievements.json")
-        const steamGamesList = await jsonRes.json()
-        const allowedIds = new Set(steamGamesList.map((g: any) => String(g.id)))
-        const filteredAppIds = appIds.filter(id => allowedIds.has(String(id)))
-        const results: Record<number, any[]> = {}
-        await Promise.all(filteredAppIds.map(async (appId) => {
-          try {
-            const response = await fetch(`/api/steam/achievements?appId=${appId}`)
-            if (!response.ok) throw new Error("Failed to fetch achievements")
-            const data = await response.json()
-            results[appId] = Array.isArray(data.achievements) ? data.achievements : []
-          } catch {
-            results[appId] = []
-          }
-        }))
-        setAchievementsMap(results)
+        const allowedIds = await getAllowedGameIdsClient()
+        const filteredAppIds = appIds.filter((id) => allowedIds.has(String(id)))
+
+        const entries = await Promise.all(
+          filteredAppIds.map(async (appId): Promise<[number, SteamAchievementView[]]> => {
+            try {
+              const response = await fetch(`/api/steam/achievements?appId=${appId}`)
+              if (!response.ok) {
+                return [appId, []]
+              }
+              const data = (await response.json()) as SteamAchievementsApiResponse
+              if (!("achievements" in data) || !Array.isArray(data.achievements)) {
+                return [appId, []]
+              }
+              return [appId, data.achievements]
+            } catch {
+              return [appId, []]
+            }
+          }),
+        )
+
+        if (!cancelled) {
+          setAchievementsMap(Object.fromEntries(entries))
+        }
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Unknown error")
-        setAchievementsMap({})
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Unknown error")
+          setAchievementsMap({})
+        }
       } finally {
-        setLoading(false)
+        if (!cancelled) {
+          setLoading(false)
+        }
       }
     }
-    fetchBatch()
-  }, [JSON.stringify(appIds)])
-  return { achievementsMap, loading, error }
-}
-import type { SteamGame } from "@/lib/steam-api"
-// Load allowed games list from public JSON
 
-interface SteamStats {
-  totalGames: number
-  totalAchievements: number
-  totalPlaytime: number
-  perfectGames: number
+    void fetchBatch()
+
+    return () => {
+      cancelled = true
+    }
+  }, [appIds, appIdsKey])
+
+  return { achievementsMap, loading, error }
 }
 
 export function useSteamGames(type: "recent" | "all" = "recent") {
@@ -57,91 +82,155 @@ export function useSteamGames(type: "recent" | "all" = "recent") {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    let cancelled = false
+
     async function fetchGames() {
       try {
         setLoading(true)
+        setError(null)
+
         const response = await fetch(`/api/steam/games?type=${type}`)
         if (!response.ok) {
           throw new Error("Failed to fetch games")
         }
-        const data = await response.json()
-        // Obtener la lista de juegos permitidos desde public
-        const jsonRes = await fetch("/steam_games_with_achievements.json")
-        const steamGamesList = await jsonRes.json()
-        const allowedIds = new Set(steamGamesList.map((g: any) => String(g.id)))
-        const filteredGames = (data.games || []).filter((game: SteamGame) => allowedIds.has(String(game.appid)))
-        setGames(filteredGames)
+
+        const data = (await response.json()) as SteamGamesApiResponse
+        if (!("games" in data) || !Array.isArray(data.games)) {
+          throw new Error("Invalid games response")
+        }
+
+        const allowedIds = await getAllowedGameIdsClient()
+        const filteredGames = data.games.filter((game) => allowedIds.has(String(game.appid)))
+
+        if (!cancelled) {
+          setGames(filteredGames)
+        }
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Unknown error")
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Unknown error")
+          setGames([])
+        }
       } finally {
-        setLoading(false)
+        if (!cancelled) {
+          setLoading(false)
+        }
       }
     }
-    fetchGames()
+
+    void fetchGames()
+
+    return () => {
+      cancelled = true
+    }
   }, [type])
+
   return { games, loading, error }
 }
 
 export function useSteamStats() {
-  const [stats, setStats] = useState<SteamStats | null>(null)
+  const [stats, setStats] = useState<SteamStatsResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    let cancelled = false
+
     async function fetchStats() {
       try {
         setLoading(true)
+        setError(null)
         const response = await fetch("/api/steam/stats")
-
         if (!response.ok) {
           throw new Error("Failed to fetch stats")
         }
 
-        const data = await response.json()
-        setStats(data)
+        const data = (await response.json()) as SteamStatsApiResponse
+        if (!("totalGames" in data)) {
+          throw new Error("Invalid stats response")
+        }
+
+        if (!cancelled) {
+          setStats(data)
+        }
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Unknown error")
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Unknown error")
+          setStats(null)
+        }
       } finally {
-        setLoading(false)
+        if (!cancelled) {
+          setLoading(false)
+        }
       }
     }
 
-    fetchStats()
+    void fetchStats()
+
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   return { stats, loading, error }
 }
 
 export function useSteamAchievements(appId: number | null) {
-  const [achievements, setAchievements] = useState<any[]>([])
+  const [achievements, setAchievements] = useState<SteamAchievementView[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!appId) return
-    async function fetchAchievementsFiltered() {
-      // Obtener la lista de juegos permitidos desde public
-      const jsonRes = await fetch("/steam_games_with_achievements.json")
-      const steamGamesList = await jsonRes.json()
-      const allowedIds = new Set(steamGamesList.map((g: any) => String(g.id)))
-      if (!allowedIds.has(String(appId))) {
-        setAchievements([])
-        return
-      }
+    if (!appId) {
+      setAchievements([])
+      return
+    }
+
+    let cancelled = false
+
+    async function fetchAchievements() {
       try {
         setLoading(true)
+        setError(null)
+
+        const allowedIds = await getAllowedGameIdsClient()
+        if (!allowedIds.has(String(appId))) {
+          if (!cancelled) {
+            setAchievements([])
+          }
+          return
+        }
+
         const response = await fetch(`/api/steam/achievements?appId=${appId}`)
-        if (!response.ok) throw new Error("Failed to fetch achievements")
-        const data = await response.json()
-        setAchievements(Array.isArray(data.achievements) ? data.achievements : [])
+        if (!response.ok) {
+          throw new Error("Failed to fetch achievements")
+        }
+
+        const data = (await response.json()) as SteamAchievementsApiResponse
+        if (!("achievements" in data) || !Array.isArray(data.achievements)) {
+          throw new Error("Invalid achievements response")
+        }
+
+        if (!cancelled) {
+          setAchievements(data.achievements)
+        }
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Unknown error")
-        setAchievements([])
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Unknown error")
+          setAchievements([])
+        }
       } finally {
-        setLoading(false)
+        if (!cancelled) {
+          setLoading(false)
+        }
       }
     }
-    fetchAchievementsFiltered()
+
+    void fetchAchievements()
+
+    return () => {
+      cancelled = true
+    }
   }, [appId])
+
   return { achievements, loading, error }
 }
