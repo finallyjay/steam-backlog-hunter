@@ -5,38 +5,71 @@ import { toast } from "@/hooks/use-toast"
 import type { SteamUser } from "@/lib/auth"
 import type { AuthMeResponse } from "@/lib/types/api"
 
-export function useCurrentUser() {
-  const [user, setUser] = useState<SteamUser | null>(null)
-  const [loading, setLoading] = useState(true)
+type CurrentUserState = {
+  user: SteamUser | null
+  loading: boolean
+}
 
-  useEffect(() => {
-    async function fetchUser() {
-      try {
-        const res = await fetch("/api/auth/me")
-        if (res.ok) {
-          const data = (await res.json()) as AuthMeResponse
-          setUser(data.user)
-        } else if (res.status === 401) {
-          setUser(null)
-        } else if (res.status >= 500) {
-          toast({
-            title: "Authentication error",
-            description: "Could not fetch user. Please sign in again.",
-            variant: "destructive",
-          })
-        }
-      } catch {
+const listeners = new Set<(state: CurrentUserState) => void>()
+let currentUserState: CurrentUserState = {
+  user: null,
+  loading: true,
+}
+let inFlightRequest: Promise<void> | null = null
+
+function emitState(nextState: CurrentUserState) {
+  currentUserState = nextState
+  listeners.forEach((listener) => listener(nextState))
+}
+
+async function ensureCurrentUserLoaded(): Promise<void> {
+  if (inFlightRequest) {
+    return inFlightRequest
+  }
+
+  inFlightRequest = (async () => {
+    try {
+      const res = await fetch("/api/auth/me")
+      if (res.ok) {
+        const data = (await res.json()) as AuthMeResponse
+        emitState({ user: data.user, loading: false })
+      } else if (res.status === 401) {
+        emitState({ user: null, loading: false })
+      } else if (res.status >= 500) {
         toast({
-          title: "Network error",
-          description: "Could not connect to the authentication server.",
+          title: "Authentication error",
+          description: "Could not fetch user. Please sign in again.",
           variant: "destructive",
         })
-      } finally {
-        setLoading(false)
+        emitState({ ...currentUserState, loading: false })
+      } else {
+        emitState({ ...currentUserState, loading: false })
       }
+    } catch {
+      toast({
+        title: "Network error",
+        description: "Could not connect to the authentication server.",
+        variant: "destructive",
+      })
+      emitState({ ...currentUserState, loading: false })
+    } finally {
+      inFlightRequest = null
     }
-    void fetchUser()
+  })()
+
+  return inFlightRequest
+}
+
+export function useCurrentUser() {
+  const [state, setState] = useState<CurrentUserState>(currentUserState)
+
+  useEffect(() => {
+    listeners.add(setState)
+    void ensureCurrentUserLoaded()
+    return () => {
+      listeners.delete(setState)
+    }
   }, [])
 
-  return { user, loading }
+  return state
 }

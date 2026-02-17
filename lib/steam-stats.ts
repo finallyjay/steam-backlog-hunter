@@ -4,7 +4,22 @@ import { getAllowedGameIdsServer } from "@/lib/allowed-games"
 import { getOwnedGames, getPlayerAchievements } from "@/lib/steam-api"
 import type { SteamStatsResponse } from "@/lib/types/steam"
 
+const STATS_CACHE_TTL_MS = 2 * 60 * 1000
+const ACHIEVEMENTS_CONCURRENCY = 8
+
+type CachedStatsEntry = {
+  expiresAt: number
+  value: SteamStatsResponse
+}
+
+const statsCache = new Map<string, CachedStatsEntry>()
+
 export async function getUserStats(steamId: string): Promise<SteamStatsResponse> {
+  const cached = statsCache.get(steamId)
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.value
+  }
+
   try {
     const games = await getOwnedGames(steamId)
 
@@ -20,26 +35,45 @@ export async function getUserStats(steamId: string): Promise<SteamStatsResponse>
 
     const sampleGames = games.filter((game) => allowedIds.has(String(game.appid)))
 
-    for (const game of sampleGames) {
-      const achievements = await getPlayerAchievements(steamId, game.appid)
-      if (!achievements) continue
+    // Limit parallel requests to Steam API to reduce total latency without overwhelming upstream.
+    for (let index = 0; index < sampleGames.length; index += ACHIEVEMENTS_CONCURRENCY) {
+      const chunk = sampleGames.slice(index, index + ACHIEVEMENTS_CONCURRENCY)
+      const chunkResults = await Promise.allSettled(
+        chunk.map((game) => getPlayerAchievements(steamId, game.appid)),
+      )
 
-      const unlockedCount = achievements.achievements.filter((a) => a.achieved === 1).length
-      totalAchievements += unlockedCount
+      for (const result of chunkResults) {
+        if (result.status !== "fulfilled" || !result.value) {
+          continue
+        }
 
-      if (unlockedCount === achievements.achievements.length && achievements.achievements.length > 0) {
-        perfectGames++
+        const unlockedCount = result.value.achievements.filter((achievement) => achievement.achieved === 1).length
+        totalAchievements += unlockedCount
+
+        if (
+          unlockedCount === result.value.achievements.length &&
+          result.value.achievements.length > 0
+        ) {
+          perfectGames++
+        }
       }
     }
 
     const totalPlaytime = games.reduce((sum, game) => sum + game.playtime_forever, 0)
 
-    return {
+    const stats = {
       totalGames: games.length,
       totalAchievements,
       totalPlaytime: Math.round(totalPlaytime / 60),
       perfectGames,
     }
+
+    statsCache.set(steamId, {
+      value: stats,
+      expiresAt: Date.now() + STATS_CACHE_TTL_MS,
+    })
+
+    return stats
   } catch (error) {
     console.error("Error fetching user stats:", error)
     return {
