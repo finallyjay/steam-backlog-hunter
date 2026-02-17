@@ -49,7 +49,7 @@ export function GameCard({ id, name, image, playtime, achievements = [], achieve
           ) : total > 0 ? (
             <>
               <div className="flex items-center justify-between mb-1">
-                <span className="text-xs">Achievements: {unlocked}/{total}</span>
+                <span className="text-xs">Achievements: {unlocked}/{total} ({percent}%)</span>
               </div>
               <div>
                 <Progress value={percent} indicatorClassName={progressColor} />

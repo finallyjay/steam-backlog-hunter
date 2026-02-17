@@ -35,6 +35,6 @@ describe("GameCard", () => {
     )
 
     expect(screen.getByText("CS2")).toBeInTheDocument()
-    expect(screen.getByText("Achievements: 1/2")).toBeInTheDocument()
+    expect(screen.getByText("Achievements: 1/2 (50%)")).toBeInTheDocument()
   })
 })
