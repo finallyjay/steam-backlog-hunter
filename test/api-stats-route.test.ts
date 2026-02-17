@@ -16,7 +16,7 @@ describe("GET /api/steam/stats", () => {
   it("returns 401 when user is not authenticated", async () => {
     vi.mocked(getCurrentUser).mockResolvedValue(null)
 
-    const response = await GET()
+    const response = await GET(new Request("http://localhost/api/steam/stats"))
     const body = (await response.json()) as { error: string }
 
     expect(response.status).toBe(401)

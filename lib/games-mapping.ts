@@ -17,7 +17,7 @@ export function mapOwnedGamesToGameCards(games: SteamGame[], allowedIds: Set<str
       id: game.appid,
       name: game.name,
       image: getImageUrl(game.appid, game.img_icon_url),
-      playtime: Math.round(game.playtime_forever / 60),
+      playtime: Number((game.playtime_forever / 60).toFixed(1)),
     }))
 }
 

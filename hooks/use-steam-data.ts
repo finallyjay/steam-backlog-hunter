@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import { getAllowedGameIdsClient } from "@/lib/allowed-games"
 import type { SteamGame } from "@/lib/steam-api"
@@ -11,27 +11,47 @@ import type {
 } from "@/lib/types/api"
 import type { SteamAchievementView, SteamStatsResponse } from "@/lib/types/steam"
 
+const REFRESH_COOLDOWN_MS = 3000
+
 export function useSteamAchievementsBatch(appIds: number[]) {
   const [achievementsMap, setAchievementsMap] = useState<Record<number, SteamAchievementView[]>>({})
   const [loading, setLoading] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const appIdsKey = useMemo(() => [...new Set(appIds)].sort((a, b) => a - b).join(","), [appIds])
+  const normalizedAppIds = useMemo(
+    () => (appIdsKey ? appIdsKey.split(",").map((id) => Number(id)).filter((id) => Number.isFinite(id)) : []),
+    [appIdsKey],
+  )
+  const inFlightRef = useRef(false)
+  const hasLoadedRef = useRef(false)
+  const lastRefreshAtRef = useRef(0)
 
-  useEffect(() => {
-    if (!appIds.length) {
-      setAchievementsMap({})
-      return
-    }
+  const fetchBatch = useCallback(
+    async (options?: { manual?: boolean }) => {
+      if (inFlightRef.current) return
+      if (options?.manual && Date.now() - lastRefreshAtRef.current < REFRESH_COOLDOWN_MS) return
 
-    let cancelled = false
-
-    async function fetchBatch() {
-      setLoading(true)
+      inFlightRef.current = true
+      if (hasLoadedRef.current) {
+        setIsRefreshing(true)
+      } else {
+        setLoading(true)
+      }
       setError(null)
+
       try {
+        if (!normalizedAppIds.length) {
+          setAchievementsMap({})
+          setLastUpdated(new Date())
+          hasLoadedRef.current = true
+          return
+        }
+
         const allowedIds = await getAllowedGameIdsClient()
-        const filteredAppIds = appIds.filter((id) => allowedIds.has(String(id)))
+        const filteredAppIds = normalizedAppIds.filter((id) => allowedIds.has(String(id)))
 
         const entries = await Promise.all(
           filteredAppIds.map(async (appId): Promise<[number, SteamAchievementView[]]> => {
@@ -51,44 +71,60 @@ export function useSteamAchievementsBatch(appIds: number[]) {
           }),
         )
 
-        if (!cancelled) {
-          setAchievementsMap(Object.fromEntries(entries))
-        }
+        setAchievementsMap(Object.fromEntries(entries))
+        setLastUpdated(new Date())
+        hasLoadedRef.current = true
       } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Unknown error")
-          setAchievementsMap({})
-        }
+        setError(err instanceof Error ? err.message : "Unknown error")
+        setAchievementsMap({})
       } finally {
-        if (!cancelled) {
-          setLoading(false)
+        inFlightRef.current = false
+        setLoading(false)
+        setIsRefreshing(false)
+        if (options?.manual) {
+          lastRefreshAtRef.current = Date.now()
         }
       }
-    }
+    },
+    [normalizedAppIds],
+  )
 
+  useEffect(() => {
     void fetchBatch()
+  }, [fetchBatch, appIdsKey])
 
-    return () => {
-      cancelled = true
-    }
-  }, [appIds, appIdsKey])
+  const refetch = useCallback(async () => {
+    await fetchBatch({ manual: true })
+  }, [fetchBatch])
 
-  return { achievementsMap, loading, error }
+  return { achievementsMap, loading, isRefreshing, lastUpdated, error, refetch }
 }
 
 export function useSteamGames(type: "recent" | "all" = "recent") {
   const [games, setGames] = useState<SteamGame[]>([])
   const [loading, setLoading] = useState(true)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    let cancelled = false
+  const inFlightRef = useRef(false)
+  const hasLoadedRef = useRef(false)
+  const lastRefreshAtRef = useRef(0)
 
-    async function fetchGames() {
-      try {
+  const loadGames = useCallback(
+    async (options?: { manual?: boolean }) => {
+      if (inFlightRef.current) return
+      if (options?.manual && Date.now() - lastRefreshAtRef.current < REFRESH_COOLDOWN_MS) return
+
+      inFlightRef.current = true
+      if (hasLoadedRef.current) {
+        setIsRefreshing(true)
+      } else {
         setLoading(true)
-        setError(null)
+      }
+      setError(null)
 
+      try {
         const response = await fetch(`/api/steam/games?type=${type}`)
         if (!response.ok) {
           throw new Error("Failed to fetch games")
@@ -102,101 +138,140 @@ export function useSteamGames(type: "recent" | "all" = "recent") {
         const allowedIds = await getAllowedGameIdsClient()
         const filteredGames = data.games.filter((game) => allowedIds.has(String(game.appid)))
 
-        if (!cancelled) {
-          setGames(filteredGames)
-        }
+        setGames(filteredGames)
+        setLastUpdated(new Date())
+        hasLoadedRef.current = true
       } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Unknown error")
-          setGames([])
-        }
+        setError(err instanceof Error ? err.message : "Unknown error")
+        setGames([])
       } finally {
-        if (!cancelled) {
-          setLoading(false)
+        inFlightRef.current = false
+        setLoading(false)
+        setIsRefreshing(false)
+        if (options?.manual) {
+          lastRefreshAtRef.current = Date.now()
         }
       }
-    }
+    },
+    [type],
+  )
 
-    void fetchGames()
+  useEffect(() => {
+    hasLoadedRef.current = false
+    setLoading(true)
+    void loadGames()
+  }, [loadGames])
 
-    return () => {
-      cancelled = true
-    }
-  }, [type])
+  const refetch = useCallback(async () => {
+    await loadGames({ manual: true })
+  }, [loadGames])
 
-  return { games, loading, error }
+  return { games, loading, isRefreshing, lastUpdated, error, refetch }
 }
 
 export function useSteamStats() {
   const [stats, setStats] = useState<SteamStatsResponse | null>(null)
   const [loading, setLoading] = useState(true)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    let cancelled = false
+  const inFlightRef = useRef(false)
+  const hasLoadedRef = useRef(false)
+  const lastRefreshAtRef = useRef(0)
 
-    async function fetchStats() {
-      try {
-        setLoading(true)
-        setError(null)
-        const response = await fetch("/api/steam/stats")
-        if (!response.ok) {
-          throw new Error("Failed to fetch stats")
-        }
+  const loadStats = useCallback(async (options?: { force?: boolean; manual?: boolean }) => {
+    if (inFlightRef.current) return
+    if (options?.manual && Date.now() - lastRefreshAtRef.current < REFRESH_COOLDOWN_MS) return
 
-        const data = (await response.json()) as SteamStatsApiResponse
-        if (!("totalGames" in data)) {
-          throw new Error("Invalid stats response")
-        }
-
-        if (!cancelled) {
-          setStats(data)
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Unknown error")
-          setStats(null)
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false)
-        }
-      }
+    inFlightRef.current = true
+    if (hasLoadedRef.current) {
+      setIsRefreshing(true)
+    } else {
+      setLoading(true)
     }
+    setError(null)
 
-    void fetchStats()
+    try {
+      const query = options?.force ? "?refresh=1" : ""
+      const response = await fetch(`/api/steam/stats${query}`)
+      if (!response.ok) {
+        throw new Error("Failed to fetch stats")
+      }
 
-    return () => {
-      cancelled = true
+      const data = (await response.json()) as SteamStatsApiResponse
+      if (!("totalGames" in data)) {
+        throw new Error("Invalid stats response")
+      }
+
+      setStats(data)
+      setLastUpdated(new Date())
+      hasLoadedRef.current = true
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unknown error")
+      setStats(null)
+    } finally {
+      inFlightRef.current = false
+      setLoading(false)
+      setIsRefreshing(false)
+      if (options?.manual) {
+        lastRefreshAtRef.current = Date.now()
+      }
     }
   }, [])
 
-  return { stats, loading, error }
+  useEffect(() => {
+    void loadStats()
+  }, [loadStats])
+
+  const refetch = useCallback(
+    async (options?: { force?: boolean }) => {
+      await loadStats({ force: options?.force, manual: true })
+    },
+    [loadStats],
+  )
+
+  return { stats, loading, isRefreshing, lastUpdated, error, refetch }
 }
 
 export function useSteamAchievements(appId: number | null) {
   const [achievements, setAchievements] = useState<SteamAchievementView[]>([])
   const [loading, setLoading] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (!appId) {
-      setAchievements([])
-      return
-    }
+  const inFlightRef = useRef(false)
+  const hasLoadedRef = useRef(false)
+  const lastRefreshAtRef = useRef(0)
 
-    let cancelled = false
+  const loadAchievements = useCallback(
+    async (options?: { manual?: boolean }) => {
+      if (!appId) {
+        setAchievements([])
+        setLastUpdated(null)
+        hasLoadedRef.current = false
+        setLoading(false)
+        setIsRefreshing(false)
+        return
+      }
+      if (inFlightRef.current) return
+      if (options?.manual && Date.now() - lastRefreshAtRef.current < REFRESH_COOLDOWN_MS) return
 
-    async function fetchAchievements() {
-      try {
+      inFlightRef.current = true
+      if (hasLoadedRef.current) {
+        setIsRefreshing(true)
+      } else {
         setLoading(true)
-        setError(null)
+      }
+      setError(null)
 
+      try {
         const allowedIds = await getAllowedGameIdsClient()
         if (!allowedIds.has(String(appId))) {
-          if (!cancelled) {
-            setAchievements([])
-          }
+          setAchievements([])
+          setLastUpdated(new Date())
+          hasLoadedRef.current = true
           return
         }
 
@@ -210,27 +285,33 @@ export function useSteamAchievements(appId: number | null) {
           throw new Error("Invalid achievements response")
         }
 
-        if (!cancelled) {
-          setAchievements(data.achievements)
-        }
+        setAchievements(data.achievements)
+        setLastUpdated(new Date())
+        hasLoadedRef.current = true
       } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Unknown error")
-          setAchievements([])
-        }
+        setError(err instanceof Error ? err.message : "Unknown error")
+        setAchievements([])
       } finally {
-        if (!cancelled) {
-          setLoading(false)
+        inFlightRef.current = false
+        setLoading(false)
+        setIsRefreshing(false)
+        if (options?.manual) {
+          lastRefreshAtRef.current = Date.now()
         }
       }
-    }
+    },
+    [appId],
+  )
 
-    void fetchAchievements()
+  useEffect(() => {
+    hasLoadedRef.current = false
+    setLoading(appId !== null)
+    void loadAchievements()
+  }, [appId, loadAchievements])
 
-    return () => {
-      cancelled = true
-    }
-  }, [appId])
+  const refetch = useCallback(async () => {
+    await loadAchievements({ manual: true })
+  }, [loadAchievements])
 
-  return { achievements, loading, error }
+  return { achievements, loading, isRefreshing, lastUpdated, error, refetch }
 }

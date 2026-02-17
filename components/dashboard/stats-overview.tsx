@@ -1,14 +1,17 @@
 "use client"
 
-import { Trophy, Gamepad2, Clock, Target } from "lucide-react"
+import { Trophy, Gamepad2, Clock, Target, RefreshCw } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useRouter } from "next/navigation"
 import { useSteamStats } from "@/hooks/use-steam-data"
 import { CardGrid } from "@/components/ui/card-grid"
+import { Button } from "@/components/ui/button"
 
 export function StatsOverview() {
-  const { stats, loading, error } = useSteamStats()
+  const { stats, loading, isRefreshing, lastUpdated, error, refetch } = useSteamStats()
   const router = useRouter()
+
+  const updatedLabel = lastUpdated ? `Updated at ${lastUpdated.toLocaleTimeString()}` : "Not updated yet"
 
   if (loading) {
     return <CardGrid items={Array.from({ length: 4 }).map(() => ({ title: "", value: "", description: "", icon: <Skeleton className="h-8 w-8" /> }))} />
@@ -35,7 +38,7 @@ export function StatsOverview() {
     },
     {
       title: "Hours Played",
-      value: stats?.totalPlaytime?.toLocaleString() || "0",
+      value: stats ? stats.totalPlaytime.toFixed(1) : "0.0",
       description: "Total playtime",
       icon: Clock,
       color: "text-green-500",
@@ -50,15 +53,32 @@ export function StatsOverview() {
   ]
 
   return (
-    <CardGrid
-      items={statsData.map((stat, idx) => ({
-        title: stat.title,
-        value: stat.value,
-        description: stat.description,
-        icon: <stat.icon className={`h-4 w-4 ${stat.color}`} />,
-        onClick: idx === 0 ? () => router.push('/games') : undefined,
-        clickable: idx === 0,
-      }))}
-    />
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-muted-foreground">
+          {updatedLabel}
+        </p>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => refetch({ force: true })}
+          disabled={isRefreshing}
+          className="gap-2"
+        >
+          <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+          Refresh
+        </Button>
+      </div>
+      <CardGrid
+        items={statsData.map((stat, idx) => ({
+          title: stat.title,
+          value: stat.value,
+          description: stat.description,
+          icon: <stat.icon className={`h-4 w-4 ${stat.color}`} />,
+          onClick: idx === 0 ? () => router.push('/games') : undefined,
+          clickable: idx === 0,
+        }))}
+      />
+    </div>
   )
 }

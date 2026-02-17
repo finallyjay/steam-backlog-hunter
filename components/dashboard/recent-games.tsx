@@ -2,25 +2,45 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Play } from "lucide-react"
+import { Play, RefreshCw } from "lucide-react"
 import { GameCard } from "@/components/ui/game-card"
 import { useSteamGames, useSteamAchievementsBatch } from "@/hooks/use-steam-data"
 import { useMemo } from "react"
 import { getSteamImageUrl } from "@/lib/steam-api"
+import { Button } from "@/components/ui/button"
 
 export function RecentGames() {
-  const { games, loading, error } = useSteamGames("recent")
+  const {
+    games,
+    loading,
+    isRefreshing: isRefreshingGames,
+    lastUpdated: gamesLastUpdated,
+    error,
+    refetch: refetchGames,
+  } = useSteamGames("recent")
   const recentGames = useMemo(() => (
     games.slice(0, 6).map((game) => ({
       id: game.appid.toString(),
       name: game.name,
-      playtime: Math.round(game.playtime_forever / 60),
+      playtime: Number((game.playtime_forever / 60).toFixed(1)),
       image: getSteamImageUrl(game.appid, game.img_icon_url),
       appid: game.appid,
     }))
   ), [games])
   const appIds = useMemo(() => recentGames.map(g => g.appid), [recentGames])
-  const { achievementsMap, loading: achievementsLoading } = useSteamAchievementsBatch(appIds.length > 0 ? appIds : [])
+  const {
+    achievementsMap,
+    loading: achievementsLoading,
+    isRefreshing: isRefreshingAchievements,
+    refetch: refetchAchievements,
+  } = useSteamAchievementsBatch(appIds.length > 0 ? appIds : [])
+  const isRefreshing = isRefreshingGames || isRefreshingAchievements
+  const updatedLabel = gamesLastUpdated ? `Updated at ${gamesLastUpdated.toLocaleTimeString()}` : "Not updated yet"
+
+  async function handleRefresh() {
+    await refetchGames()
+    await refetchAchievements()
+  }
 
   // Renderizado
   if (loading) {
@@ -69,10 +89,19 @@ export function RecentGames() {
   return (
     <Card className="border-2">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Play className="h-5 w-5 text-accent" />
-          Recently Played Games
-        </CardTitle>
+        <div className="flex items-center justify-between gap-3">
+          <CardTitle className="flex items-center gap-2">
+            <Play className="h-5 w-5 text-accent" />
+            Recently Played Games
+          </CardTitle>
+          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isRefreshing} className="gap-2">
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {updatedLabel}
+        </p>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">

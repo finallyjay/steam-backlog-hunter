@@ -25,7 +25,14 @@ export function AchievementProgress() {
     [games],
   )
   const activeGameId = selectedGameId ?? defaultGameId
-  const { achievements, loading: achievementsLoading } = useSteamAchievements(activeGameId)
+  const {
+    achievements,
+    loading: achievementsLoading,
+    isRefreshing: isRefreshingAchievements,
+    lastUpdated,
+    refetch,
+  } = useSteamAchievements(activeGameId)
+  const updatedLabel = lastUpdated ? `Updated at ${lastUpdated.toLocaleTimeString()}` : "Not updated yet"
 
   if (gamesLoading) {
     return (
@@ -66,10 +73,25 @@ export function AchievementProgress() {
   return (
     <Card className="border-2">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Trophy className="h-5 w-5 text-accent" />
-          Achievement Progress
-        </CardTitle>
+        <div className="flex items-center justify-between gap-3">
+          <CardTitle className="flex items-center gap-2">
+            <Trophy className="h-5 w-5 text-accent" />
+            Achievement Progress
+          </CardTitle>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void refetch()}
+            disabled={!activeGameId || isRefreshingAchievements}
+            className="gap-2"
+          >
+            <RefreshCw className={`h-4 w-4 ${isRefreshingAchievements ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {updatedLabel}
+        </p>
       </CardHeader>
       <CardContent>
         {gamesWithStats.length === 0 ? (
@@ -171,10 +193,10 @@ export function AchievementProgress() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setSelectedGameId(activeGameId)}
+                      onClick={() => void refetch()}
                       className="gap-2"
                     >
-                      <RefreshCw className="h-4 w-4" />
+                      <RefreshCw className={`h-4 w-4 ${isRefreshingAchievements ? "animate-spin" : ""}`} />
                       Retry
                     </Button>
                   </div>

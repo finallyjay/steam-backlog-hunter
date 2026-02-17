@@ -11,6 +11,8 @@ import { EmptyState } from "@/components/ui/empty-state"
 import { useEffect } from "react"
 import { usePageTitle } from "@/components/ui/page-title-context"
 import type { SteamAchievementView } from "@/lib/types/steam"
+import { Button } from "@/components/ui/button"
+import { RefreshCw } from "lucide-react"
 
 function sortByUnlockDateDesc(a: SteamAchievementView, b: SteamAchievementView) {
   if (!a.unlocktime && !b.unlocktime) return 0
@@ -22,7 +24,14 @@ function sortByUnlockDateDesc(a: SteamAchievementView, b: SteamAchievementView) 
 export default function GameDetailPage() {
   const params = useParams<{ id: string }>()
   const appId = Number(params.id)
-  const { achievements, loading: loadingAchievements, error: errorAchievements } = useSteamAchievements(appId)
+  const {
+    achievements,
+    loading: loadingAchievements,
+    isRefreshing: isRefreshingAchievements,
+    lastUpdated,
+    error: errorAchievements,
+    refetch,
+  } = useSteamAchievements(appId)
   const { games, loading: loadingGames } = useSteamGames("all")
   const { user, loading: loadingUser } = useCurrentUser()
   const router = useRouter()
@@ -46,6 +55,7 @@ export default function GameDetailPage() {
   const locked = (Array.isArray(achievements) ? achievements : [])
     .filter((ach) => !ach.achieved)
     .sort(sortByUnlockDateDesc)
+  const updatedLabel = lastUpdated ? `Updated at ${lastUpdated.toLocaleTimeString()}` : "Not updated yet"
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted">
@@ -70,11 +80,26 @@ export default function GameDetailPage() {
             />
             <div>
               <SectionTitle className="text-lg font-bold mb-1">{game.name}</SectionTitle>
-              <div className="text-muted-foreground text-sm">{Math.round(game.playtime_forever / 60)} hours played</div>
+              <div className="text-muted-foreground text-sm">{(game.playtime_forever / 60).toFixed(1)} hours played</div>
             </div>
           </div>
         )}
-        <SectionTitle>Pending achievements</SectionTitle>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <SectionTitle className="mb-0">Pending achievements</SectionTitle>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void refetch()}
+            disabled={isRefreshingAchievements}
+            className="gap-2"
+          >
+            <RefreshCw className={`h-4 w-4 ${isRefreshingAchievements ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground mb-6">
+          {updatedLabel}
+        </p>
         {loadingAchievements ? (
           <div className="grid gap-4">
             {Array.from({ length: 5 }).map((_, i) => (

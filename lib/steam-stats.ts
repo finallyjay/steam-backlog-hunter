@@ -14,9 +14,14 @@ type CachedStatsEntry = {
 
 const statsCache = new Map<string, CachedStatsEntry>()
 
-export async function getUserStats(steamId: string): Promise<SteamStatsResponse> {
+export async function getUserStats(
+  steamId: string,
+  options?: { forceRefresh?: boolean },
+): Promise<SteamStatsResponse> {
+  const forceRefresh = options?.forceRefresh ?? false
+
   const cached = statsCache.get(steamId)
-  if (cached && cached.expiresAt > Date.now()) {
+  if (!forceRefresh && cached && cached.expiresAt > Date.now()) {
     return cached.value
   }
 
@@ -64,7 +69,7 @@ export async function getUserStats(steamId: string): Promise<SteamStatsResponse>
     const stats = {
       totalGames: games.length,
       totalAchievements,
-      totalPlaytime: Math.round(totalPlaytime / 60),
+      totalPlaytime: Number((totalPlaytime / 60).toFixed(1)),
       perfectGames,
     }
 

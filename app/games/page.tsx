@@ -3,7 +3,7 @@
 import { UserProfile } from "@/components/dashboard/user-profile"
 import { usePageTitle } from "@/components/ui/page-title-context"
 import { useCurrentUser } from "@/hooks/use-current-user"
-import { useEffect, useState, useMemo } from "react"
+import { useEffect, useState, useMemo, useCallback } from "react"
 import { getSteamImageUrl } from "@/lib/steam-api"
 import { GameCard } from "@/components/ui/game-card"
 import { useSteamAchievementsBatch } from "@/hooks/use-steam-data"
@@ -16,6 +16,8 @@ import { buildGamesWithStats, filterVisibleGames, mapOwnedGamesToGameCards, sort
 import type { SteamGamesApiResponse } from "@/lib/types/api"
 import type { SteamGame } from "@/lib/steam-api"
 import type { SteamGameCardModel } from "@/lib/types/steam"
+import { Button } from "@/components/ui/button"
+import { RefreshCw } from "lucide-react"
 
 type GamesOrder = "completed" | "alphabetical" | "achievementsAsc" | "achievementsDesc"
 
@@ -31,39 +33,60 @@ export default function GamesPage() {
   const [order, setOrder] = useState<GamesOrder>("completed")
   const [games, setGames] = useState<Array<{ id: number; name: string; image: string; playtime: number }>>([])
   const [loading, setLoading] = useState(true)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   // Fetch achievements in batch for all games
   const appIds = useMemo(() => games.map((game) => game.id), [games])
-  const { achievementsMap, loading: achievementsLoading } = useSteamAchievementsBatch(appIds.length > 0 ? appIds : [])
+  const {
+    achievementsMap,
+    loading: achievementsLoading,
+    isRefreshing: isRefreshingAchievements,
+    refetch: refetchAchievements,
+  } = useSteamAchievementsBatch(appIds.length > 0 ? appIds : [])
+  const updatedLabel = lastUpdated ? `Updated at ${lastUpdated.toLocaleTimeString()}` : "Not updated yet"
+  const refreshInProgress = isRefreshing || isRefreshingAchievements
+
+  const loadGames = useCallback(async (options?: { manual?: boolean }) => {
+    try {
+      setError(null)
+      if (options?.manual) {
+        setIsRefreshing(true)
+      } else {
+        setLoading(true)
+      }
+
+      const gamesRes = await fetch("/api/steam/games?type=all")
+      if (!gamesRes.ok) throw new Error("Could not fetch games")
+      const gamesData = (await gamesRes.json()) as SteamGamesApiResponse
+      if (!("games" in gamesData) || !Array.isArray(gamesData.games)) {
+        throw new Error("Invalid games response")
+      }
+      const ownedGames: SteamGame[] = gamesData.games
+
+      const allowedIds = await getAllowedGameIdsClient()
+      const filteredGames = mapOwnedGamesToGameCards(ownedGames, allowedIds, (appid, imgHash) =>
+        getSteamImageUrl(appid, imgHash),
+      )
+      setGames(filteredGames)
+      setLastUpdated(new Date())
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unknown error")
+    } finally {
+      setLoading(false)
+      setIsRefreshing(false)
+    }
+  }, [])
 
   useEffect(() => {
-    async function fetchData() {
-      try {
-        setLoading(true)
+    void loadGames()
+  }, [loadGames])
 
-        // Fetch games from endpoint
-        const gamesRes = await fetch("/api/steam/games?type=all")
-        if (!gamesRes.ok) throw new Error("Could not fetch games")
-        const gamesData = (await gamesRes.json()) as SteamGamesApiResponse
-        if (!("games" in gamesData) || !Array.isArray(gamesData.games)) {
-          throw new Error("Invalid games response")
-        }
-        const ownedGames: SteamGame[] = gamesData.games
-
-        const allowedIds = await getAllowedGameIdsClient()
-        const filteredGames = mapOwnedGamesToGameCards(ownedGames, allowedIds, (appid, imgHash) =>
-          getSteamImageUrl(appid, imgHash),
-        )
-        setGames(filteredGames)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Unknown error")
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchData()
-  }, [])
+  const handleRefresh = useCallback(async () => {
+    await loadGames({ manual: true })
+    await refetchAchievements()
+  }, [loadGames, refetchAchievements])
 
   // Calculate % achievements and completion status
   const gamesWithStats = useMemo(
@@ -86,7 +109,24 @@ export default function GamesPage() {
     <PageContainer>
       <div className="grid gap-8">
         <UserProfile user={user} />
-        <GamesFilterBar order={order} setOrder={setOrder} showCompleted={showCompleted} setShowCompleted={setShowCompleted} />
+        <div className="space-y-2">
+          <GamesFilterBar order={order} setOrder={setOrder} showCompleted={showCompleted} setShowCompleted={setShowCompleted} />
+          <div className="flex items-center justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={refreshInProgress}
+              className="gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${refreshInProgress ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {updatedLabel}
+          </p>
+        </div>
         {loading ? (
           <p className="text-center text-muted-foreground">Loading games...</p>
         ) : error ? (

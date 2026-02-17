@@ -40,7 +40,7 @@ export function GameCard({ id, name, image, playtime, achievements = [], achieve
         {playtime !== undefined && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Clock className="h-3 w-3" />
-            <span>{playtime} hours</span>
+            <span>{playtime.toFixed(1)} hours</span>
           </div>
         )}
         <div className="mt-2">
