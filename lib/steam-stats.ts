@@ -1,32 +1,29 @@
 import "server-only"
 
 import { getAllowedGameIdsServer } from "@/lib/allowed-games"
-import { getOwnedGames, getPlayerAchievements } from "@/lib/steam-api"
+import { buildCacheKey, getJson, setJson } from "@/lib/server/cache"
+import { getOwnedGamesCached, getPlayerAchievementsCached } from "@/lib/steam-api-cached"
 import type { SteamStatsResponse } from "@/lib/types/steam"
 
-const STATS_CACHE_TTL_MS = 2 * 60 * 1000
+const STATS_CACHE_TTL_SECONDS = 2 * 60
 const ACHIEVEMENTS_CONCURRENCY = 8
-
-type CachedStatsEntry = {
-  expiresAt: number
-  value: SteamStatsResponse
-}
-
-const statsCache = new Map<string, CachedStatsEntry>()
 
 export async function getUserStats(
   steamId: string,
   options?: { forceRefresh?: boolean },
 ): Promise<SteamStatsResponse> {
   const forceRefresh = options?.forceRefresh ?? false
+  const key = buildCacheKey(["stats", steamId])
 
-  const cached = statsCache.get(steamId)
-  if (!forceRefresh && cached && cached.expiresAt > Date.now()) {
-    return cached.value
+  if (!forceRefresh) {
+    const cached = await getJson<SteamStatsResponse>(key)
+    if (cached) {
+      return cached
+    }
   }
 
   try {
-    const games = await getOwnedGames(steamId)
+    const games = await getOwnedGamesCached(steamId, { forceRefresh })
 
     let totalAchievements = 0
     let perfectGames = 0
@@ -44,7 +41,7 @@ export async function getUserStats(
     for (let index = 0; index < sampleGames.length; index += ACHIEVEMENTS_CONCURRENCY) {
       const chunk = sampleGames.slice(index, index + ACHIEVEMENTS_CONCURRENCY)
       const chunkResults = await Promise.allSettled(
-        chunk.map((game) => getPlayerAchievements(steamId, game.appid)),
+        chunk.map((game) => getPlayerAchievementsCached(steamId, game.appid, { forceRefresh })),
       )
 
       for (const result of chunkResults) {
@@ -73,10 +70,7 @@ export async function getUserStats(
       perfectGames,
     }
 
-    statsCache.set(steamId, {
-      value: stats,
-      expiresAt: Date.now() + STATS_CACHE_TTL_MS,
-    })
+    await setJson(key, stats, STATS_CACHE_TTL_SECONDS)
 
     return stats
   } catch (error) {

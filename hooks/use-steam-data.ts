@@ -56,7 +56,8 @@ export function useSteamAchievementsBatch(appIds: number[]) {
         const entries = await Promise.all(
           filteredAppIds.map(async (appId): Promise<[number, SteamAchievementView[]]> => {
             try {
-              const response = await fetch(`/api/steam/achievements?appId=${appId}`)
+              const query = options?.manual ? "&refresh=1" : ""
+              const response = await fetch(`/api/steam/achievements?appId=${appId}${query}`)
               if (!response.ok) {
                 return [appId, []]
               }
@@ -125,7 +126,8 @@ export function useSteamGames(type: "recent" | "all" = "recent") {
       setError(null)
 
       try {
-        const response = await fetch(`/api/steam/games?type=${type}`)
+        const query = options?.manual ? "&refresh=1" : ""
+        const response = await fetch(`/api/steam/games?type=${type}${query}`)
         if (!response.ok) {
           throw new Error("Failed to fetch games")
         }
@@ -275,7 +277,8 @@ export function useSteamAchievements(appId: number | null) {
           return
         }
 
-        const response = await fetch(`/api/steam/achievements?appId=${appId}`)
+        const query = options?.manual ? "&refresh=1" : ""
+        const response = await fetch(`/api/steam/achievements?appId=${appId}${query}`)
         if (!response.ok) {
           throw new Error("Failed to fetch achievements")
         }

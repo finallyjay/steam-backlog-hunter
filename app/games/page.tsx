@@ -57,7 +57,8 @@ export default function GamesPage() {
         setLoading(true)
       }
 
-      const gamesRes = await fetch("/api/steam/games?type=all")
+      const query = options?.manual ? "&refresh=1" : ""
+      const gamesRes = await fetch(`/api/steam/games?type=all${query}`)
       if (!gamesRes.ok) throw new Error("Could not fetch games")
       const gamesData = (await gamesRes.json()) as SteamGamesApiResponse
       if (!("games" in gamesData) || !Array.isArray(gamesData.games)) {
