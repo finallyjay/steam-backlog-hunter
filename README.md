@@ -22,11 +22,10 @@ Create a `.env.local` file:
 STEAM_API_KEY=your_steam_web_api_key
 NEXTAUTH_URL=http://localhost:3000
 STEAM_WHITELIST_IDS=76561198000000000,76561198000000001
-REDIS_URL=https://your-upstash-redis-url
-REDIS_TOKEN=your_upstash_redis_token
+REDIS_URL=redis://:password@redis-host:6379/0
 ```
 
-`REDIS_TOKEN` is provider-specific. With Upstash REST Redis, both `REDIS_URL` and `REDIS_TOKEN` are required.
+Use a standard Redis connection URL (works with self-hosted Redis, Dokploy service Redis, managed Redis providers, and `rediss://` URLs).
 
 ## Local Commands
 

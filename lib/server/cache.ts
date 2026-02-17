@@ -67,15 +67,16 @@ export async function getJson<T>(key: string): Promise<T | null> {
   }
 
   try {
-    const value = await redis.get<T>(key)
+    const value = await redis.get(key)
 
     if (value === null || value === undefined) {
       logCacheEvent("cache_miss", key)
       return null
     }
 
+    const parsed = JSON.parse(value) as T
     logCacheEvent("cache_hit", key)
-    return value
+    return parsed
   } catch (error) {
     logCacheEvent("cache_error", key, error)
     return null
@@ -89,7 +90,7 @@ export async function setJson<T>(key: string, value: T, ttlSeconds: number): Pro
   }
 
   try {
-    await redis.set(key, value, { ex: ttlSeconds })
+    await redis.set(key, JSON.stringify(value), "EX", ttlSeconds)
     logCacheEvent("cache_write", key)
   } catch (error) {
     logCacheEvent("cache_error", key, error)

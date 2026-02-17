@@ -1,6 +1,6 @@
 import "server-only"
 
-import { Redis } from "@upstash/redis"
+import Redis from "ioredis"
 
 let redisClient: Redis | null | undefined
 let hasLoggedRedisWarning = false
@@ -20,14 +20,21 @@ export function getRedisClient(): Redis | null {
   }
 
   const url = process.env.REDIS_URL
-  const token = process.env.REDIS_TOKEN
 
-  if (!url || !token) {
+  if (!url) {
     logRedisWarning("[cache] Redis not configured; falling back to direct Steam API fetches")
     redisClient = null
     return redisClient
   }
 
-  redisClient = new Redis({ url, token })
+  redisClient = new Redis(url, {
+    maxRetriesPerRequest: 1,
+    enableAutoPipelining: true,
+  })
+
+  redisClient.on("error", (error) => {
+    console.error("[cache] Redis client error", error)
+  })
+
   return redisClient
 }
