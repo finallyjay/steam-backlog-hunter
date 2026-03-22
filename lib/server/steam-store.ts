@@ -68,6 +68,10 @@ function nowIso() {
   return new Date().toISOString()
 }
 
+function nullIfUndefined<T>(value: T | undefined): T | null {
+  return value === undefined ? null : value
+}
+
 function parseIsoTimestamp(value: string | null | undefined) {
   if (!value) {
     return null
@@ -253,8 +257,8 @@ function persistOwnedGames(steamId: string, games: SteamGame[]) {
       insertGame.run(
         game.appid,
         game.name,
-        game.img_icon_url,
-        game.img_logo_url,
+        nullIfUndefined(game.img_icon_url),
+        nullIfUndefined(game.img_logo_url),
         typeof game.has_community_visible_stats === "boolean" ? Number(game.has_community_visible_stats) : null,
         now,
         now,
@@ -264,7 +268,7 @@ function persistOwnedGames(steamId: string, games: SteamGame[]) {
         steamId,
         game.appid,
         game.playtime_forever,
-        game.playtime_2weeks ?? null,
+        nullIfUndefined(game.playtime_2weeks),
         now,
         now,
         now,

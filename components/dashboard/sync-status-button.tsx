@@ -24,6 +24,11 @@ type SyncResultResponse = {
   }
 }
 
+type ApiErrorResponse = {
+  error?: string
+  details?: string
+}
+
 function formatTimestamp(value: string | null) {
   if (!value) {
     return "Not synced yet"
@@ -72,7 +77,8 @@ export function SyncStatusButton() {
       })
 
       if (!response.ok) {
-        throw new Error("Failed to synchronize Steam data")
+        const errorData = (await response.json().catch(() => null)) as ApiErrorResponse | null
+        throw new Error(errorData?.details || errorData?.error || "Failed to synchronize Steam data")
       }
 
       const data = (await response.json()) as SyncResultResponse
@@ -85,7 +91,7 @@ export function SyncStatusButton() {
       console.error("Steam sync error:", error)
       toast({
         title: "Steam sync failed",
-        description: "The full synchronization could not be completed.",
+        description: error instanceof Error ? error.message : "The full synchronization could not be completed.",
         variant: "destructive",
       })
     } finally {
