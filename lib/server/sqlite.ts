@@ -40,6 +40,8 @@ function initializeSchema(db: DatabaseSync) {
       name TEXT NOT NULL,
       icon_hash TEXT,
       logo_hash TEXT,
+      header_image_url TEXT,
+      header_image_synced_at TEXT,
       has_community_visible_stats INTEGER,
       schema_json TEXT,
       schema_synced_at TEXT,
@@ -102,10 +104,13 @@ function initializeSchema(db: DatabaseSync) {
   `)
 
   const statsSnapshotColumns = db.prepare("PRAGMA table_info(stats_snapshot)").all() as Array<{ name: string }>
+  const gamesColumns = db.prepare("PRAGMA table_info(games)").all() as Array<{ name: string }>
   const hasPendingAchievementsColumn = statsSnapshotColumns.some((column) => column.name === "pending_achievements")
   const hasStartedGamesColumn = statsSnapshotColumns.some((column) => column.name === "started_games")
   const hasSteamAverageCompletionColumn = statsSnapshotColumns.some((column) => column.name === "steam_average_completion")
   const hasLibraryAverageCompletionColumn = statsSnapshotColumns.some((column) => column.name === "library_average_completion")
+  const hasHeaderImageUrlColumn = gamesColumns.some((column) => column.name === "header_image_url")
+  const hasHeaderImageSyncedAtColumn = gamesColumns.some((column) => column.name === "header_image_synced_at")
 
   if (!hasPendingAchievementsColumn) {
     db.exec("ALTER TABLE stats_snapshot ADD COLUMN pending_achievements INTEGER NOT NULL DEFAULT 0;")
@@ -121,6 +126,14 @@ function initializeSchema(db: DatabaseSync) {
 
   if (!hasLibraryAverageCompletionColumn) {
     db.exec("ALTER TABLE stats_snapshot ADD COLUMN library_average_completion REAL NOT NULL DEFAULT 0;")
+  }
+
+  if (!hasHeaderImageUrlColumn) {
+    db.exec("ALTER TABLE games ADD COLUMN header_image_url TEXT;")
+  }
+
+  if (!hasHeaderImageSyncedAtColumn) {
+    db.exec("ALTER TABLE games ADD COLUMN header_image_synced_at TEXT;")
   }
 
   reseedTrackedGames(db)

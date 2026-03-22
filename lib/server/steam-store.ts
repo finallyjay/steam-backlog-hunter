@@ -1,6 +1,6 @@
 import "server-only"
 
-import { getGameSchema, getOwnedGames, getPlayerAchievements, getRecentlyPlayedGames, type SteamGame } from "@/lib/steam-api"
+import { getGameSchema, getOwnedGames, getPlayerAchievements, getRecentlyPlayedGames, getStoreHeaderImages, type SteamGame } from "@/lib/steam-api"
 import { getTrackedGameIdsServer } from "@/lib/server/tracked-games"
 import type { SteamAchievementView, SteamStatsResponse } from "@/lib/types/steam"
 import { getSqliteDatabase } from "@/lib/server/sqlite"
@@ -11,6 +11,8 @@ const ACHIEVEMENTS_STALE_MS = 7 * 24 * 60 * 60 * 1000
 const SCHEMA_STALE_MS = 30 * 24 * 60 * 60 * 1000
 const STATS_STALE_MS = 15 * 60 * 1000
 const ACHIEVEMENTS_CONCURRENCY = 8
+const HEADER_IMAGES_STALE_MS = 30 * 24 * 60 * 60 * 1000
+const STORE_IMAGES_BATCH_SIZE = 50
 
 type NullableStringRecord = Record<string, string | null | undefined>
 
@@ -21,6 +23,8 @@ type GameRow = {
   playtime_2weeks: number | null
   img_icon_url: string | null
   img_logo_url: string | null
+  header_image_url: string | null
+  header_image_synced_at: string | null
   has_community_visible_stats: number | null
 }
 
@@ -170,6 +174,7 @@ function mapRowToSteamGame(row: GameRow): SteamGame {
     playtime_2weeks: row.playtime_2weeks ?? undefined,
     img_icon_url: row.img_icon_url ?? "",
     img_logo_url: row.img_logo_url ?? "",
+    header_image_url: row.header_image_url ?? undefined,
     has_community_visible_stats: row.has_community_visible_stats === null
       ? undefined
       : row.has_community_visible_stats === 1,
@@ -186,6 +191,8 @@ function getStoredOwnedGames(steamId: string): SteamGame[] {
       ug.playtime_2weeks,
       g.icon_hash AS img_icon_url,
       g.logo_hash AS img_logo_url,
+      g.header_image_url,
+      g.header_image_synced_at,
       g.has_community_visible_stats
     FROM user_games ug
     INNER JOIN games g ON g.appid = ug.appid
@@ -206,6 +213,8 @@ function getStoredGame(steamId: string, appId: number): SteamGame | null {
       ug.playtime_2weeks,
       g.icon_hash AS img_icon_url,
       g.logo_hash AS img_logo_url,
+      g.header_image_url,
+      g.header_image_synced_at,
       g.has_community_visible_stats
     FROM user_games ug
     INNER JOIN games g ON g.appid = ug.appid
@@ -226,14 +235,16 @@ function persistOwnedGames(steamId: string, games: SteamGame[]) {
       name,
       icon_hash,
       logo_hash,
+      header_image_url,
       has_community_visible_stats,
       created_at,
       updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(appid) DO UPDATE SET
       name = excluded.name,
       icon_hash = excluded.icon_hash,
       logo_hash = excluded.logo_hash,
+      header_image_url = COALESCE(games.header_image_url, excluded.header_image_url),
       has_community_visible_stats = excluded.has_community_visible_stats,
       updated_at = excluded.updated_at
   `)
@@ -274,6 +285,7 @@ function persistOwnedGames(steamId: string, games: SteamGame[]) {
         game.name,
         nullIfUndefined(game.img_icon_url),
         nullIfUndefined(game.img_logo_url),
+        nullIfUndefined(game.header_image_url),
         typeof game.has_community_visible_stats === "boolean" ? Number(game.has_community_visible_stats) : null,
         now,
         now,
@@ -297,6 +309,79 @@ function persistOwnedGames(steamId: string, games: SteamGame[]) {
   }
 
   markProfileSync(steamId, "last_owned_games_sync_at", now)
+}
+
+function getGamesMissingHeaderImages(appIds: number[]) {
+  if (appIds.length === 0) {
+    return []
+  }
+
+  const db = getSqliteDatabase()
+  const rows = db.prepare(`
+    SELECT appid, header_image_url, header_image_synced_at
+    FROM games
+    WHERE appid IN (${appIds.map(() => "?").join(",")})
+  `).all(...appIds) as Array<{ appid: number; header_image_url: string | null; header_image_synced_at: string | null }>
+
+  return rows
+    .filter((row) => !row.header_image_url || isStale(row.header_image_synced_at, HEADER_IMAGES_STALE_MS))
+    .map((row) => row.appid)
+}
+
+function persistHeaderImages(headerImages: Record<number, string>) {
+  const db = getSqliteDatabase()
+  const now = nowIso()
+  const updateGameHeaderImage = db.prepare(`
+    UPDATE games
+    SET
+      header_image_url = ?,
+      header_image_synced_at = ?,
+      updated_at = ?
+    WHERE appid = ?
+  `)
+
+  const markHeaderImageChecked = db.prepare(`
+    UPDATE games
+    SET
+      header_image_synced_at = ?,
+      updated_at = ?
+    WHERE appid = ?
+  `)
+
+  db.exec("BEGIN")
+  try {
+    for (const [appIdString, url] of Object.entries(headerImages)) {
+      updateGameHeaderImage.run(url, now, now, Number(appIdString))
+    }
+    db.exec("COMMIT")
+  } catch (error) {
+    db.exec("ROLLBACK")
+    throw error
+  }
+
+  const fetchedIds = new Set(Object.keys(headerImages).map(Number))
+  return { now, fetchedIds, markHeaderImageChecked }
+}
+
+async function ensureHeaderImages(appIds: number[]) {
+  const missingOrStaleIds = getGamesMissingHeaderImages(appIds)
+  if (missingOrStaleIds.length === 0) {
+    return
+  }
+
+  const db = getSqliteDatabase()
+
+  for (let index = 0; index < missingOrStaleIds.length; index += STORE_IMAGES_BATCH_SIZE) {
+    const batch = missingOrStaleIds.slice(index, index + STORE_IMAGES_BATCH_SIZE)
+    const headerImages = await getStoreHeaderImages(batch)
+    const { now, fetchedIds, markHeaderImageChecked } = persistHeaderImages(headerImages)
+
+    for (const appId of batch) {
+      if (!fetchedIds.has(appId)) {
+        markHeaderImageChecked.run(now, now, appId)
+      }
+    }
+  }
 }
 
 function persistRecentGames(steamId: string, games: SteamGame[]) {
@@ -476,11 +561,13 @@ async function ensureOwnedGamesSynced(steamId: string, options?: { forceRefresh?
   const existingGames = getStoredOwnedGames(steamId)
 
   if (!shouldRefresh && existingGames.length > 0) {
+    await ensureHeaderImages(existingGames.map((game) => game.appid))
     return existingGames
   }
 
   const games = await getOwnedGames(steamId)
   persistOwnedGames(steamId, games)
+  await ensureHeaderImages(games.map((game) => game.appid))
   return getStoredOwnedGames(steamId)
 }
 

@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { useEffect, useState } from "react"
 import { Clock, Trophy } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
 import type { SteamAchievementView } from "@/lib/types/steam"
@@ -15,7 +16,19 @@ interface GameCardProps {
   href?: string
 }
 
+function getSteamCapsuleImageUrl(id: number | string) {
+  return `https://shared.steamstatic.com/store_item_assets/steam/apps/${id}/capsule_231x87.jpg`
+}
+
 export function GameCard({ id, name, image, playtime, achievements = [], achievementsLoading = false, href }: GameCardProps) {
+  const [imageSrc, setImageSrc] = useState(image || "/placeholder.svg")
+  const [fallbackStage, setFallbackStage] = useState<"primary" | "capsule" | "generic" | "placeholder">("primary")
+
+  useEffect(() => {
+    setImageSrc(image || "/placeholder.svg")
+    setFallbackStage("primary")
+  }, [image])
+
   const unlocked = achievements.filter((achievement) => achievement.achieved === 1).length
   const total = achievements.length
   const percent = total > 0 ? Math.round((unlocked / total) * 100) : 0
@@ -30,11 +43,26 @@ export function GameCard({ id, name, image, playtime, achievements = [], achieve
     >
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
       <img
-        src={image || "/placeholder.svg"}
+        src={imageSrc}
         alt={name}
         className="h-auto min-h-[5.9rem] w-48 rounded-2xl border border-white/10 bg-slate-900/70 object-cover shadow-lg"
-        onError={(e) => {
-          e.currentTarget.src = "/generic-game-icon.png"
+        onError={() => {
+          if (fallbackStage === "primary") {
+            setImageSrc(getSteamCapsuleImageUrl(id))
+            setFallbackStage("capsule")
+            return
+          }
+
+          if (fallbackStage === "capsule") {
+            setImageSrc("/generic-game-icon.png")
+            setFallbackStage("generic")
+            return
+          }
+
+          if (fallbackStage === "generic") {
+            setImageSrc("/placeholder.svg")
+            setFallbackStage("placeholder")
+          }
         }}
       />
       <div className="flex-1 min-w-0">

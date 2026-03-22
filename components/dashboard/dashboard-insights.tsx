@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { useEffect, useMemo, useState } from "react"
 import { Pie, PieChart, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis } from "recharts"
 import { Activity, PieChart as PieChartIcon, Trophy } from "lucide-react"
@@ -22,9 +23,22 @@ type ChartKind = "donut" | "bars"
 
 const CHART_COLORS = ["#61ceff", "#53d1a8", "#f3c969", "#2d415c", "#f58f74"]
 
-function MetricLegend({ label, value, color }: { label: string; value: number; color: string }) {
-  return (
-    <div className="flex items-center justify-between rounded-xl border border-white/8 bg-white/4 px-3 py-2">
+function MetricLegend({
+  label,
+  value,
+  color,
+  href,
+}: {
+  label: string
+  value: number
+  color: string
+  href?: string
+}) {
+  const content = (
+    <div
+      className="flex items-center justify-between rounded-xl border border-white/8 bg-white/4 px-3 py-2 transition-colors"
+      style={href ? { borderColor: `${color}33` } : undefined}
+    >
       <div className="flex items-center gap-2">
         <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
         <span className="text-sm text-muted-foreground">{label}</span>
@@ -33,6 +47,27 @@ function MetricLegend({ label, value, color }: { label: string; value: number; c
         <AnimatedNumber value={value} />
       </span>
     </div>
+  )
+
+  if (href) {
+    return (
+      <Link
+        href={href}
+        className="block rounded-xl transition-transform hover:-translate-y-0.5"
+        style={{ ["--hover-color" as string]: color }}
+      >
+        <div
+          className="rounded-xl hover:bg-white/6"
+          style={{ boxShadow: `inset 0 0 0 1px ${color}22` }}
+        >
+          {content}
+        </div>
+      </Link>
+    )
+  }
+
+  return (
+    content
   )
 }
 
@@ -43,6 +78,7 @@ function InsightCard({
   insight,
   loading,
   chartKind = "donut",
+  links,
 }: {
   title: string
   description: string
@@ -50,6 +86,7 @@ function InsightCard({
   insight: string
   loading: boolean
   chartKind?: ChartKind
+  links?: Record<string, string>
 }) {
   const chartData = data.map((entry, index) => ({ ...entry, color: CHART_COLORS[index] }))
 
@@ -118,7 +155,13 @@ function InsightCard({
 
       <div className="space-y-3">
         {chartData.map((entry) => (
-          <MetricLegend key={entry.name} label={entry.name} value={entry.value} color={entry.color} />
+          <MetricLegend
+            key={entry.name}
+            label={entry.name}
+            value={entry.value}
+            color={entry.color}
+            href={links?.[entry.name]}
+          />
         ))}
       </div>
     </div>
@@ -282,6 +325,11 @@ export function DashboardInsights({ stats, loading = false }: DashboardInsightsP
             insight={trackableModel.insight}
             loading={loading}
             chartKind="donut"
+            links={trackableMetric === "completion" ? {
+              Perfect: "/games?scope=tracked&bucket=perfect",
+              Started: "/games?scope=tracked&bucket=started",
+              Untouched: "/games?scope=tracked&bucket=untouched",
+            } : undefined}
           />
         </CardContent>
       </Card>
@@ -319,6 +367,10 @@ export function DashboardInsights({ stats, loading = false }: DashboardInsightsP
             insight={libraryModel.insight}
             loading={allGamesLoading}
             chartKind={libraryModel.chartKind}
+            links={libraryMetric === "state" ? {
+              Played: "/games?state=played",
+              Unplayed: "/games?state=unplayed",
+            } : undefined}
           />
         </CardContent>
       </Card>
