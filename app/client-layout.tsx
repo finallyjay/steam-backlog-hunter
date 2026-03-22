@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import { Analytics } from '@vercel/analytics/next'
 import { Skeleton } from '@/components/ui/skeleton'
 import { usePageTitle } from '@/components/ui/page-title-context'
+import { Toaster } from '@/components/ui/toaster'
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -38,6 +39,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       <div className="min-h-screen">
         {children}
       </div>
+      <Toaster />
       <Analytics />
     </>
   )

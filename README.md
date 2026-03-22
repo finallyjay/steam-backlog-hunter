@@ -22,7 +22,7 @@ Create a `.env.local` file:
 STEAM_API_KEY=your_steam_web_api_key
 NEXTAUTH_URL=http://localhost:3000
 STEAM_WHITELIST_IDS=76561198000000000,76561198000000001
-REDIS_URL=redis://:password@redis-host:6379/0
+SQLITE_PATH=/absolute/path/to/steam-achievements-tracker.sqlite
 ```
 
 Use a standard Redis connection URL (works with self-hosted Redis, Dokploy service Redis, managed Redis providers, and `rediss://` URLs).
@@ -44,26 +44,20 @@ Use a standard Redis connection URL (works with self-hosted Redis, Dokploy servi
 - Non-whitelisted users are redirected to `/?error=not_whitelisted`.
 - Existing sessions are re-validated when reading auth state and are cleared if no longer authorized.
 
-## Redis Cache Persistence
+## SQLite Persistence
 
-- Redis is used as a read-through cache (Steam is still source of truth).
-- Cache key namespace: `sat:v1:*`
-- TTL defaults:
-1. Stats: 2 minutes
-2. Games (`recent` / `all`): 10 minutes
-3. Achievements: 10 minutes
-- Manual refresh in UI sends `refresh=1` and bypasses cache reads for that request.
-- If Redis is not configured or unavailable, API routes fall back to direct Steam fetches.
+- SQLite is the primary persistent store for owned games, achievement snapshots, schemas, and aggregated stats.
+- Default path resolution:
+1. `SQLITE_PATH`, if set
+2. `/data/steam-achievements-tracker.sqlite`, if `/data` exists and is writable
+3. `.data/steam-achievements-tracker.sqlite` inside the project directory
+- For Dokploy/Nixpacks, mount a persistent volume and point `SQLITE_PATH` to that volume. A safe default is `/data/steam-achievements-tracker.sqlite`.
+- The first requests populate the database; after that, reads come from SQLite and Steam is only queried on stale data or manual refresh.
 
-### Cache Flush Runbook
+## Manual Resync
 
-For emergency invalidation, delete keys by prefix:
-
-```bash
-redis-cli --scan --pattern 'sat:v1:*' | xargs redis-cli del
-```
-
-If your provider does not expose `redis-cli`, use its dashboard/CLI to remove the same prefix pattern.
+- `POST /api/steam/sync` forces a full sync for the authenticated user and refreshes owned games, recent games, achievements, and stats snapshots.
+- `GET /api/steam/sync` returns the timestamps of the last owned-games, recent-games, and stats syncs so the UI can show sync state.
 
 ## CI
 

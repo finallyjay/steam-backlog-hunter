@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getCurrentUser } from "@/app/lib/server-auth"
-import { getOwnedGamesCached, getRecentlyPlayedGamesCached } from "@/lib/steam-api-cached"
+import { getOwnedGamesForUser, getRecentlyPlayedGamesForUser } from "@/lib/server/steam-store"
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,9 +15,9 @@ export async function GET(request: NextRequest) {
 
     let games
     if (type === "all") {
-      games = await getOwnedGamesCached(user.steamId, { forceRefresh })
+      games = await getOwnedGamesForUser(user.steamId, { forceRefresh })
     } else {
-      games = await getRecentlyPlayedGamesCached(user.steamId, { forceRefresh })
+      games = await getRecentlyPlayedGamesForUser(user.steamId, { forceRefresh })
     }
 
     return NextResponse.json({ games })

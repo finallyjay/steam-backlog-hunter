@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getCurrentUser } from "@/app/lib/server-auth"
-import { getEnrichedPlayerAchievementsCached } from "@/lib/steam-api-cached"
+import { getAchievementsForGame } from "@/lib/server/steam-store"
 
 export async function GET(request: NextRequest) {
   try {
@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "App ID required" }, { status: 400 })
     }
 
-    const achievements = await getEnrichedPlayerAchievementsCached(user.steamId, Number(appId), { forceRefresh })
+    const achievements = await getAchievementsForGame(user.steamId, Number(appId), { forceRefresh })
     if (!achievements) {
       return NextResponse.json({ error: "Failed to fetch achievements" }, { status: 404 })
     }

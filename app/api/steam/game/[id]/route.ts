@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { getCurrentUser } from "@/app/lib/server-auth"
-import { getOwnedGames } from "@/lib/steam-api"
+import { getStoredGameForUser } from "@/lib/server/steam-store"
 
 export async function GET(
   _request: Request,
@@ -16,9 +16,7 @@ export async function GET(
     return NextResponse.json({ error: "App ID required" }, { status: 400 })
   }
 
-  // Find the game in the user's owned games list
-  const games = await getOwnedGames(user.steamId)
-  const game = games.find((g) => g.appid.toString() === appId)
+  const game = await getStoredGameForUser(user.steamId, Number(appId))
 
   if (!game) {
     return NextResponse.json({ error: "Game not found" }, { status: 404 })

@@ -7,6 +7,7 @@ import type { SteamUser } from "@/lib/auth"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import React from "react"
+import { SyncStatusButton } from "@/components/dashboard/sync-status-button"
 
 interface DashboardHeaderProps {
   user: SteamUser
@@ -41,6 +42,8 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
           </div>
 
           <div className="flex items-center gap-4">
+            <SyncStatusButton />
+
             <Link href="/dashboard" className="flex items-center gap-3 hover:underline">
               <img
                 src={user.avatar || "/placeholder.svg"}
