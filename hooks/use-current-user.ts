@@ -61,10 +61,14 @@ async function ensureCurrentUserLoaded(): Promise<void> {
 }
 
 export function useCurrentUser() {
-  const [state, setState] = useState<CurrentUserState>(currentUserState)
+  const [state, setState] = useState<CurrentUserState>({
+    user: null,
+    loading: true,
+  })
 
   useEffect(() => {
     listeners.add(setState)
+    setState(currentUserState)
     void ensureCurrentUserLoaded()
     return () => {
       listeners.delete(setState)

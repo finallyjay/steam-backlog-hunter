@@ -38,14 +38,20 @@ export default function GameDetailPage() {
   const { setTitle } = usePageTitle()
   useEffect(() => {
     setTitle("")
+    return () => setTitle("")
   }, [setTitle])
+
+  useEffect(() => {
+    if (!loadingUser && !user) {
+      router.push("/")
+    }
+  }, [loadingUser, router, user])
 
   // User protection
   if (loadingUser) {
     return <LoadingMessage />
   }
   if (!user) {
-    router.push("/")
     return null
   }
 

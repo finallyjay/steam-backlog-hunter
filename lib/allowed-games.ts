@@ -8,26 +8,23 @@ export function parseAllowedGameIds(games: AllowedSteamGame[]): Set<string> {
 
 export async function getAllowedGameIdsClient(): Promise<Set<string>> {
   if (!clientAllowedIdsPromise) {
-    clientAllowedIdsPromise = fetch("/steam_games_with_achievements.json")
+    clientAllowedIdsPromise = fetch("/api/steam/tracked-games")
       .then((response) => {
         if (!response.ok) {
-          throw new Error("Failed to fetch allowed games")
+          throw new Error("Failed to fetch tracked games")
         }
-        return response.json() as Promise<AllowedSteamGame[]>
+        return response.json() as Promise<{ appIds?: number[] } | AllowedSteamGame[]>
       })
-      .then(parseAllowedGameIds)
+      .then((data) => {
+        if (Array.isArray(data)) {
+          return parseAllowedGameIds(data)
+        }
+
+        return new Set((data.appIds || []).map((id) => String(id)))
+      })
   }
 
   return clientAllowedIdsPromise
-}
-
-export async function getAllowedGameIdsServer(): Promise<Set<string>> {
-  const { readFile } = await import("node:fs/promises")
-  const { join } = await import("node:path")
-  const jsonPath = join(process.cwd(), "public", "steam_games_with_achievements.json")
-  const rawJson = await readFile(jsonPath, "utf-8")
-  const games = JSON.parse(rawJson) as AllowedSteamGame[]
-  return parseAllowedGameIds(games)
 }
 
 export function __resetAllowedGamesClientCache(): void {

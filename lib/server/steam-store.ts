@@ -1,7 +1,7 @@
 import "server-only"
 
-import { getAllowedGameIdsServer } from "@/lib/allowed-games"
 import { getGameSchema, getOwnedGames, getPlayerAchievements, getRecentlyPlayedGames, type SteamGame } from "@/lib/steam-api"
+import { getTrackedGameIdsServer } from "@/lib/server/tracked-games"
 import type { SteamAchievementView, SteamStatsResponse } from "@/lib/types/steam"
 import { getSqliteDatabase } from "@/lib/server/sqlite"
 
@@ -32,6 +32,7 @@ type RecentSnapshotRow = {
 type StatsSnapshotRow = {
   total_games: number
   total_achievements: number
+  pending_achievements: number
   total_playtime_minutes: number
   perfect_games: number
   computed_at: string
@@ -100,6 +101,18 @@ function parseJson<T>(value: string | null | undefined): T | null {
   } catch {
     return null
   }
+}
+
+function markGameAsTracked(appId: number, source: "seed" | "discovered" | "manual" = "discovered") {
+  const db = getSqliteDatabase()
+  const now = nowIso()
+
+  db.prepare(`
+    INSERT INTO tracked_games (appid, source, created_at, updated_at)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(appid) DO UPDATE SET
+      updated_at = excluded.updated_at
+  `).run(appId, source, now, now)
 }
 
 function upsertProfile(steamId: string) {
@@ -340,6 +353,10 @@ function persistSchema(appId: number, schema: GameSchema | null) {
     SET schema_json = ?, schema_synced_at = ?, updated_at = ?
     WHERE appid = ?
   `).run(schema ? JSON.stringify(schema) : null, now, now, appId)
+
+  if (schema?.availableGameStats?.achievements?.length) {
+    markGameAsTracked(appId, "discovered")
+  }
 }
 
 function getStoredSchema(appId: number) {
@@ -388,14 +405,16 @@ function persistStatsSnapshot(steamId: string, stats: SteamStatsResponse) {
       steam_id,
       total_games,
       total_achievements,
+      pending_achievements,
       total_playtime_minutes,
       perfect_games,
       computed_at,
       updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(steam_id) DO UPDATE SET
       total_games = excluded.total_games,
       total_achievements = excluded.total_achievements,
+      pending_achievements = excluded.pending_achievements,
       total_playtime_minutes = excluded.total_playtime_minutes,
       perfect_games = excluded.perfect_games,
       computed_at = excluded.computed_at,
@@ -404,6 +423,7 @@ function persistStatsSnapshot(steamId: string, stats: SteamStatsResponse) {
     steamId,
     stats.totalGames,
     stats.totalAchievements,
+    stats.pendingAchievements,
     Math.round(stats.totalPlaytime * 60),
     stats.perfectGames,
     now,
@@ -414,7 +434,7 @@ function persistStatsSnapshot(steamId: string, stats: SteamStatsResponse) {
 function getStoredStatsSnapshot(steamId: string) {
   const db = getSqliteDatabase()
   return db.prepare(`
-    SELECT total_games, total_achievements, total_playtime_minutes, perfect_games, computed_at
+    SELECT total_games, total_achievements, pending_achievements, total_playtime_minutes, perfect_games, computed_at
     FROM stats_snapshot
     WHERE steam_id = ?
   `).get(steamId) as StatsSnapshotRow | undefined
@@ -536,6 +556,9 @@ export async function getAchievementsForGame(
 
   const enrichedAchievements = buildAchievementsView(playerAchievements.achievements, schema)
   persistAchievements(steamId, appId, enrichedAchievements)
+  if (enrichedAchievements.length > 0) {
+    markGameAsTracked(appId, "discovered")
+  }
 
   return {
     steamID: playerAchievements.steamID,
@@ -560,28 +583,32 @@ function computeStatsFromDatabase(steamId: string, allowedIds: Set<string>): Ste
     ? db.prepare(`
         SELECT
           COALESCE(SUM(unlocked_count), 0) AS total_achievements,
+          COALESCE(SUM(CASE WHEN total_count > unlocked_count THEN total_count - unlocked_count ELSE 0 END), 0) AS pending_achievements,
           COALESCE(SUM(perfect_game), 0) AS perfect_games
         FROM user_games
         WHERE steam_id = ? AND owned = 1 AND appid IN (${allowedAppIds.map(() => "?").join(",")})
       `).get(steamId, ...allowedAppIds) as {
         total_achievements: number
+        pending_achievements: number
         perfect_games: number
       }
     : {
         total_achievements: 0,
+        pending_achievements: 0,
         perfect_games: 0,
       }
 
   return {
     totalGames: totals.total_games ?? 0,
     totalAchievements: achievementTotals.total_achievements ?? 0,
+    pendingAchievements: achievementTotals.pending_achievements ?? 0,
     totalPlaytime: Number(((totals.total_playtime_minutes ?? 0) / 60).toFixed(1)),
     perfectGames: achievementTotals.perfect_games ?? 0,
   }
 }
 
 async function syncAchievementsForStats(steamId: string, forceRefresh: boolean) {
-  const allowedIds = await getAllowedGameIdsServer()
+  const allowedIds = await getTrackedGameIdsServer()
   const ownedGames = await ensureOwnedGamesSynced(steamId, { forceRefresh })
   const candidateGames = ownedGames.filter((game) => allowedIds.has(String(game.appid)))
 
@@ -611,6 +638,7 @@ export async function getStatsForUser(steamId: string, options?: { forceRefresh?
     return {
       totalGames: snapshot.total_games,
       totalAchievements: snapshot.total_achievements,
+      pendingAchievements: snapshot.pending_achievements,
       totalPlaytime: Number((snapshot.total_playtime_minutes / 60).toFixed(1)),
       perfectGames: snapshot.perfect_games,
     }
