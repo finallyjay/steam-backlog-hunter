@@ -80,7 +80,7 @@ async function steamAPIRequest(endpoint: string, params: Record<string, string>)
 
 export async function getOwnedGames(steamId: string): Promise<SteamGame[]> {
   try {
-    const data = await steamAPIRequest("/IPlayerService/GetOwnedGames/v0001/", {
+    const data = await steamAPIRequest("/IPlayerService/GetOwnedGames/v1/", {
       steamid: steamId,
       include_appinfo: "1",
       include_played_free_games: "1",
@@ -96,7 +96,7 @@ export async function getOwnedGames(steamId: string): Promise<SteamGame[]> {
 
 export async function getRecentlyPlayedGames(steamId: string): Promise<SteamGame[]> {
   try {
-    const data = await steamAPIRequest("/IPlayerService/GetRecentlyPlayedGames/v0001/", {
+    const data = await steamAPIRequest("/IPlayerService/GetRecentlyPlayedGames/v1/", {
       steamid: steamId,
       count: "10",
       l: "es"
@@ -111,7 +111,7 @@ export async function getRecentlyPlayedGames(steamId: string): Promise<SteamGame
 
 export async function getPlayerAchievements(steamId: string, appId: number): Promise<GameAchievements | null> {
   try {
-    const data = await steamAPIRequest("/ISteamUserStats/GetPlayerAchievements/v0001/", {
+    const data = await steamAPIRequest("/ISteamUserStats/GetPlayerAchievements/v1/", {
       steamid: steamId,
       appid: appId.toString(),
       l: "es"
