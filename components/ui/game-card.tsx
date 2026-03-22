@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { Clock } from "lucide-react"
+import { Clock, Trophy } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
 import type { SteamAchievementView } from "@/lib/types/steam"
 
@@ -26,13 +26,13 @@ export function GameCard({ id, name, image, playtime, achievements = [], achieve
   const cardContent = (
     <div
       data-game-id={id}
-      className={`group relative flex items-center gap-4 overflow-hidden rounded-[1.2rem] border border-white/10 px-4 py-4 transition-all duration-300 ${isCompleted ? "bg-emerald-500/10 hover:border-emerald-300/40" : "bg-white/4 hover:border-accent/45 hover:bg-white/6"}`}
+      className={`group relative flex items-stretch gap-4 overflow-hidden rounded-[1.2rem] border border-white/10 px-4 py-4 transition-all duration-300 ${isCompleted ? "bg-emerald-500/10 hover:border-emerald-300/40" : "bg-white/4 hover:border-accent/45 hover:bg-white/6"}`}
     >
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
       <img
         src={image || "/placeholder.svg"}
         alt={name}
-        className="h-16 w-16 rounded-2xl border border-white/10 bg-slate-900/70 object-cover shadow-lg"
+        className="h-auto min-h-[5.9rem] w-48 rounded-2xl border border-white/10 bg-slate-900/70 object-cover shadow-lg"
         onError={(e) => {
           e.currentTarget.src = "/generic-game-icon.png"
         }}
@@ -41,27 +41,39 @@ export function GameCard({ id, name, image, playtime, achievements = [], achieve
         <h3 className="flex items-center gap-2 truncate text-base font-semibold tracking-tight">
           {name}
         </h3>
-        {playtime !== undefined && (
-          <div className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
-            <Clock className="h-3 w-3" />
-            <span>{playtime.toFixed(1)} hours</span>
+        {(playtime !== undefined || !achievementsLoading) && (
+          <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+            {playtime !== undefined ? (
+              <div className="flex items-center gap-2">
+                <Clock className="h-3 w-3" />
+                <span>{playtime.toFixed(1)} hours</span>
+              </div>
+            ) : null}
+
+            {!achievementsLoading ? (
+              total > 0 ? (
+                <div className="flex items-center gap-2">
+                  <Trophy className={`h-3.5 w-3.5 ${isCompleted ? "text-emerald-300" : "text-accent/90"}`} />
+                  <span className="font-medium text-foreground/90">
+                    {unlocked}/{total} ({percent}%)
+                  </span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Trophy className="h-3.5 w-3.5 text-muted-foreground/70" />
+                  <span className="font-medium text-foreground/75">-</span>
+                </div>
+              )
+            ) : null}
           </div>
         )}
-        <div className="mt-3">
+        <div className="mt-2">
           {achievementsLoading ? (
             <span className="text-xs text-muted-foreground">Loading achievements...</span>
           ) : total > 0 ? (
-            <>
-              <div className="mb-2 flex items-center justify-between">
-                <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">Achievement status</span>
-                <span className="text-sm font-medium text-foreground/90">Achievements: {unlocked}/{total} ({percent}%)</span>
-              </div>
-              <div>
-                <Progress value={percent} indicatorClassName={progressColor} />
-              </div>
-            </>
+            <Progress value={percent} indicatorClassName={progressColor} />
           ) : (
-            <span className="text-xs text-muted-foreground">No achievements</span>
+            <div className="h-2" />
           )}
         </div>
       </div>

@@ -151,3 +151,7 @@ export function getSteamImageUrl(appId: number, imageHash: string): string {
 
   return `https://media.steampowered.com/steamcommunity/public/images/apps/${appId}/${imageHash}.jpg`
 }
+
+export function getSteamHeaderImageUrl(appId: number): string {
+  return `https://shared.steamstatic.com/store_item_assets/steam/apps/${appId}/header.jpg`
+}

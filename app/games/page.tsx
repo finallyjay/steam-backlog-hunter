@@ -4,7 +4,7 @@ import { UserProfile } from "@/components/dashboard/user-profile"
 import { usePageTitle } from "@/components/ui/page-title-context"
 import { useCurrentUser } from "@/hooks/use-current-user"
 import { useEffect, useState, useMemo, useCallback } from "react"
-import { getSteamImageUrl } from "@/lib/steam-api"
+import { getSteamHeaderImageUrl } from "@/lib/steam-api"
 import { GameCard } from "@/components/ui/game-card"
 import { useSteamAchievementsBatch } from "@/hooks/use-steam-data"
 import { GamesFilterBar } from "@/components/ui/games-filter-bar"
@@ -65,8 +65,8 @@ export default function GamesPage() {
       }
       const ownedGames: SteamGame[] = gamesData.games
 
-      const filteredGames = mapOwnedGamesToGameCards(ownedGames, (appid, imgHash) =>
-        getSteamImageUrl(appid, imgHash),
+      const filteredGames = mapOwnedGamesToGameCards(ownedGames, (appid) =>
+        getSteamHeaderImageUrl(appid),
       )
       setGames(filteredGames)
       setLastUpdated(new Date())

@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useSteamAchievementsBatch, useSteamGames } from "@/hooks/use-steam-data"
-import { getSteamImageUrl } from "@/lib/steam-api"
+import { getSteamHeaderImageUrl } from "@/lib/steam-api"
 import { buildGamesWithStats } from "@/lib/games-mapping"
 
 export function CompletionOpportunities() {
@@ -27,7 +27,7 @@ export function CompletionOpportunities() {
       games.slice(0, 8).map((game) => ({
         id: game.appid,
         name: game.name,
-        image: getSteamImageUrl(game.appid, game.img_icon_url),
+        image: getSteamHeaderImageUrl(game.appid),
         playtime: Number((game.playtime_forever / 60).toFixed(1)),
       })),
     [games],

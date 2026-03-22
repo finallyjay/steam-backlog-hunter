@@ -6,7 +6,7 @@ import { Play, RefreshCw } from "lucide-react"
 import { GameCard } from "@/components/ui/game-card"
 import { useSteamGames, useSteamAchievementsBatch } from "@/hooks/use-steam-data"
 import { useMemo } from "react"
-import { getSteamImageUrl } from "@/lib/steam-api"
+import { getSteamHeaderImageUrl } from "@/lib/steam-api"
 import { Button } from "@/components/ui/button"
 
 export function RecentGames() {
@@ -23,7 +23,7 @@ export function RecentGames() {
       id: game.appid.toString(),
       name: game.name,
       playtime: Number((game.playtime_forever / 60).toFixed(1)),
-      image: getSteamImageUrl(game.appid, game.img_icon_url),
+      image: getSteamHeaderImageUrl(game.appid),
       appid: game.appid,
     }))
   ), [games])
