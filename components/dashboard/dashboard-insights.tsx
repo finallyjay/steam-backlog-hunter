@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Pie, PieChart, Cell, ResponsiveContainer, Tooltip } from "recharts"
+import { Pie, PieChart, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis } from "recharts"
 import { Activity, PieChart as PieChartIcon, Trophy } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -17,7 +17,8 @@ interface DashboardInsightsProps {
 }
 
 type TrackableMetric = "achievements" | "completion"
-type LibraryMetric = "catalog" | "activity"
+type LibraryMetric = "state" | "playtime"
+type ChartKind = "donut" | "bars"
 
 const CHART_COLORS = ["#61ceff", "#53d1a8", "#f3c969", "#2d415c", "#f58f74"]
 
@@ -41,12 +42,14 @@ function InsightCard({
   data,
   insight,
   loading,
+  chartKind = "donut",
 }: {
   title: string
   description: string
   data: Array<{ name: string; value: number }>
   insight: string
   loading: boolean
+  chartKind?: ChartKind
 }) {
   const chartData = data.map((entry, index) => ({ ...entry, color: CHART_COLORS[index] }))
 
@@ -60,22 +63,42 @@ function InsightCard({
         <div className="h-56">
           {!loading ? (
             <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={chartData}
-                  dataKey="value"
-                  nameKey="name"
-                  innerRadius={56}
-                  outerRadius={84}
-                  paddingAngle={3}
-                  stroke="transparent"
-                >
-                  {chartData.map((entry) => (
-                    <Cell key={entry.name} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
+              {chartKind === "bars" ? (
+                <BarChart data={chartData} layout="vertical" margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
+                  <XAxis type="number" hide />
+                  <YAxis
+                    type="category"
+                    dataKey="name"
+                    axisLine={false}
+                    tickLine={false}
+                    width={72}
+                    tick={{ fill: "rgba(226,232,240,0.72)", fontSize: 12 }}
+                  />
+                  <Tooltip />
+                  <Bar dataKey="value" radius={999}>
+                    {chartData.map((entry) => (
+                      <Cell key={entry.name} fill={entry.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              ) : (
+                <PieChart>
+                  <Pie
+                    data={chartData}
+                    dataKey="value"
+                    nameKey="name"
+                    innerRadius={56}
+                    outerRadius={84}
+                    paddingAngle={3}
+                    stroke="transparent"
+                  >
+                    {chartData.map((entry) => (
+                      <Cell key={entry.name} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              )}
             </ResponsiveContainer>
           ) : (
             <div className="flex h-full items-center justify-center rounded-2xl border border-white/8 bg-white/4 text-sm text-muted-foreground">
@@ -104,10 +127,9 @@ function InsightCard({
 
 export function DashboardInsights({ stats, loading = false }: DashboardInsightsProps) {
   const [trackableMetric, setTrackableMetric] = useState<TrackableMetric>("achievements")
-  const [libraryMetric, setLibraryMetric] = useState<LibraryMetric>("catalog")
+  const [libraryMetric, setLibraryMetric] = useState<LibraryMetric>("state")
   const [trackableCount, setTrackableCount] = useState<number | null>(null)
   const { games: allGames, loading: allGamesLoading } = useSteamGames("all")
-  const { games: recentGames, loading: recentGamesLoading } = useSteamGames("recent")
 
   useEffect(() => {
     let isMounted = true
@@ -138,17 +160,19 @@ export function DashboardInsights({ stats, loading = false }: DashboardInsightsP
   const trackableModel = useMemo(() => {
     if (trackableMetric === "completion") {
       const perfect = stats?.perfectGames ?? 0
-      const remaining = Math.max((trackableCount ?? stats?.totalGames ?? 0) - perfect, 0)
+      const started = Math.max((stats?.startedGames ?? 0) - perfect, 0)
+      const untouched = Math.max((trackableCount ?? 0) - (stats?.startedGames ?? 0), 0)
 
       return {
         title: "Completion State",
-        description: "Perfect trackable games versus the rest of the trackable catalog.",
+        description: "Which tracked games are fully done, started, or still untouched.",
         data: [
           { name: "Perfect", value: perfect },
-          { name: "Not perfect", value: remaining },
+          { name: "Started", value: started },
+          { name: "Untouched", value: untouched },
         ],
         insight: stats
-          ? `${perfect} trackable games are perfect and ${remaining} are still short of 100%.`
+          ? `${perfect} tracked games are perfect, ${started} are in progress, and ${untouched} have not been started yet.`
           : "Sync data to reveal trackable completion state.",
       }
     }
@@ -167,42 +191,64 @@ export function DashboardInsights({ stats, loading = false }: DashboardInsightsP
   }, [stats, trackableCount, trackableMetric])
 
   const libraryModel = useMemo(() => {
-    if (libraryMetric === "activity") {
-      const activeRecent = recentGames.length
-      const idle = Math.max(allGames.length - activeRecent, 0)
+    if (libraryMetric === "playtime") {
+      const bands = [
+        { name: "0h", value: 0 },
+        { name: "<10h", value: 0 },
+        { name: "10-50h", value: 0 },
+        { name: "50h+", value: 0 },
+      ]
+
+      for (const game of allGames) {
+        const hours = game.playtime_forever / 60
+        if (hours === 0) bands[0].value += 1
+        else if (hours < 10) bands[1].value += 1
+        else if (hours < 50) bands[2].value += 1
+        else bands[3].value += 1
+      }
 
       return {
-        title: "Recent Activity Coverage",
-        description: "Recently played games versus the rest of the full owned library.",
-        data: [
-          { name: "Recently played", value: activeRecent },
-          { name: "Idle library", value: idle },
-        ],
+        title: "Playtime Bands",
+        description: "How your full library is distributed by time spent.",
+        data: bands,
         insight: allGames.length > 0
-          ? `${activeRecent} of ${allGames.length} owned games appeared in the recent activity snapshot.`
-          : "Load the full library to reveal recent activity coverage.",
+          ? `${bands[0].value} games remain untouched, while ${bands[3].value} already have 50+ hours logged.`
+          : "Load the full library to reveal playtime bands.",
+        chartKind: "bars" as const,
       }
     }
 
-    const totalLibraryGames = allGames.length
-    const effectiveTrackableCount = trackableCount ?? 0
-    const nonTrackable = Math.max(totalLibraryGames - effectiveTrackableCount, 0)
+    const played = allGames.filter((game) => game.playtime_forever > 0).length
+    const unplayed = Math.max(allGames.length - played, 0)
 
     return {
-      title: "Catalog Coverage",
-      description: "Trackable games versus the rest of the owned library.",
+      title: "Library State",
+      description: "Played games versus the untouched backlog across your whole library.",
       data: [
-        { name: "Trackable games", value: effectiveTrackableCount },
-        { name: "Other library games", value: nonTrackable },
+        { name: "Played", value: played },
+        { name: "Unplayed", value: unplayed },
       ],
-      insight: totalLibraryGames > 0
-        ? `${effectiveTrackableCount} of ${totalLibraryGames} owned games are part of the current trackable catalog.`
-        : "Load the library to reveal catalog coverage.",
+      insight: allGames.length > 0
+        ? `${played} of ${allGames.length} games have been launched at least once.`
+        : "Load the library to reveal backlog coverage.",
+      chartKind: "donut" as const,
     }
-  }, [allGames.length, libraryMetric, recentGames.length, trackableCount])
+  }, [allGames, libraryMetric])
 
   return (
-    <div className="grid gap-6 xl:grid-cols-2">
+    <div className="grid gap-6">
+      <div className="rounded-[1.25rem] border border-white/8 bg-white/4 px-4 py-4">
+        <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Average Completion</p>
+        <div className="mt-2 flex items-end gap-2">
+          <span className="text-3xl font-semibold tracking-tight text-foreground">
+            <AnimatedNumber value={Math.floor(stats?.averageCompletion ?? 0)} />
+          </span>
+          <span className="pb-1 text-sm text-muted-foreground">% avg completion</span>
+        </div>
+        <p className="mt-2 text-sm text-muted-foreground">Average completion across games with at least one unlocked achievement.</p>
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-2">
       <Card className="border-white/10">
         <CardHeader className="space-y-4">
           <div className="flex items-center gap-2 text-lg">
@@ -235,6 +281,7 @@ export function DashboardInsights({ stats, loading = false }: DashboardInsightsP
             data={trackableModel.data}
             insight={trackableModel.insight}
             loading={loading}
+            chartKind="donut"
           />
         </CardContent>
       </Card>
@@ -247,20 +294,20 @@ export function DashboardInsights({ stats, loading = false }: DashboardInsightsP
           </div>
           <div className="flex flex-wrap gap-2">
             <Button
-              variant={libraryMetric === "catalog" ? "default" : "ghost"}
+              variant={libraryMetric === "state" ? "default" : "ghost"}
               size="sm"
-              onClick={() => setLibraryMetric("catalog")}
-              className={libraryMetric === "catalog" ? "bg-accent text-accent-foreground hover:bg-accent/90" : "border border-white/8 bg-white/4 text-muted-foreground hover:bg-white/8 hover:text-foreground"}
+              onClick={() => setLibraryMetric("state")}
+              className={libraryMetric === "state" ? "bg-accent text-accent-foreground hover:bg-accent/90" : "border border-white/8 bg-white/4 text-muted-foreground hover:bg-white/8 hover:text-foreground"}
             >
-              Catalog
+              State
             </Button>
             <Button
-              variant={libraryMetric === "activity" ? "default" : "ghost"}
+              variant={libraryMetric === "playtime" ? "default" : "ghost"}
               size="sm"
-              onClick={() => setLibraryMetric("activity")}
-              className={libraryMetric === "activity" ? "bg-accent text-accent-foreground hover:bg-accent/90" : "border border-white/8 bg-white/4 text-muted-foreground hover:bg-white/8 hover:text-foreground"}
+              onClick={() => setLibraryMetric("playtime")}
+              className={libraryMetric === "playtime" ? "bg-accent text-accent-foreground hover:bg-accent/90" : "border border-white/8 bg-white/4 text-muted-foreground hover:bg-white/8 hover:text-foreground"}
             >
-              Activity
+              Playtime
             </Button>
           </div>
         </CardHeader>
@@ -270,10 +317,12 @@ export function DashboardInsights({ stats, loading = false }: DashboardInsightsP
             description={libraryModel.description}
             data={libraryModel.data}
             insight={libraryModel.insight}
-            loading={allGamesLoading || recentGamesLoading}
+            loading={allGamesLoading}
+            chartKind={libraryModel.chartKind}
           />
         </CardContent>
       </Card>
+      </div>
     </div>
   )
 }

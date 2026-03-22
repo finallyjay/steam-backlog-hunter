@@ -36,6 +36,7 @@ describe("GET /api/steam/stats", () => {
       totalAchievements: 2,
       pendingAchievements: 3,
       startedGames: 1,
+      averageCompletion: 62.5,
       totalPlaytime: 3.5,
       perfectGames: 0,
     })

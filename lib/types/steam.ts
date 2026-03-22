@@ -17,6 +17,7 @@ export interface SteamStatsResponse {
   totalAchievements: number
   pendingAchievements: number
   startedGames: number
+  averageCompletion: number
   totalPlaytime: number
   perfectGames: number
 }

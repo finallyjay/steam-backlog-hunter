@@ -34,6 +34,7 @@ type StatsSnapshotRow = {
   total_achievements: number
   pending_achievements: number
   started_games: number
+  library_average_completion: number
   total_playtime_minutes: number
   perfect_games: number
   computed_at: string
@@ -408,16 +409,18 @@ function persistStatsSnapshot(steamId: string, stats: SteamStatsResponse) {
       total_achievements,
       pending_achievements,
       started_games,
+      library_average_completion,
       total_playtime_minutes,
       perfect_games,
       computed_at,
       updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(steam_id) DO UPDATE SET
       total_games = excluded.total_games,
       total_achievements = excluded.total_achievements,
       pending_achievements = excluded.pending_achievements,
       started_games = excluded.started_games,
+      library_average_completion = excluded.library_average_completion,
       total_playtime_minutes = excluded.total_playtime_minutes,
       perfect_games = excluded.perfect_games,
       computed_at = excluded.computed_at,
@@ -428,6 +431,7 @@ function persistStatsSnapshot(steamId: string, stats: SteamStatsResponse) {
     stats.totalAchievements,
     stats.pendingAchievements,
     stats.startedGames,
+    stats.averageCompletion,
     Math.round(stats.totalPlaytime * 60),
     stats.perfectGames,
     now,
@@ -438,7 +442,7 @@ function persistStatsSnapshot(steamId: string, stats: SteamStatsResponse) {
 function getStoredStatsSnapshot(steamId: string) {
   const db = getSqliteDatabase()
   return db.prepare(`
-    SELECT total_games, total_achievements, pending_achievements, started_games, total_playtime_minutes, perfect_games, computed_at
+    SELECT total_games, total_achievements, pending_achievements, started_games, library_average_completion, total_playtime_minutes, perfect_games, computed_at
     FROM stats_snapshot
     WHERE steam_id = ?
   `).get(steamId) as StatsSnapshotRow | undefined
@@ -572,6 +576,10 @@ export async function getAchievementsForGame(
   }
 }
 
+function roundPercent(value: number) {
+  return Math.floor(value)
+}
+
 function computeStatsFromDatabase(steamId: string, allowedIds: Set<string>): SteamStatsResponse {
   const db = getSqliteDatabase()
   const totals = db.prepare(`
@@ -605,11 +613,18 @@ function computeStatsFromDatabase(steamId: string, allowedIds: Set<string>): Ste
         perfect_games: 0,
       }
 
+  const libraryAverageRow = db.prepare(`
+    SELECT AVG(CAST(unlocked_count AS REAL) / total_count) * 100 AS average_completion
+    FROM user_games
+    WHERE steam_id = ? AND owned = 1 AND total_count > 0 AND unlocked_count > 0
+  `).get(steamId) as { average_completion: number | null }
+
   return {
     totalGames: totals.total_games ?? 0,
     totalAchievements: achievementTotals.total_achievements ?? 0,
     pendingAchievements: achievementTotals.pending_achievements ?? 0,
     startedGames: achievementTotals.started_games ?? 0,
+    averageCompletion: roundPercent(libraryAverageRow.average_completion ?? 0),
     totalPlaytime: Number(((totals.total_playtime_minutes ?? 0) / 60).toFixed(1)),
     perfectGames: achievementTotals.perfect_games ?? 0,
   }
@@ -648,6 +663,7 @@ export async function getStatsForUser(steamId: string, options?: { forceRefresh?
       totalAchievements: snapshot.total_achievements,
       pendingAchievements: snapshot.pending_achievements,
       startedGames: snapshot.started_games,
+      averageCompletion: snapshot.library_average_completion,
       totalPlaytime: Number((snapshot.total_playtime_minutes / 60).toFixed(1)),
       perfectGames: snapshot.perfect_games,
     }

@@ -80,6 +80,8 @@ function initializeSchema(db: DatabaseSync) {
       total_achievements INTEGER NOT NULL,
       pending_achievements INTEGER NOT NULL DEFAULT 0,
       started_games INTEGER NOT NULL DEFAULT 0,
+      steam_average_completion REAL NOT NULL DEFAULT 0,
+      library_average_completion REAL NOT NULL DEFAULT 0,
       total_playtime_minutes INTEGER NOT NULL,
       perfect_games INTEGER NOT NULL,
       computed_at TEXT NOT NULL,
@@ -102,6 +104,8 @@ function initializeSchema(db: DatabaseSync) {
   const statsSnapshotColumns = db.prepare("PRAGMA table_info(stats_snapshot)").all() as Array<{ name: string }>
   const hasPendingAchievementsColumn = statsSnapshotColumns.some((column) => column.name === "pending_achievements")
   const hasStartedGamesColumn = statsSnapshotColumns.some((column) => column.name === "started_games")
+  const hasSteamAverageCompletionColumn = statsSnapshotColumns.some((column) => column.name === "steam_average_completion")
+  const hasLibraryAverageCompletionColumn = statsSnapshotColumns.some((column) => column.name === "library_average_completion")
 
   if (!hasPendingAchievementsColumn) {
     db.exec("ALTER TABLE stats_snapshot ADD COLUMN pending_achievements INTEGER NOT NULL DEFAULT 0;")
@@ -109,6 +113,14 @@ function initializeSchema(db: DatabaseSync) {
 
   if (!hasStartedGamesColumn) {
     db.exec("ALTER TABLE stats_snapshot ADD COLUMN started_games INTEGER NOT NULL DEFAULT 0;")
+  }
+
+  if (!hasSteamAverageCompletionColumn) {
+    db.exec("ALTER TABLE stats_snapshot ADD COLUMN steam_average_completion REAL NOT NULL DEFAULT 0;")
+  }
+
+  if (!hasLibraryAverageCompletionColumn) {
+    db.exec("ALTER TABLE stats_snapshot ADD COLUMN library_average_completion REAL NOT NULL DEFAULT 0;")
   }
 
   reseedTrackedGames(db)
