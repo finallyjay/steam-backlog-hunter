@@ -15,6 +15,7 @@ export interface SteamAchievementView extends SteamAchievement {
 export interface SteamStatsResponse {
   totalGames: number
   totalAchievements: number
+  pendingAchievements: number
   totalPlaytime: number
   perfectGames: number
 }

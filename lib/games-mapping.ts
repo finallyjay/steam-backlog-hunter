@@ -10,9 +10,20 @@ type GameBase = {
   playtime: number
 }
 
-export function mapOwnedGamesToGameCards(games: SteamGame[], allowedIds: Set<string>, getImageUrl: (appId: number, imageHash: string) => string): GameBase[] {
+export function mapOwnedGamesToGameCards(
+  games: SteamGame[],
+  allowedIdsOrGetImageUrl: Set<string> | ((appId: number, imageHash: string) => string),
+  maybeGetImageUrl?: (appId: number, imageHash: string) => string,
+): GameBase[] {
+  const getImageUrl = typeof allowedIdsOrGetImageUrl === "function" ? allowedIdsOrGetImageUrl : maybeGetImageUrl
+  const allowedIds = typeof allowedIdsOrGetImageUrl === "function" ? null : allowedIdsOrGetImageUrl
+
+  if (!getImageUrl) {
+    throw new Error("getImageUrl is required")
+  }
+
   return games
-    .filter((game) => allowedIds.has(String(game.appid)))
+    .filter((game) => (allowedIds ? allowedIds.has(String(game.appid)) : true))
     .map((game) => ({
       id: game.appid,
       name: game.name,

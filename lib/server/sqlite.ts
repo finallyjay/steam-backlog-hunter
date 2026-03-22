@@ -1,6 +1,6 @@
 import "server-only"
 
-import { accessSync, constants, mkdirSync } from "node:fs"
+import { accessSync, constants, existsSync, mkdirSync, readFileSync } from "node:fs"
 import { DatabaseSync } from "node:sqlite"
 import { dirname, join } from "node:path"
 
@@ -78,6 +78,7 @@ function initializeSchema(db: DatabaseSync) {
       steam_id TEXT PRIMARY KEY,
       total_games INTEGER NOT NULL,
       total_achievements INTEGER NOT NULL,
+      pending_achievements INTEGER NOT NULL DEFAULT 0,
       total_playtime_minutes INTEGER NOT NULL,
       perfect_games INTEGER NOT NULL,
       computed_at TEXT NOT NULL,
@@ -85,9 +86,53 @@ function initializeSchema(db: DatabaseSync) {
       FOREIGN KEY (steam_id) REFERENCES steam_profile(steam_id)
     );
 
+    CREATE TABLE IF NOT EXISTS tracked_games (
+      appid INTEGER PRIMARY KEY,
+      source TEXT NOT NULL DEFAULT 'seed',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (appid) REFERENCES games(appid)
+    );
+
     CREATE INDEX IF NOT EXISTS idx_user_games_steam_id ON user_games(steam_id);
     CREATE INDEX IF NOT EXISTS idx_user_games_steam_id_owned ON user_games(steam_id, owned);
   `)
+
+  const statsSnapshotColumns = db.prepare("PRAGMA table_info(stats_snapshot)").all() as Array<{ name: string }>
+  const hasPendingAchievementsColumn = statsSnapshotColumns.some((column) => column.name === "pending_achievements")
+
+  if (!hasPendingAchievementsColumn) {
+    db.exec("ALTER TABLE stats_snapshot ADD COLUMN pending_achievements INTEGER NOT NULL DEFAULT 0;")
+  }
+
+  seedTrackedGames(db)
+}
+
+function seedTrackedGames(db: DatabaseSync) {
+  const jsonPath = join(process.cwd(), "public", "steam_games_with_achievements.json")
+  if (!existsSync(jsonPath)) {
+    return
+  }
+
+  const rawJson = readFileSync(jsonPath, "utf-8")
+  const games = JSON.parse(rawJson) as Array<{ id: number }>
+  const now = new Date().toISOString()
+  const insertTrackedGame = db.prepare(`
+    INSERT INTO tracked_games (appid, source, created_at, updated_at)
+    VALUES (?, 'seed', ?, ?)
+    ON CONFLICT(appid) DO NOTHING
+  `)
+
+  db.exec("BEGIN")
+  try {
+    for (const game of games) {
+      insertTrackedGame.run(game.id, now, now)
+    }
+    db.exec("COMMIT")
+  } catch (error) {
+    db.exec("ROLLBACK")
+    throw error
+  }
 }
 
 export function getSqliteDatabase() {

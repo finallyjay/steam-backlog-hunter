@@ -34,6 +34,7 @@ describe("GET /api/steam/stats", () => {
     vi.mocked(getUserStats).mockResolvedValue({
       totalGames: 1,
       totalAchievements: 2,
+      pendingAchievements: 3,
       totalPlaytime: 3.5,
       perfectGames: 0,
     })

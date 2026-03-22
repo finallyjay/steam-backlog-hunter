@@ -1,6 +1,6 @@
 "use client"
 
-import { Trophy, Gamepad2, Clock, Target, RefreshCw } from "lucide-react"
+import { Trophy, Gamepad2, Target, RefreshCw, ListTodo } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useRouter } from "next/navigation"
 import { useSteamStats } from "@/hooks/use-steam-data"
@@ -37,11 +37,11 @@ export function StatsOverview() {
       color: "text-yellow-500",
     },
     {
-      title: "Hours Played",
-      value: stats ? stats.totalPlaytime.toFixed(1) : "0.0",
-      description: "Total playtime",
-      icon: Clock,
-      color: "text-green-500",
+      title: "Pending Achievements",
+      value: stats?.pendingAchievements?.toString() || "0",
+      description: "Still locked",
+      icon: ListTodo,
+      color: "text-emerald-400",
     },
     {
       title: "Perfect Games",

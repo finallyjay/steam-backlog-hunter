@@ -14,6 +14,7 @@ export async function getUserStats(
     return {
       totalGames: 0,
       totalAchievements: 0,
+      pendingAchievements: 0,
       totalPlaytime: 0,
       perfectGames: 0,
     }

@@ -137,10 +137,7 @@ export function useSteamGames(type: "recent" | "all" = "recent") {
           throw new Error("Invalid games response")
         }
 
-        const allowedIds = await getAllowedGameIdsClient()
-        const filteredGames = data.games.filter((game) => allowedIds.has(String(game.appid)))
-
-        setGames(filteredGames)
+        setGames(data.games)
         setLastUpdated(new Date())
         hasLoadedRef.current = true
       } catch (err) {

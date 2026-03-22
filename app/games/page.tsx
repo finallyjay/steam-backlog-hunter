@@ -11,7 +11,6 @@ import { GamesFilterBar } from "@/components/ui/games-filter-bar"
 import { PageContainer } from "@/components/ui/page-container"
 import { LoadingMessage } from "@/components/ui/loading-message"
 import { ErrorMessage } from "@/components/ui/error-message"
-import { getAllowedGameIdsClient } from "@/lib/allowed-games"
 import { buildGamesWithStats, filterVisibleGames, mapOwnedGamesToGameCards, sortGames } from "@/lib/games-mapping"
 import type { SteamGamesApiResponse } from "@/lib/types/api"
 import type { SteamGame } from "@/lib/steam-api"
@@ -66,8 +65,7 @@ export default function GamesPage() {
       }
       const ownedGames: SteamGame[] = gamesData.games
 
-      const allowedIds = await getAllowedGameIdsClient()
-      const filteredGames = mapOwnedGamesToGameCards(ownedGames, allowedIds, (appid, imgHash) =>
+      const filteredGames = mapOwnedGamesToGameCards(ownedGames, (appid, imgHash) =>
         getSteamImageUrl(appid, imgHash),
       )
       setGames(filteredGames)
