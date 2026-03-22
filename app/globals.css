@@ -4,76 +4,74 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Updated color palette for gaming theme with Steam-inspired colors */
-  --background: oklch(1 0 0); /* white */
-  --foreground: oklch(0.25 0 0); /* dark gray-800 equivalent */
-  --card: oklch(0.97 0 0); /* light gray */
-  --card-foreground: oklch(0.25 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.25 0 0);
-  --primary: oklch(0.25 0 0); /* dark gray for primary buttons */
-  --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.55 0 0); /* medium gray */
-  --secondary-foreground: oklch(1 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.55 0 0);
-  --accent: oklch(0.65 0.15 280); /* purple accent for achievements */
-  --accent-foreground: oklch(1 0 0);
-  --destructive: oklch(0.65 0.2 35); /* orange for errors */
-  --destructive-foreground: oklch(1 0 0);
-  --border: oklch(0.9 0 0);
-  --input: oklch(0.97 0 0);
-  --ring: oklch(0.65 0.15 280);
-  --chart-1: oklch(0.6 0.15 260);
-  --chart-2: oklch(0.55 0.15 250);
-  --chart-3: oklch(0.6 0.15 220);
-  --chart-4: oklch(0.65 0.2 120);
-  --chart-5: oklch(0.75 0.15 60);
-  --radius: 0.5rem;
-  --sidebar: oklch(0.97 0 0);
-  --sidebar-foreground: oklch(0.25 0 0);
-  --sidebar-primary: oklch(0.25 0 0);
-  --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.65 0.15 280);
-  --sidebar-accent-foreground: oklch(1 0 0);
-  --sidebar-border: oklch(0.9 0 0);
-  --sidebar-ring: oklch(0.65 0.15 280);
+  --background: oklch(0.965 0.01 250);
+  --foreground: oklch(0.23 0.02 250);
+  --card: oklch(0.985 0.004 240 / 82%);
+  --card-foreground: oklch(0.23 0.02 250);
+  --popover: oklch(0.99 0.004 240 / 94%);
+  --popover-foreground: oklch(0.23 0.02 250);
+  --primary: oklch(0.35 0.07 245);
+  --primary-foreground: oklch(0.985 0.004 240);
+  --secondary: oklch(0.9 0.02 235);
+  --secondary-foreground: oklch(0.29 0.02 250);
+  --muted: oklch(0.93 0.015 240 / 70%);
+  --muted-foreground: oklch(0.5 0.025 245);
+  --accent: oklch(0.71 0.13 210);
+  --accent-foreground: oklch(0.17 0.03 245);
+  --destructive: oklch(0.63 0.19 27);
+  --destructive-foreground: oklch(0.985 0.004 240);
+  --border: oklch(0.84 0.015 240 / 55%);
+  --input: oklch(0.99 0.004 240 / 86%);
+  --ring: oklch(0.69 0.13 210 / 55%);
+  --chart-1: oklch(0.68 0.14 210);
+  --chart-2: oklch(0.72 0.11 155);
+  --chart-3: oklch(0.7 0.14 70);
+  --chart-4: oklch(0.61 0.11 270);
+  --chart-5: oklch(0.64 0.16 22);
+  --radius: 1rem;
+  --sidebar: oklch(0.985 0.004 240 / 86%);
+  --sidebar-foreground: oklch(0.23 0.02 250);
+  --sidebar-primary: oklch(0.35 0.07 245);
+  --sidebar-primary-foreground: oklch(0.985 0.004 240);
+  --sidebar-accent: oklch(0.71 0.13 210);
+  --sidebar-accent-foreground: oklch(0.17 0.03 245);
+  --sidebar-border: oklch(0.84 0.015 240 / 55%);
+  --sidebar-ring: oklch(0.69 0.13 210 / 55%);
 }
 
 .dark {
-  /* Dark mode colors for gaming aesthetic */
-  --background: oklch(0.15 0 0); /* very dark background */
-  --foreground: oklch(0.98 0 0);
-  --card: oklch(0.18 0 0);
-  --card-foreground: oklch(0.98 0 0);
-  --popover: oklch(0.15 0 0);
-  --popover-foreground: oklch(0.98 0 0);
-  --primary: oklch(0.98 0 0);
-  --primary-foreground: oklch(0.15 0 0);
-  --secondary: oklch(0.25 0 0);
-  --secondary-foreground: oklch(0.98 0 0);
-  --muted: oklch(0.25 0 0);
-  --muted-foreground: oklch(0.7 0 0);
-  --accent: oklch(0.7 0.15 280); /* brighter purple in dark mode */
-  --accent-foreground: oklch(0.98 0 0);
-  --destructive: oklch(0.6 0.2 35);
-  --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.25 0 0);
-  --input: oklch(0.25 0 0);
-  --ring: oklch(0.7 0.15 280);
-  --chart-1: oklch(0.65 0.2 260);
-  --chart-2: oklch(0.6 0.2 250);
-  --chart-3: oklch(0.65 0.2 220);
-  --chart-4: oklch(0.7 0.25 120);
-  --chart-5: oklch(0.8 0.2 60);
-  --sidebar: oklch(0.18 0 0);
-  --sidebar-foreground: oklch(0.98 0 0);
-  --sidebar-primary: oklch(0.7 0.15 280);
-  --sidebar-primary-foreground: oklch(0.98 0 0);
-  --sidebar-accent: oklch(0.25 0 0);
-  --sidebar-accent-foreground: oklch(0.98 0 0);
-  --sidebar-border: oklch(0.25 0 0);
-  --sidebar-ring: oklch(0.7 0.15 280);
+  --background: oklch(0.17 0.025 250);
+  --foreground: oklch(0.95 0.01 220);
+  --card: oklch(0.24 0.02 242 / 76%);
+  --card-foreground: oklch(0.95 0.01 220);
+  --popover: oklch(0.2 0.02 245 / 95%);
+  --popover-foreground: oklch(0.95 0.01 220);
+  --primary: oklch(0.72 0.12 205);
+  --primary-foreground: oklch(0.16 0.03 245);
+  --secondary: oklch(0.3 0.025 245);
+  --secondary-foreground: oklch(0.95 0.01 220);
+  --muted: oklch(0.27 0.02 245 / 75%);
+  --muted-foreground: oklch(0.75 0.015 220);
+  --accent: oklch(0.73 0.13 205);
+  --accent-foreground: oklch(0.15 0.03 245);
+  --destructive: oklch(0.66 0.18 28);
+  --destructive-foreground: oklch(0.96 0.005 230);
+  --border: oklch(0.38 0.03 245 / 80%);
+  --input: oklch(0.24 0.02 242 / 92%);
+  --ring: oklch(0.72 0.12 205 / 55%);
+  --chart-1: oklch(0.72 0.13 205);
+  --chart-2: oklch(0.74 0.11 155);
+  --chart-3: oklch(0.77 0.14 76);
+  --chart-4: oklch(0.7 0.1 280);
+  --chart-5: oklch(0.71 0.16 28);
+  --sidebar: oklch(0.2 0.02 245 / 90%);
+  --sidebar-foreground: oklch(0.95 0.01 220);
+  --sidebar-primary: oklch(0.72 0.12 205);
+  --sidebar-primary-foreground: oklch(0.16 0.03 245);
+  --sidebar-accent: oklch(0.3 0.025 245);
+  --sidebar-accent-foreground: oklch(0.95 0.01 220);
+  --sidebar-border: oklch(0.38 0.03 245 / 80%);
+  --sidebar-ring: oklch(0.72 0.12 205 / 55%);
 }
 
 @theme inline {
@@ -122,6 +120,30 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+    background-image:
+      radial-gradient(circle at top left, rgba(84, 174, 255, 0.18), transparent 26%),
+      radial-gradient(circle at top right, rgba(72, 255, 190, 0.12), transparent 22%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 22%),
+      linear-gradient(135deg, #111827 0%, #162033 35%, #0f172a 100%);
+    background-attachment: fixed;
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.5), transparent 88%);
+    opacity: 0.22;
+  }
+
+  ::selection {
+    background: rgba(97, 206, 255, 0.35);
+    color: inherit;
   }
 }

@@ -20,36 +20,41 @@ export function GameCard({ id, name, image, playtime, achievements = [], achieve
   const total = achievements.length
   const percent = total > 0 ? Math.round((unlocked / total) * 100) : 0
   let progressColor = "bg-red-500"
-  if (percent >= 80) progressColor = "bg-green-600"
-  else if (percent >= 40) progressColor = "bg-yellow-400"
+  if (percent >= 80) progressColor = "bg-emerald-400"
+  else if (percent >= 40) progressColor = "bg-amber-400"
   const isCompleted = total > 0 && unlocked === total
   const cardContent = (
-    <div data-game-id={id} className={`relative flex items-center gap-4 p-3 rounded-lg border-2 border-transparent hover:border-accent transition-colors cursor-pointer ${isCompleted ? 'bg-green-100/20' : 'bg-muted/50'}`}> 
+    <div
+      data-game-id={id}
+      className={`group relative flex items-center gap-4 overflow-hidden rounded-[1.2rem] border border-white/10 px-4 py-4 transition-all duration-300 ${isCompleted ? "bg-emerald-500/10 hover:border-emerald-300/40" : "bg-white/4 hover:border-accent/45 hover:bg-white/6"}`}
+    >
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
       <img
         src={image || "/placeholder.svg"}
         alt={name}
-        className="w-16 h-16 rounded-lg border"
+        className="h-16 w-16 rounded-2xl border border-white/10 bg-slate-900/70 object-cover shadow-lg"
         onError={(e) => {
           e.currentTarget.src = "/generic-game-icon.png"
         }}
       />
       <div className="flex-1 min-w-0">
-        <h3 className="font-semibold truncate flex items-center gap-2">
+        <h3 className="flex items-center gap-2 truncate text-base font-semibold tracking-tight">
           {name}
         </h3>
         {playtime !== undefined && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <div className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
             <Clock className="h-3 w-3" />
             <span>{playtime.toFixed(1)} hours</span>
           </div>
         )}
-        <div className="mt-2">
+        <div className="mt-3">
           {achievementsLoading ? (
             <span className="text-xs text-muted-foreground">Loading achievements...</span>
           ) : total > 0 ? (
             <>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs">Achievements: {unlocked}/{total} ({percent}%)</span>
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">Achievement status</span>
+                <span className="text-sm font-medium text-foreground/90">Achievements: {unlocked}/{total} ({percent}%)</span>
               </div>
               <div>
                 <Progress value={percent} indicatorClassName={progressColor} />

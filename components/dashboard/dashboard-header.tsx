@@ -30,14 +30,19 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
   }
 
   return (
-    <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-      <div className="container mx-auto px-4 py-4">
+    <header className="sticky top-0 z-50 border-b border-white/10 bg-slate-950/70 backdrop-blur-xl">
+      <div className="container mx-auto px-4 py-4 md:px-6 lg:px-8">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Gamepad2 className="h-8 w-8 text-accent" />
-            <h1 className="text-2xl font-bold text-balance">Steam Pending Achievements</h1>
-            <Badge variant="secondary" className="text-sm ml-2">
-              Beta
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-accent/15 text-accent shadow-[0_0_30px_-14px_rgba(88,198,255,0.8)]">
+              <Gamepad2 className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-[0.7rem] font-semibold uppercase tracking-[0.32em] text-accent/80">Achievement tracker</p>
+              <h1 className="text-xl font-semibold tracking-tight text-balance sm:text-2xl">Steam Pending Achievements</h1>
+            </div>
+            <Badge variant="secondary" className="ml-2 hidden border border-white/10 bg-white/6 text-sm sm:inline-flex">
+              Personal build
             </Badge>
           </div>
 

@@ -17,16 +17,15 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background to-muted">
+    <div className="min-h-screen">
       <PageHeader title="Steam Pending Achievements" icon={<Gamepad2 className="h-8 w-8 text-accent" />}>
-        <Badge variant="secondary" className="text-sm">Beta</Badge>
+        <Badge variant="secondary" className="border border-white/10 bg-white/6 text-sm">Personal build</Badge>
       </PageHeader>
 
-      {/* Hero Section */}
-      <main className="container mx-auto px-4 py-16">
-        <div className="text-center space-y-8 max-w-4xl mx-auto">
+      <main className="container mx-auto px-4 py-12 md:px-6 lg:px-8">
+        <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
           {error && (
-            <Alert variant="destructive" className="max-w-md mx-auto">
+            <Alert variant="destructive" className="max-w-md">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
                 {error === "auth_failed" && "Steam authentication failed. Please try again."}
@@ -36,77 +35,105 @@ export default function HomePage() {
             </Alert>
           )}
 
-          <div className="space-y-4">
-            <h2 className="text-5xl font-bold text-balance bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-transparent">
-              Track Your Steam Journey
-            </h2>
-            <p className="text-xl text-muted-foreground text-pretty max-w-2xl mx-auto">
-              Monitor your achievements, discover your gaming patterns, and celebrate your progress across all your
-              Steam games.
-            </p>
-          </div>
+          <section className="space-y-8">
+            <div className="space-y-5">
+              <Badge variant="secondary" className="border border-accent/25 bg-accent/10 px-3 py-1 text-[0.72rem] uppercase tracking-[0.28em] text-accent">
+                Personal Steam cockpit
+              </Badge>
+              <div className="space-y-4">
+                <h2 className="max-w-3xl text-5xl font-semibold leading-none tracking-tight text-balance sm:text-6xl">
+                  Turn your backlog into a monitored campaign.
+                </h2>
+                <p className="max-w-2xl text-lg text-muted-foreground sm:text-xl">
+                  A focused dashboard for one Steam library: what is unfinished, what is nearly done, and what deserves the next session.
+                </p>
+              </div>
+            </div>
 
-          {/* Steam Sign-in Button */}
-          <div className="flex justify-center">
-            <div className="flex justify-center">
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Card className="border-white/10 bg-white/4 py-5">
+                <CardHeader className="px-5">
+                  <CardTitle className="text-sm uppercase tracking-[0.22em] text-muted-foreground">Signal</CardTitle>
+                  <CardDescription className="text-base text-foreground">Recent games, pending achievements, full-library stats.</CardDescription>
+                </CardHeader>
+              </Card>
+              <Card className="border-white/10 bg-white/4 py-5">
+                <CardHeader className="px-5">
+                  <CardTitle className="text-sm uppercase tracking-[0.22em] text-muted-foreground">Control</CardTitle>
+                  <CardDescription className="text-base text-foreground">Manual sync, cached snapshots, quick drill-down into each title.</CardDescription>
+                </CardHeader>
+              </Card>
+              <Card className="border-white/10 bg-white/4 py-5">
+                <CardHeader className="px-5">
+                  <CardTitle className="text-sm uppercase tracking-[0.22em] text-muted-foreground">Focus</CardTitle>
+                  <CardDescription className="text-base text-foreground">No social clutter, no marketplace noise, just completion progress.</CardDescription>
+                </CardHeader>
+              </Card>
+            </div>
+          </section>
+
+          <section className="space-y-6">
+            <div className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02)),linear-gradient(135deg,rgba(88,198,255,0.18),transparent_45%)] p-6 shadow-[0_30px_80px_-45px_rgba(88,198,255,0.75)]">
+              <div className="mb-6 flex items-start justify-between gap-6">
+                <div>
+                  <p className="text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-accent/90">Steam access</p>
+                  <h3 className="mt-2 text-2xl font-semibold tracking-tight">Sign in and index your library</h3>
+                </div>
+                <div className="rounded-full border border-white/10 bg-white/8 px-3 py-1 text-xs uppercase tracking-[0.22em] text-muted-foreground">
+                  OpenID
+                </div>
+              </div>
+
+              <div className="mb-6 grid gap-4 sm:grid-cols-2">
+                <div className="rounded-2xl border border-white/10 bg-slate-950/35 p-4">
+                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">What gets stored</p>
+                  <p className="mt-2 text-sm text-foreground/90">Owned games, achievement snapshots, game schemas and library-wide stats in SQLite.</p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-slate-950/35 p-4">
+                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Why it feels fast</p>
+                  <p className="mt-2 text-sm text-foreground/90">The app serves cached snapshots instead of rebuilding the entire Steam state on every screen.</p>
+                </div>
+              </div>
+
+              <div className="flex justify-center sm:justify-start">
               <img
                 src="/steam-signin.png"
                 alt="Sign in with Steam"
-                className="cursor-pointer"
+                  className="cursor-pointer transition-transform duration-300 hover:scale-[1.02]"
                 onClick={handleSteamSignIn}
               />
-            </div>
-          </div>
-
-          {/* Features Grid */}
-          <div className="grid md:grid-cols-3 gap-6 mt-16">
-            <Card className="border-2 hover:border-accent/50 transition-colors duration-300">
-              <CardHeader className="text-center">
-                <Trophy className="h-12 w-12 text-accent mx-auto mb-4" />
-                <CardTitle className="text-xl">Achievement Tracking</CardTitle>
-                <CardDescription>Monitor your progress across all games and celebrate every milestone</CardDescription>
-              </CardHeader>
-            </Card>
-
-            <Card className="border-2 hover:border-accent/50 transition-colors duration-300">
-              <CardHeader className="text-center">
-                <TrendingUp className="h-12 w-12 text-accent mx-auto mb-4" />
-                <CardTitle className="text-xl">Gaming Analytics</CardTitle>
-                <CardDescription>Discover insights about your gaming habits and favorite genres</CardDescription>
-              </CardHeader>
-            </Card>
-
-            <Card className="border-2 hover:border-accent/50 transition-colors duration-300">
-              <CardHeader className="text-center">
-                <Users className="h-12 w-12 text-accent mx-auto mb-4" />
-                <CardTitle className="text-xl">Social Features</CardTitle>
-                <CardDescription>Compare achievements with friends and join the gaming community</CardDescription>
-              </CardHeader>
-            </Card>
-          </div>
-
-          {/* Stats Preview */}
-          <div className="mt-16 p-8 bg-card rounded-lg border">
-            <h3 className="text-2xl font-semibold mb-6 text-center">What You&apos;ll Get</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-accent">100%</div>
-                <div className="text-sm text-muted-foreground">Achievement Progress</div>
-              </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-accent">24/7</div>
-                <div className="text-sm text-muted-foreground">Real-time Tracking</div>
-              </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-accent">∞</div>
-                <div className="text-sm text-muted-foreground">Games Supported</div>
-              </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-accent">Free</div>
-                <div className="text-sm text-muted-foreground">Always & Forever</div>
               </div>
             </div>
-          </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Card className="border-white/10 bg-white/4 py-5">
+                <CardHeader className="px-5">
+                  <div className="mb-3 flex items-center gap-3">
+                    <div className="rounded-2xl border border-white/10 bg-accent/12 p-3 text-accent">
+                      <Trophy className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg">Achievement tracking</CardTitle>
+                      <CardDescription>Pending, unlocked and complete states per game.</CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+              </Card>
+              <Card className="border-white/10 bg-white/4 py-5">
+                <CardHeader className="px-5">
+                  <div className="mb-3 flex items-center gap-3">
+                    <div className="rounded-2xl border border-white/10 bg-accent/12 p-3 text-accent">
+                      <TrendingUp className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg">Library analytics</CardTitle>
+                      <CardDescription>Playtime, perfect games and indexed totals in one view.</CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+              </Card>
+            </div>
+          </section>
         </div>
       </main>
 

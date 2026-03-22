@@ -53,17 +53,20 @@ export function StatsOverview() {
   ]
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <p className="text-xs text-muted-foreground">
-          {updatedLabel}
-        </p>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between rounded-[1.2rem] border border-white/10 bg-card/80 px-4 py-3">
+        <div>
+          <p className="text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-accent/80">Library pulse</p>
+          <p className="text-xs text-muted-foreground">
+            {updatedLabel}
+          </p>
+        </div>
         <Button
           variant="outline"
           size="sm"
           onClick={() => refetch({ force: true })}
           disabled={isRefreshing}
-          className="gap-2"
+          className="gap-2 border-white/10 bg-white/5 hover:bg-white/10"
         >
           <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
           Refresh
@@ -77,6 +80,7 @@ export function StatsOverview() {
           icon: <stat.icon className={`h-4 w-4 ${stat.color}`} />,
           onClick: idx === 0 ? () => router.push('/games') : undefined,
           clickable: idx === 0,
+          className: idx === 0 ? "relative before:absolute before:inset-x-6 before:top-0 before:h-px before:bg-gradient-to-r before:from-transparent before:via-accent/60 before:to-transparent" : "",
         }))}
       />
     </div>

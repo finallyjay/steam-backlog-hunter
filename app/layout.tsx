@@ -18,7 +18,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
-      <body className={`dark font-sans ${GeistSans.variable} ${GeistMono.variable} bg-gradient-to-br from-background to-muted`}>
+      <body className={`dark font-sans ${GeistSans.variable} ${GeistMono.variable}`}>
         <PageTitleProvider>
           <ClientLayout>{children}</ClientLayout>
         </PageTitleProvider>

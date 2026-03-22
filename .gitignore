@@ -35,6 +35,7 @@ coverage/
 public/uploads/
 
 # Optional: ignore local database
+.data/
 *.sqlite
 *.db
 

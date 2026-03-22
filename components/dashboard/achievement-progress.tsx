@@ -36,9 +36,9 @@ export function AchievementProgress() {
 
   if (gamesLoading) {
     return (
-      <Card className="border-2">
+      <Card className="border-white/10">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-lg">
             <Trophy className="h-5 w-5 text-accent" />
             Achievement Progress
           </CardTitle>
@@ -71,10 +71,10 @@ export function AchievementProgress() {
     : []
 
   return (
-    <Card className="border-2">
+    <Card className="border-white/10">
       <CardHeader>
         <div className="flex items-center justify-between gap-3">
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-lg">
             <Trophy className="h-5 w-5 text-accent" />
             Achievement Progress
           </CardTitle>
@@ -83,13 +83,13 @@ export function AchievementProgress() {
             size="sm"
             onClick={() => void refetch()}
             disabled={!activeGameId || isRefreshingAchievements}
-            className="gap-2"
+            className="gap-2 border-white/10 bg-white/5 hover:bg-white/10"
           >
             <RefreshCw className={`h-4 w-4 ${isRefreshingAchievements ? "animate-spin" : ""}`} />
             Refresh
           </Button>
         </div>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
           {updatedLabel}
         </p>
       </CardHeader>
@@ -146,12 +146,12 @@ export function AchievementProgress() {
 
                     <div className="space-y-3">
                       {lockedAchievements.slice(0, 5).map((achievement, index: number) => (
-                        <div key={index} className="p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors opacity-60">
+                        <div key={index} className="rounded-[1rem] border border-white/8 bg-white/4 p-3 transition-colors hover:bg-white/6">
                           <div className="flex items-start gap-3">
                             <img
                               src={achievement.icongray || achievement.icon || "/placeholder.svg"}
                               alt={achievement.displayName}
-                              className="w-12 h-12 rounded-lg border-muted-foreground/20 grayscale"
+                              className="h-12 w-12 rounded-xl border border-white/10 grayscale"
                               onError={(e) => {
                                 e.currentTarget.src = "/achievement-icon.png"
                               }}

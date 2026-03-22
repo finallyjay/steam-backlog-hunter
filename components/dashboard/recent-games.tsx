@@ -45,9 +45,9 @@ export function RecentGames() {
   // Renderizado
   if (loading) {
     return (
-      <Card className="border-2">
+      <Card className="border-white/10">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-lg">
             <Play className="h-5 w-5 text-accent" />
             Recently Played Games
           </CardTitle>
@@ -72,9 +72,9 @@ export function RecentGames() {
 
   if (error) {
     return (
-      <Card className="border-2 border-destructive/50">
+      <Card className="border-destructive/40">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-lg">
             <Play className="h-5 w-5 text-accent" />
             Recently Played Games
           </CardTitle>
@@ -87,19 +87,19 @@ export function RecentGames() {
   }
 
   return (
-    <Card className="border-2">
+    <Card className="border-white/10">
       <CardHeader>
         <div className="flex items-center justify-between gap-3">
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-lg">
             <Play className="h-5 w-5 text-accent" />
             Recently Played Games
           </CardTitle>
-          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isRefreshing} className="gap-2">
+          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isRefreshing} className="gap-2 border-white/10 bg-white/5 hover:bg-white/10">
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
             Refresh
           </Button>
         </div>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
           {updatedLabel}
         </p>
       </CardHeader>
