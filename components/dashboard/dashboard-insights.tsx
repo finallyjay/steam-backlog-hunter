@@ -6,6 +6,7 @@ import { Activity, PieChart as PieChartIcon, Trophy } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { AnimatedNumber } from "@/components/ui/animated-number"
 import { useSteamGames } from "@/hooks/use-steam-data"
 import { getAllowedGameIdsClient } from "@/lib/allowed-games"
 import type { SteamStatsResponse } from "@/lib/types/steam"
@@ -27,7 +28,9 @@ function MetricLegend({ label, value, color }: { label: string; value: number; c
         <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
         <span className="text-sm text-muted-foreground">{label}</span>
       </div>
-      <span className="text-sm font-medium text-foreground">{value}</span>
+      <span className="text-sm font-medium text-foreground">
+        <AnimatedNumber value={value} />
+      </span>
     </div>
   )
 }
