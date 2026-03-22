@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 
 import { getCurrentUser } from "@/app/lib/server-auth"
+import { reseedTrackedGamesServer } from "@/lib/server/tracked-games"
 import { getUserSyncStatus, synchronizeUserData } from "@/lib/server/steam-store"
 
 export async function GET() {
@@ -24,6 +25,7 @@ export async function POST() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    await reseedTrackedGamesServer()
     const result = await synchronizeUserData(user.steamId)
     return NextResponse.json(result)
   } catch (error) {

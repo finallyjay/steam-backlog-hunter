@@ -79,6 +79,7 @@ function initializeSchema(db: DatabaseSync) {
       total_games INTEGER NOT NULL,
       total_achievements INTEGER NOT NULL,
       pending_achievements INTEGER NOT NULL DEFAULT 0,
+      started_games INTEGER NOT NULL DEFAULT 0,
       total_playtime_minutes INTEGER NOT NULL,
       perfect_games INTEGER NOT NULL,
       computed_at TEXT NOT NULL,
@@ -100,39 +101,85 @@ function initializeSchema(db: DatabaseSync) {
 
   const statsSnapshotColumns = db.prepare("PRAGMA table_info(stats_snapshot)").all() as Array<{ name: string }>
   const hasPendingAchievementsColumn = statsSnapshotColumns.some((column) => column.name === "pending_achievements")
+  const hasStartedGamesColumn = statsSnapshotColumns.some((column) => column.name === "started_games")
 
   if (!hasPendingAchievementsColumn) {
     db.exec("ALTER TABLE stats_snapshot ADD COLUMN pending_achievements INTEGER NOT NULL DEFAULT 0;")
   }
 
-  seedTrackedGames(db)
+  if (!hasStartedGamesColumn) {
+    db.exec("ALTER TABLE stats_snapshot ADD COLUMN started_games INTEGER NOT NULL DEFAULT 0;")
+  }
+
+  reseedTrackedGames(db)
 }
 
-function seedTrackedGames(db: DatabaseSync) {
-  const jsonPath = join(process.cwd(), "public", "steam_games_with_achievements.json")
+function parseTrackedGamesSeed(rawJson: string): number[] {
+  const parsed = JSON.parse(rawJson) as unknown
+  if (!Array.isArray(parsed)) {
+    return []
+  }
+
+  return parsed.filter((entry): entry is number => typeof entry === "number" && Number.isFinite(entry))
+}
+
+function reseedTrackedGames(db: DatabaseSync): number {
+  const jsonPath = join(process.cwd(), "lib", "data", "tracked-games-seed.json")
   if (!existsSync(jsonPath)) {
-    return
+    return 0
   }
 
   const rawJson = readFileSync(jsonPath, "utf-8")
-  const games = JSON.parse(rawJson) as Array<{ id: number }>
+  const appIds = Array.from(new Set(parseTrackedGamesSeed(rawJson)))
   const now = new Date().toISOString()
+  const insertPlaceholderGame = db.prepare(`
+    INSERT INTO games (
+      appid,
+      name,
+      created_at,
+      updated_at
+    ) VALUES (?, ?, ?, ?)
+    ON CONFLICT(appid) DO NOTHING
+  `)
   const insertTrackedGame = db.prepare(`
     INSERT INTO tracked_games (appid, source, created_at, updated_at)
     VALUES (?, 'seed', ?, ?)
-    ON CONFLICT(appid) DO NOTHING
+    ON CONFLICT(appid) DO UPDATE SET
+      updated_at = excluded.updated_at
+  `)
+  const deleteMissingSeedGames = db.prepare(`
+    DELETE FROM tracked_games
+    WHERE source = 'seed' AND appid NOT IN (${appIds.map(() => "?").join(",")})
+  `)
+  const deleteAllSeedGames = db.prepare(`
+    DELETE FROM tracked_games
+    WHERE source = 'seed'
   `)
 
   db.exec("BEGIN")
   try {
-    for (const game of games) {
-      insertTrackedGame.run(game.id, now, now)
+    for (const appId of appIds) {
+      insertPlaceholderGame.run(appId, `Steam app ${appId}`, now, now)
+      insertTrackedGame.run(appId, now, now)
     }
+
+    if (appIds.length > 0) {
+      deleteMissingSeedGames.run(...appIds)
+    } else {
+      deleteAllSeedGames.run()
+    }
+
     db.exec("COMMIT")
+    return appIds.length
   } catch (error) {
     db.exec("ROLLBACK")
     throw error
   }
+}
+
+export function reseedTrackedGamesFromFile() {
+  const db = getSqliteDatabase()
+  return reseedTrackedGames(db)
 }
 
 export function getSqliteDatabase() {
