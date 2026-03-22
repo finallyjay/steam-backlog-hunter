@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { RefreshCw } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { invalidateSteamData } from "@/hooks/use-steam-data"
 import { useToast } from "@/hooks/use-toast"
 
 type SyncStatusResponse = {
@@ -83,6 +84,7 @@ export function SyncStatusButton() {
 
       const data = (await response.json()) as SyncResultResponse
       await loadStatus()
+      invalidateSteamData()
       toast({
         title: "Steam sync completed",
         description: `${data.ownedGames} games, ${data.recentGames} recent, ${data.stats.totalAchievements} achievements indexed.`,

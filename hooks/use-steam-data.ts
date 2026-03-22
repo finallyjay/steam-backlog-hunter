@@ -12,6 +12,15 @@ import type {
 import type { SteamAchievementView, SteamStatsResponse } from "@/lib/types/steam"
 
 const REFRESH_COOLDOWN_MS = 3000
+const STEAM_DATA_INVALIDATED_EVENT = "steam-data-invalidated"
+
+export function invalidateSteamData() {
+  if (typeof window === "undefined") {
+    return
+  }
+
+  window.dispatchEvent(new CustomEvent(STEAM_DATA_INVALIDATED_EVENT))
+}
 
 export function useSteamAchievementsBatch(appIds: number[]) {
   const [achievementsMap, setAchievementsMap] = useState<Record<number, SteamAchievementView[]>>({})
@@ -94,6 +103,17 @@ export function useSteamAchievementsBatch(appIds: number[]) {
     void fetchBatch()
   }, [fetchBatch, appIdsKey])
 
+  useEffect(() => {
+    function handleInvalidate() {
+      void fetchBatch({ manual: true })
+    }
+
+    window.addEventListener(STEAM_DATA_INVALIDATED_EVENT, handleInvalidate)
+    return () => {
+      window.removeEventListener(STEAM_DATA_INVALIDATED_EVENT, handleInvalidate)
+    }
+  }, [fetchBatch])
+
   const refetch = useCallback(async () => {
     await fetchBatch({ manual: true })
   }, [fetchBatch])
@@ -161,6 +181,17 @@ export function useSteamGames(type: "recent" | "all" = "recent") {
     void loadGames()
   }, [loadGames])
 
+  useEffect(() => {
+    function handleInvalidate() {
+      void loadGames({ manual: true })
+    }
+
+    window.addEventListener(STEAM_DATA_INVALIDATED_EVENT, handleInvalidate)
+    return () => {
+      window.removeEventListener(STEAM_DATA_INVALIDATED_EVENT, handleInvalidate)
+    }
+  }, [loadGames])
+
   const refetch = useCallback(async () => {
     await loadGames({ manual: true })
   }, [loadGames])
@@ -221,6 +252,17 @@ export function useSteamStats() {
 
   useEffect(() => {
     void loadStats()
+  }, [loadStats])
+
+  useEffect(() => {
+    function handleInvalidate() {
+      void loadStats({ force: true, manual: true })
+    }
+
+    window.addEventListener(STEAM_DATA_INVALIDATED_EVENT, handleInvalidate)
+    return () => {
+      window.removeEventListener(STEAM_DATA_INVALIDATED_EVENT, handleInvalidate)
+    }
   }, [loadStats])
 
   const refetch = useCallback(
@@ -308,6 +350,17 @@ export function useSteamAchievements(appId: number | null) {
     setLoading(appId !== null)
     void loadAchievements()
   }, [appId, loadAchievements])
+
+  useEffect(() => {
+    function handleInvalidate() {
+      void loadAchievements({ manual: true })
+    }
+
+    window.addEventListener(STEAM_DATA_INVALIDATED_EVENT, handleInvalidate)
+    return () => {
+      window.removeEventListener(STEAM_DATA_INVALIDATED_EVENT, handleInvalidate)
+    }
+  }, [loadAchievements])
 
   const refetch = useCallback(async () => {
     await loadAchievements({ manual: true })
