@@ -3,7 +3,7 @@
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Trophy, Gamepad2, TrendingUp, Users, AlertCircle } from "lucide-react"
+import { Trophy, Gamepad2, TrendingUp, AlertCircle } from "lucide-react"
 import { useSearchParams } from "next/navigation"
 import { PageHeader } from "@/components/ui/page-header"
 import { PageFooter } from "@/components/ui/page-footer"

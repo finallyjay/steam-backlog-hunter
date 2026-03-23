@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { Clock, Trophy } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
 import type { SteamAchievementView } from "@/lib/types/steam"
@@ -21,13 +21,17 @@ function getSteamCapsuleImageUrl(id: number | string) {
 }
 
 export function GameCard({ id, name, image, playtime, achievements = [], achievementsLoading = false, href }: GameCardProps) {
-  const [imageSrc, setImageSrc] = useState(image || "/placeholder.svg")
-  const [fallbackStage, setFallbackStage] = useState<"primary" | "capsule" | "generic" | "placeholder">("primary")
+  const [imageState, setImageState] = useState<{
+    src: string
+    fallbackStage: "primary" | "capsule" | "generic" | "placeholder"
+    prevImage: string
+  }>({ src: image || "/placeholder.svg", fallbackStage: "primary", prevImage: image })
 
-  useEffect(() => {
-    setImageSrc(image || "/placeholder.svg")
-    setFallbackStage("primary")
-  }, [image])
+  if (image !== imageState.prevImage) {
+    setImageState({ src: image || "/placeholder.svg", fallbackStage: "primary", prevImage: image })
+  }
+
+  const { src: imageSrc, fallbackStage } = imageState
 
   const unlocked = achievements.filter((achievement) => achievement.achieved === 1).length
   const total = achievements.length
@@ -48,20 +52,17 @@ export function GameCard({ id, name, image, playtime, achievements = [], achieve
         className="h-auto min-h-[5.9rem] w-48 rounded-2xl border border-white/10 bg-slate-900/70 object-cover shadow-lg"
         onError={() => {
           if (fallbackStage === "primary") {
-            setImageSrc(getSteamCapsuleImageUrl(id))
-            setFallbackStage("capsule")
+            setImageState((s) => ({ ...s, src: getSteamCapsuleImageUrl(id), fallbackStage: "capsule" }))
             return
           }
 
           if (fallbackStage === "capsule") {
-            setImageSrc("/generic-game-icon.png")
-            setFallbackStage("generic")
+            setImageState((s) => ({ ...s, src: "/generic-game-icon.png", fallbackStage: "generic" }))
             return
           }
 
           if (fallbackStage === "generic") {
-            setImageSrc("/placeholder.svg")
-            setFallbackStage("placeholder")
+            setImageState((s) => ({ ...s, src: "/placeholder.svg", fallbackStage: "placeholder" }))
           }
         }}
       />

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useSyncExternalStore } from "react"
 import { toast } from "@/hooks/use-toast"
 import type { SteamUser } from "@/lib/auth"
 import type { AuthMeResponse } from "@/lib/types/api"
@@ -10,7 +10,7 @@ type CurrentUserState = {
   loading: boolean
 }
 
-const listeners = new Set<(state: CurrentUserState) => void>()
+const listeners = new Set<() => void>()
 let currentUserState: CurrentUserState = {
   user: null,
   loading: true,
@@ -19,7 +19,18 @@ let inFlightRequest: Promise<void> | null = null
 
 function emitState(nextState: CurrentUserState) {
   currentUserState = nextState
-  listeners.forEach((listener) => listener(nextState))
+  listeners.forEach((listener) => listener())
+}
+
+function subscribe(listener: () => void) {
+  listeners.add(listener)
+  return () => {
+    listeners.delete(listener)
+  }
+}
+
+function getSnapshot() {
+  return currentUserState
 }
 
 async function ensureCurrentUserLoaded(): Promise<void> {
@@ -61,18 +72,10 @@ async function ensureCurrentUserLoaded(): Promise<void> {
 }
 
 export function useCurrentUser() {
-  const [state, setState] = useState<CurrentUserState>({
-    user: null,
-    loading: true,
-  })
+  const state = useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
 
   useEffect(() => {
-    listeners.add(setState)
-    setState(currentUserState)
     void ensureCurrentUserLoaded()
-    return () => {
-      listeners.delete(setState)
-    }
   }, [])
 
   return state
