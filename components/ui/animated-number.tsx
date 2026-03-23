@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 
 type AnimatedNumberProps = {
   value: number
@@ -32,7 +32,6 @@ function DigitColumn({
   const [activeDigit, setActiveDigit] = useState(startDigit)
 
   useEffect(() => {
-    setActiveDigit(startDigit)
     const frame = window.requestAnimationFrame(() => {
       setActiveDigit(targetDigit)
     })
@@ -72,9 +71,13 @@ export function AnimatedNumber({
   className,
   durationMs = 1400,
 }: AnimatedNumberProps) {
-  const previousValueRef = useRef(0)
-  const hasMountedRef = useRef(false)
-  const previousValue = hasMountedRef.current ? previousValueRef.current : 0
+  const [animState, setAnimState] = useState({ previousValue: 0, prevValueProp: value })
+
+  if (value !== animState.prevValueProp) {
+    setAnimState({ previousValue: animState.prevValueProp, prevValueProp: value })
+  }
+
+  const { previousValue } = animState
 
   const formatter = useMemo(
     () => new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }),
@@ -86,11 +89,6 @@ export function AnimatedNumber({
   const maxLength = Math.max(formattedCurrent.length, formattedPrevious.length)
   const paddedCurrent = formattedCurrent.padStart(maxLength, " ")
   const paddedPrevious = formattedPrevious.padStart(maxLength, " ")
-
-  useEffect(() => {
-    previousValueRef.current = value
-    hasMountedRef.current = true
-  }, [value])
 
   return (
     <span className={`inline-flex items-baseline tabular-nums ${className ?? ""}`}>
