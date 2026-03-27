@@ -1,68 +1,88 @@
 # Steam Backlog Hunter
 
-Track Steam games and achievements after signing in with Steam OpenID.
+A personal dashboard for tracking your Steam library, monitoring achievement progress, and hunting down completions. Sign in with Steam, sync your library, and see what's left to finish.
 
-## Requirements
+## Features
+
+- **Achievement tracking** — pending, unlocked, and completion status per game
+- **Library analytics** — playtime, perfect games, average completion, and indexed totals
+- **Recently played** — sorted by actual last played time (`rtime_last_played`)
+- **Completion opportunities** — surfaces games closest to 100% from recent activity
+- **Game detail pages** — pending/unlocked tabs, progress bar, unlock timestamps, Steam Store link
+- **Image discovery** — automatically probes Steam CDN for the best available game art
+- **Single-user** — whitelist-based access via Steam OpenID, designed for self-hosting
+
+## Tech Stack
+
+Next.js 16 (App Router) | React 19 | TypeScript | Tailwind CSS 4 | SQLite (Node.js built-in) | shadcn/ui
+
+## Getting Started
+
+### Requirements
 
 - Node `24.13.1` (see `.nvmrc`)
 - pnpm `10.25.0`
 
-### Recommended setup
+### Setup
 
 ```bash
 nvm use
 pnpm install
 ```
 
-## Environment Variables
+### Environment Variables
 
 Create a `.env.local` file:
 
 ```bash
-STEAM_API_KEY=your_steam_web_api_key
-NEXTAUTH_URL=http://localhost:3000
-STEAM_WHITELIST_IDS=76561198000000000,76561198000000001
-SQLITE_PATH=/absolute/path/to/steam-achievements-tracker.sqlite
+STEAM_API_KEY=your_steam_web_api_key        # from https://steamcommunity.com/dev/apikey
+NEXTAUTH_URL=http://localhost:3000           # your app URL (required for production)
+STEAM_WHITELIST_IDS=76561198000000000        # comma-separated Steam64 IDs
+SQLITE_PATH=/path/to/database.sqlite        # optional, see below
 ```
 
-## Local Commands
+### Run
 
-- `pnpm dev`: start local development server
-- `pnpm lint`: run ESLint + typecheck
-- `pnpm test`: run unit/smoke tests with Vitest
-- `pnpm build`: production build
-- `pnpm start`: run production server
+```bash
+pnpm dev      # http://localhost:3000
+```
 
-## Auth + Whitelist Behavior
+## Commands
 
-- `STEAM_WHITELIST_IDS` is a comma-separated list of allowed Steam64 IDs.
-- Spaces and empty entries are ignored.
-- If `STEAM_WHITELIST_IDS` is missing/empty, access is denied by default.
-- Whitelist is checked in Steam callback before writing session cookie.
-- Non-whitelisted users are redirected to `/?error=not_whitelisted`.
-- Existing sessions are re-validated when reading auth state and are cleared if no longer authorized.
+| Command | Description |
+|---------|-------------|
+| `pnpm dev` | Start development server |
+| `pnpm build` | Production build |
+| `pnpm start` | Run production server |
+| `pnpm lint` | ESLint + typecheck |
+| `pnpm test` | Run tests (Vitest) |
+
+## Auth + Whitelist
+
+- `STEAM_WHITELIST_IDS` controls who can sign in (comma-separated Steam64 IDs)
+- If missing or empty, **all access is denied** by default
+- Non-whitelisted users are redirected to `/?error=not_whitelisted`
+- Sessions are re-validated on every auth check
 
 ## SQLite Persistence
 
-- SQLite is the primary persistent store for owned games, achievement snapshots, schemas, and aggregated stats.
-- Default path resolution:
-1. `SQLITE_PATH`, if set
-2. `/data/steam-achievements-tracker.sqlite`, if `/data` exists and is writable
-3. `.data/steam-achievements-tracker.sqlite` inside the project directory
-- For Dokploy/Nixpacks, mount a persistent volume and point `SQLITE_PATH` to that volume. A safe default is `/data/steam-achievements-tracker.sqlite`.
-- The first requests populate the database; after that, reads come from SQLite and Steam is only queried on stale data or manual refresh.
+SQLite is the primary store for owned games, achievement snapshots, game schemas, image URLs, and aggregated stats. Path resolution order:
 
-## Manual Resync
+1. `SQLITE_PATH` environment variable
+2. `/data/steam-achievements-tracker.sqlite` (if `/data` is writable)
+3. `.data/steam-achievements-tracker.sqlite` (project directory)
 
-- `POST /api/steam/sync` forces a full sync for the authenticated user and refreshes owned games, recent games, achievements, and stats snapshots.
-- `GET /api/steam/sync` returns the timestamps of the last owned-games, recent-games, and stats syncs so the UI can show sync state.
+For containerized deployments (Dokploy, Nixpacks), mount a persistent volume and set `SQLITE_PATH`.
+
+The first sync populates the database from the Steam API. After that, reads come from SQLite and Steam is only queried when data is stale or manually refreshed.
+
+## Sync
+
+- **Manual sync**: `POST /api/steam/sync` refreshes owned games, achievements, and stats
+- **Sync status**: `GET /api/steam/sync` returns last sync timestamps
 
 ## CI
 
-GitHub Actions workflow: `.github/workflows/ci.yml`
+GitHub Actions (`.github/workflows/ci.yml`) runs on push and PRs:
 
-On push/PR it runs:
-1. `pnpm install --frozen-lockfile`
-2. `pnpm lint`
-3. `pnpm test`
-4. `pnpm build`
+`install` → `lint` → `test` → `build`
