@@ -38,8 +38,8 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
               <Gamepad2 className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-[0.7rem] font-semibold uppercase tracking-[0.32em] text-accent/80">Achievement tracker</p>
-              <h1 className="text-xl font-semibold tracking-tight text-balance sm:text-2xl">Steam Pending Achievements</h1>
+              <p className="text-[0.7rem] font-semibold uppercase tracking-[0.32em] text-accent/80">Backlog hunter</p>
+              <h1 className="text-xl font-semibold tracking-tight text-balance sm:text-2xl">Steam Backlog Hunter</h1>
             </div>
             <Badge variant="secondary" className="ml-2 hidden border border-white/10 bg-white/6 text-sm sm:inline-flex">
               Personal build

@@ -7,8 +7,8 @@ import './globals.css'
 // Removed unused client-only imports (they cause errors in server components)
 
 export const metadata: Metadata = {
-  title: 'Steam Pending Achievements',
-  description: 'Track your pending Steam achievements and never miss out on completing them!'
+  title: 'Steam Backlog Hunter',
+  description: 'Track your Steam backlog, monitor achievement progress, and hunt down completions.'
 }
 
 export default function RootLayout({
