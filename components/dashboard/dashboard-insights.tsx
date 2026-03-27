@@ -23,6 +23,21 @@ type ChartKind = "donut" | "bars"
 
 const CHART_COLORS = ["#61ceff", "#53d1a8", "#f3c969", "#2d415c", "#f58f74"]
 
+function ChartTooltip({ active, payload }: { active?: boolean; payload?: Array<{ name: string; value: number; payload: { color: string } }> }) {
+  if (!active || !payload?.length) return null
+
+  const item = payload[0]
+  return (
+    <div className="rounded-xl border border-white/10 bg-slate-900/95 px-3 py-2 shadow-xl backdrop-blur-sm">
+      <div className="flex items-center gap-2">
+        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.payload.color }} />
+        <span className="text-sm text-muted-foreground">{item.name}</span>
+        <span className="ml-1 text-sm font-semibold text-foreground">{item.value}</span>
+      </div>
+    </div>
+  )
+}
+
 function MetricLegend({
   label,
   value,
@@ -111,7 +126,7 @@ function InsightCard({
                     width={72}
                     tick={{ fill: "rgba(226,232,240,0.72)", fontSize: 12 }}
                   />
-                  <Tooltip />
+                  <Tooltip content={<ChartTooltip />} />
                   <Bar dataKey="value" radius={999}>
                     {chartData.map((entry) => (
                       <Cell key={entry.name} fill={entry.color} />
@@ -133,7 +148,7 @@ function InsightCard({
                       <Cell key={entry.name} fill={entry.color} />
                     ))}
                   </Pie>
-                  <Tooltip />
+                  <Tooltip content={<ChartTooltip />} />
                 </PieChart>
               )}
             </ResponsiveContainer>
@@ -325,11 +340,7 @@ export function DashboardInsights({ stats, loading = false }: DashboardInsightsP
             insight={trackableModel.insight}
             loading={loading}
             chartKind="donut"
-            links={trackableMetric === "completion" ? {
-              Perfect: "/games?scope=tracked&bucket=perfect",
-              Started: "/games?scope=tracked&bucket=started",
-              Untouched: "/games?scope=tracked&bucket=untouched",
-            } : undefined}
+            links={undefined}
           />
         </CardContent>
       </Card>
@@ -367,10 +378,7 @@ export function DashboardInsights({ stats, loading = false }: DashboardInsightsP
             insight={libraryModel.insight}
             loading={allGamesLoading}
             chartKind={libraryModel.chartKind}
-            links={libraryMetric === "state" ? {
-              Played: "/games?state=played",
-              Unplayed: "/games?state=unplayed",
-            } : undefined}
+            links={undefined}
           />
         </CardContent>
       </Card>
