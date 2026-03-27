@@ -22,15 +22,21 @@ function emitState(nextState: CurrentUserState) {
   listeners.forEach((listener) => listener())
 }
 
-function subscribe(listener: () => void) {
-  listeners.add(listener)
+function subscribe(onStoreChange: () => void) {
+  listeners.add(onStoreChange)
   return () => {
-    listeners.delete(listener)
+    listeners.delete(onStoreChange)
   }
 }
 
+const SERVER_SNAPSHOT: CurrentUserState = { user: null, loading: true }
+
 function getSnapshot() {
   return currentUserState
+}
+
+function getServerSnapshot() {
+  return SERVER_SNAPSHOT
 }
 
 async function ensureCurrentUserLoaded(): Promise<void> {
@@ -72,7 +78,7 @@ async function ensureCurrentUserLoaded(): Promise<void> {
 }
 
 export function useCurrentUser() {
-  const state = useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
+  const state = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
 
   useEffect(() => {
     void ensureCurrentUserLoaded()

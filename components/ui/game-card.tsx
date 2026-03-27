@@ -16,22 +16,29 @@ interface GameCardProps {
   href?: string
 }
 
-function getSteamCapsuleImageUrl(id: number | string) {
-  return `https://shared.steamstatic.com/store_item_assets/steam/apps/${id}/capsule_231x87.jpg`
+const FALLBACK_STAGES = ["primary", "header", "legacy", "capsule", "generic", "placeholder"] as const
+type FallbackStage = (typeof FALLBACK_STAGES)[number]
+
+function getFallbackUrl(id: number | string, stage: FallbackStage): string {
+  switch (stage) {
+    case "header":
+      return `https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${id}/header.jpg`
+    case "legacy":
+      return `https://steamcdn-a.akamaihd.net/steam/apps/${id}/header.jpg`
+    case "capsule":
+      return `https://shared.steamstatic.com/store_item_assets/steam/apps/${id}/capsule_231x87.jpg`
+    case "generic":
+      return "/placeholder-landscape.svg"
+    case "placeholder":
+      return "/placeholder-landscape.svg"
+    default:
+      return "/placeholder.svg"
+  }
 }
 
 export function GameCard({ id, name, image, playtime, achievements = [], achievementsLoading = false, href }: GameCardProps) {
-  const [imageState, setImageState] = useState<{
-    src: string
-    fallbackStage: "primary" | "capsule" | "generic" | "placeholder"
-    prevImage: string
-  }>({ src: image || "/placeholder.svg", fallbackStage: "primary", prevImage: image })
-
-  if (image !== imageState.prevImage) {
-    setImageState({ src: image || "/placeholder.svg", fallbackStage: "primary", prevImage: image })
-  }
-
-  const { src: imageSrc, fallbackStage } = imageState
+  const [imageSrc, setImageSrc] = useState(image || "/placeholder-landscape.svg")
+  const [fallbackIndex, setFallbackIndex] = useState(0)
 
   const unlocked = achievements.filter((achievement) => achievement.achieved === 1).length
   const total = achievements.length
@@ -51,18 +58,10 @@ export function GameCard({ id, name, image, playtime, achievements = [], achieve
         alt={name}
         className="h-auto min-h-[5.9rem] w-48 rounded-2xl border border-white/10 bg-slate-900/70 object-cover shadow-lg"
         onError={() => {
-          if (fallbackStage === "primary") {
-            setImageState((s) => ({ ...s, src: getSteamCapsuleImageUrl(id), fallbackStage: "capsule" }))
-            return
-          }
-
-          if (fallbackStage === "capsule") {
-            setImageState((s) => ({ ...s, src: "/generic-game-icon.png", fallbackStage: "generic" }))
-            return
-          }
-
-          if (fallbackStage === "generic") {
-            setImageState((s) => ({ ...s, src: "/placeholder.svg", fallbackStage: "placeholder" }))
+          const nextIndex = fallbackIndex + 1
+          if (nextIndex < FALLBACK_STAGES.length) {
+            setImageSrc(getFallbackUrl(id, FALLBACK_STAGES[nextIndex]))
+            setFallbackIndex(nextIndex)
           }
         }}
       />

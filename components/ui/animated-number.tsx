@@ -39,7 +39,7 @@ function DigitColumn({
     return () => {
       window.cancelAnimationFrame(frame)
     }
-  }, [startDigit, targetDigit])
+  }, [targetDigit])
 
   return (
     <span
@@ -71,13 +71,7 @@ export function AnimatedNumber({
   className,
   durationMs = 1400,
 }: AnimatedNumberProps) {
-  const [animState, setAnimState] = useState({ previousValue: 0, prevValueProp: value })
-
-  if (value !== animState.prevValueProp) {
-    setAnimState({ previousValue: animState.prevValueProp, prevValueProp: value })
-  }
-
-  const { previousValue } = animState
+  const [previousValue, setPreviousValue] = useState(0)
 
   const formatter = useMemo(
     () => new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }),
@@ -89,6 +83,13 @@ export function AnimatedNumber({
   const maxLength = Math.max(formattedCurrent.length, formattedPrevious.length)
   const paddedCurrent = formattedCurrent.padStart(maxLength, " ")
   const paddedPrevious = formattedPrevious.padStart(maxLength, " ")
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setPreviousValue(value)
+    }, durationMs)
+    return () => clearTimeout(timeout)
+  }, [value, durationMs])
 
   return (
     <span className={`inline-flex items-baseline tabular-nums ${className ?? ""}`}>

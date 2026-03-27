@@ -18,7 +18,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen">
-      <PageHeader title="Steam Pending Achievements" icon={<Gamepad2 className="h-8 w-8 text-accent" />}>
+      <PageHeader title="Steam Backlog Hunter" icon={<Gamepad2 className="h-8 w-8 text-accent" />}>
         <Badge variant="secondary" className="border border-white/10 bg-white/6 text-sm">Personal build</Badge>
       </PageHeader>
 
