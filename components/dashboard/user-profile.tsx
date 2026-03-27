@@ -36,17 +36,28 @@ export function UserProfile({ user, stats, statsLoading = false, statsUpdatedLab
   return (
     <Card className="overflow-hidden border-white/10 bg-[linear-gradient(135deg,rgba(88,198,255,0.14),transparent_35%),linear-gradient(180deg,rgba(255,255,255,0.04),transparent)]">
       <CardHeader className="pb-0">
-        <CardTitle className="flex items-center gap-4">
-          <img
-            src={user.avatar || "/placeholder.svg"}
-            alt={user.displayName}
-            className="h-14 w-14 rounded-2xl border border-white/10 shadow-lg"
-          />
-          <div className="space-y-1">
-            <p className="text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-accent/80">Operator profile</p>
-            <h2 className="text-2xl font-semibold tracking-tight">{user.displayName}</h2>
-          </div>
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-4">
+            <img
+              src={user.avatar || "/placeholder.svg"}
+              alt={user.displayName}
+              className="h-14 w-14 rounded-2xl border border-white/10 shadow-lg"
+            />
+            <div className="space-y-1">
+              <p className="text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-accent/80">Operator profile</p>
+              <h2 className="text-2xl font-semibold tracking-tight">{user.displayName}</h2>
+            </div>
+          </CardTitle>
+          {!statsLoading && stats && (
+            <div className="text-right">
+              <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Avg. completion</p>
+              <p className="mt-1 flex items-baseline justify-end text-3xl font-semibold tracking-tight">
+                <AnimatedNumber value={stats.averageCompletion} />
+                <span className="ml-1.5 self-center text-lg text-muted-foreground">%</span>
+              </p>
+            </div>
+          )}
+        </div>
       </CardHeader>
 
       <CardContent>

@@ -62,26 +62,18 @@ export function useSteamAchievementsBatch(appIds: number[]) {
         const allowedIds = await getAllowedGameIdsClient()
         const filteredAppIds = normalizedAppIds.filter((id) => allowedIds.has(String(id)))
 
-        const entries = await Promise.all(
-          filteredAppIds.map(async (appId): Promise<[number, SteamAchievementView[]]> => {
-            try {
-              const query = options?.manual ? "&refresh=1" : ""
-              const response = await fetch(`/api/steam/achievements?appId=${appId}${query}`)
-              if (!response.ok) {
-                return [appId, []]
-              }
-              const data = (await response.json()) as SteamAchievementsApiResponse
-              if (!("achievements" in data) || !Array.isArray(data.achievements)) {
-                return [appId, []]
-              }
-              return [appId, data.achievements]
-            } catch {
-              return [appId, []]
-            }
-          }),
-        )
+        const response = await fetch(`/api/steam/achievements/batch?appIds=${filteredAppIds.join(",")}`)
+        if (!response.ok) {
+          throw new Error("Failed to fetch achievements batch")
+        }
 
-        setAchievementsMap(Object.fromEntries(entries))
+        const data = (await response.json()) as { achievementsMap: Record<string, SteamAchievementView[]> }
+        const mapped: Record<number, SteamAchievementView[]> = {}
+        for (const [appId, achievements] of Object.entries(data.achievementsMap)) {
+          mapped[Number(appId)] = achievements
+        }
+
+        setAchievementsMap(mapped)
         setLastUpdated(new Date())
         hasLoadedRef.current = true
       } catch (err) {
