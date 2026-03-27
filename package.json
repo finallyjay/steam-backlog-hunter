@@ -1,5 +1,5 @@
 {
-  "name": "steam-pending-achievements-tracker",
+  "name": "steam-backlog-hunter",
   "version": "0.2.2",
   "private": true,
   "scripts": {
@@ -51,7 +51,6 @@
     "date-fns": "4.1.0",
     "embla-carousel-react": "8.6.0",
     "geist": "^1.7.0",
-    "ioredis": "^5.8.1",
     "input-otp": "1.4.2",
     "lucide-react": "^0.574.0",
     "next": "16.1.6",
