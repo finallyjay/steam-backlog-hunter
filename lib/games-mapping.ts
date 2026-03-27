@@ -27,7 +27,7 @@ export function mapOwnedGamesToGameCards(
     .map((game) => ({
       id: game.appid,
       name: game.name,
-      image: game.header_image_url || getImageUrl(game.appid, game.img_icon_url),
+      image: game.image_landscape_url || getImageUrl(game.appid, game.img_icon_url),
       playtime: Number((game.playtime_forever / 60).toFixed(1)),
     }))
 }

@@ -40,8 +40,10 @@ function initializeSchema(db: DatabaseSync) {
       name TEXT NOT NULL,
       icon_hash TEXT,
       logo_hash TEXT,
-      header_image_url TEXT,
-      header_image_synced_at TEXT,
+      image_icon_url TEXT,
+      image_landscape_url TEXT,
+      image_portrait_url TEXT,
+      images_synced_at TEXT,
       has_community_visible_stats INTEGER,
       schema_json TEXT,
       schema_synced_at TEXT,
@@ -54,6 +56,7 @@ function initializeSchema(db: DatabaseSync) {
       appid INTEGER NOT NULL,
       playtime_forever INTEGER NOT NULL DEFAULT 0,
       playtime_2weeks INTEGER,
+      rtime_last_played INTEGER,
       owned INTEGER NOT NULL DEFAULT 1,
       last_seen_in_owned_games_at TEXT,
       achievements_synced_at TEXT,
@@ -111,6 +114,10 @@ function initializeSchema(db: DatabaseSync) {
   const hasLibraryAverageCompletionColumn = statsSnapshotColumns.some((column) => column.name === "library_average_completion")
   const hasHeaderImageUrlColumn = gamesColumns.some((column) => column.name === "header_image_url")
   const hasHeaderImageSyncedAtColumn = gamesColumns.some((column) => column.name === "header_image_synced_at")
+  const hasImageIconUrlColumn = gamesColumns.some((column) => column.name === "image_icon_url")
+  const hasImageLandscapeUrlColumn = gamesColumns.some((column) => column.name === "image_landscape_url")
+  const hasImagePortraitUrlColumn = gamesColumns.some((column) => column.name === "image_portrait_url")
+  const hasImagesSyncedAtColumn = gamesColumns.some((column) => column.name === "images_synced_at")
 
   if (!hasPendingAchievementsColumn) {
     db.exec("ALTER TABLE stats_snapshot ADD COLUMN pending_achievements INTEGER NOT NULL DEFAULT 0;")
@@ -134,6 +141,29 @@ function initializeSchema(db: DatabaseSync) {
 
   if (!hasHeaderImageSyncedAtColumn) {
     db.exec("ALTER TABLE games ADD COLUMN header_image_synced_at TEXT;")
+  }
+
+  if (!hasImageIconUrlColumn) {
+    db.exec("ALTER TABLE games ADD COLUMN image_icon_url TEXT;")
+  }
+
+  if (!hasImageLandscapeUrlColumn) {
+    db.exec("ALTER TABLE games ADD COLUMN image_landscape_url TEXT;")
+  }
+
+  if (!hasImagePortraitUrlColumn) {
+    db.exec("ALTER TABLE games ADD COLUMN image_portrait_url TEXT;")
+  }
+
+  if (!hasImagesSyncedAtColumn) {
+    db.exec("ALTER TABLE games ADD COLUMN images_synced_at TEXT;")
+  }
+
+  const userGamesColumns = db.prepare("PRAGMA table_info(user_games)").all() as Array<{ name: string }>
+  const hasRtimeLastPlayedColumn = userGamesColumns.some((column) => column.name === "rtime_last_played")
+
+  if (!hasRtimeLastPlayedColumn) {
+    db.exec("ALTER TABLE user_games ADD COLUMN rtime_last_played INTEGER;")
   }
 
   reseedTrackedGames(db)

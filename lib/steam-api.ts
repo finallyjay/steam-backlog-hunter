@@ -5,7 +5,10 @@ export interface SteamGame {
   playtime_2weeks?: number
   img_icon_url: string
   img_logo_url: string
-  header_image_url?: string
+  image_icon_url?: string
+  image_landscape_url?: string
+  image_portrait_url?: string
+  rtime_last_played?: number
   has_community_visible_stats?: boolean
 }
 
@@ -99,7 +102,7 @@ export async function getRecentlyPlayedGames(steamId: string): Promise<SteamGame
   try {
     const data = await steamAPIRequest("/IPlayerService/GetRecentlyPlayedGames/v1/", {
       steamid: steamId,
-      count: "10",
+      count: "25",
       l: "es"
     })
 
@@ -147,46 +150,8 @@ export async function getGameSchema(appId: number): Promise<unknown> {
   }
 }
 
-type StoreAppDetailsResponse = Record<string, {
-  success?: boolean
-  data?: {
-    header_image?: string
-  }
-}>
-
-export async function getStoreHeaderImages(appIds: number[]) {
-  if (appIds.length === 0) {
-    return {}
-  }
-
-  const url = new URL("https://store.steampowered.com/api/appdetails")
-  url.searchParams.set("appids", appIds.join(","))
-  url.searchParams.set("l", "es")
-
-  try {
-    const response = await fetch(url.toString(), {
-      cache: "no-store",
-    })
-
-    if (!response.ok) {
-      throw new SteamAPIError(`Steam Store request failed: ${response.status}`, response.status)
-    }
-
-    const data = await response.json() as StoreAppDetailsResponse
-    return Object.fromEntries(
-      Object.entries(data).flatMap(([appId, payload]) => {
-        const headerImage = payload?.success ? payload.data?.header_image : undefined
-        return headerImage ? [[Number(appId), headerImage]] : []
-      }),
-    ) as Record<number, string>
-  } catch (error) {
-    console.error("Error fetching store header images:", error)
-    return {}
-  }
-}
-
 export function getSteamImageUrl(appId: number, imageHash: string): string {
-  if (!imageHash) return "/placeholder.svg"
+  if (!imageHash) return "/placeholder-icon.svg"
 
   return `https://media.steampowered.com/steamcommunity/public/images/apps/${appId}/${imageHash}.jpg`
 }

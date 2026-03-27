@@ -1,4 +1,4 @@
-# Steam Achievements Tracker
+# Steam Backlog Hunter
 
 Track Steam games and achievements after signing in with Steam OpenID.
 
@@ -24,8 +24,6 @@ NEXTAUTH_URL=http://localhost:3000
 STEAM_WHITELIST_IDS=76561198000000000,76561198000000001
 SQLITE_PATH=/absolute/path/to/steam-achievements-tracker.sqlite
 ```
-
-Use a standard Redis connection URL (works with self-hosted Redis, Dokploy service Redis, managed Redis providers, and `rediss://` URLs).
 
 ## Local Commands
 
