@@ -46,4 +46,30 @@ describe("GET /api/steam/stats", () => {
     expect(response.status).toBe(200)
     expect(getUserStats).toHaveBeenCalledWith("76561198000000001", { forceRefresh: true })
   })
+
+  it("returns stats data in response body", async () => {
+    const expectedStats = {
+      totalGames: 5,
+      totalAchievements: 42,
+      pendingAchievements: 10,
+      startedGames: 3,
+      averageCompletion: 76.2,
+      totalPlaytime: 120.5,
+      perfectGames: 2,
+    }
+
+    vi.mocked(getCurrentUser).mockResolvedValue({
+      steamId: "76561198000000001",
+      displayName: "test",
+      avatar: "",
+      profileUrl: "",
+    })
+    vi.mocked(getUserStats).mockResolvedValue(expectedStats)
+
+    const response = await GET(new Request("http://localhost/api/steam/stats"))
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(body).toEqual(expectedStats)
+  })
 })

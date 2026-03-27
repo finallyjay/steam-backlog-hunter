@@ -28,4 +28,10 @@ describe("whitelist", () => {
 
     expect(isSteamIdWhitelisted("76561198000000000")).toBe(false)
   })
+
+  it("allows whitelisted user", () => {
+    process.env.STEAM_WHITELIST_IDS = "76561198000000000,76561198000000001"
+
+    expect(isSteamIdWhitelisted("76561198000000000")).toBe(true)
+  })
 })
