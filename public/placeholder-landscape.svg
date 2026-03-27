@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="460" height="215" viewBox="0 0 460 215" fill="none">
+  <rect width="460" height="215" rx="8" fill="#0f1923"/>
+  <rect x="0.5" y="0.5" width="459" height="214" rx="7.5" stroke="white" stroke-opacity="0.08"/>
+  <g transform="translate(198, 72)" opacity="0.25">
+    <path d="M32 4C32 1.79 30.21 0 28 0H4C1.79 0 0 1.79 0 4V28C0 30.21 1.79 32 4 32H28C30.21 32 32 30.21 32 28V4Z" fill="#1e293b"/>
+    <path d="M24.5 11H21.5V8C21.5 7.45 21.05 7 20.5 7H11.5C10.95 7 10.5 7.45 10.5 8V11H7.5C6.95 11 6.5 11.45 6.5 12V17C6.5 17.55 6.95 18 7.5 18H10.5V21C10.5 21.55 10.95 22 11.5 22H20.5C21.05 22 21.5 21.55 21.5 21V18H24.5C25.05 18 25.5 17.55 25.5 17V12C25.5 11.45 25.05 11 24.5 11Z" fill="#58c6ff" opacity="0.6"/>
+    <circle cx="13" cy="14.5" r="1.2" fill="#0f1923"/>
+    <circle cx="19" cy="14.5" r="1.2" fill="#0f1923"/>
+  </g>
+  <text x="230" y="155" text-anchor="middle" fill="white" fill-opacity="0.15" font-family="system-ui, sans-serif" font-size="11" font-weight="500" letter-spacing="0.12em">NO IMAGE</text>
+</svg>
