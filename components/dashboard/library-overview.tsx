@@ -1,83 +1,163 @@
 "use client"
 
-import Link from "next/link"
-import { useMemo, useState } from "react"
-import { Library, Search } from "lucide-react"
+import { useState, useMemo, useEffect, useCallback } from "react"
+import { RefreshCw } from "lucide-react"
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { useSteamGames } from "@/hooks/use-steam-data"
-import { getSteamImageUrl } from "@/lib/steam-api"
+import { Button } from "@/components/ui/button"
+import { GameCard } from "@/components/ui/game-card"
+import { GamesFilterBar } from "@/components/ui/games-filter-bar"
+import { useSteamAchievementsBatch, useSteamGames } from "@/hooks/use-steam-data"
+import { getSteamHeaderImageUrl } from "@/lib/steam-api"
+import { buildGamesWithStats, filterVisibleGames, mapOwnedGamesToGameCards, sortGames } from "@/lib/games-mapping"
+import { getAllowedGameIdsClient } from "@/lib/allowed-games"
+import type { SteamGameCardModel } from "@/lib/types/steam"
+
+type GamesOrder = "completed" | "alphabetical" | "achievementsAsc" | "achievementsDesc"
 
 export function LibraryOverview() {
-  const { games, loading, error } = useSteamGames("all")
-  const [query, setQuery] = useState("")
+  const {
+    games: ownedGames,
+    loading,
+    isRefreshing: isRefreshingGames,
+    lastUpdated: gamesLastUpdated,
+    error,
+    refetch: refetchGames,
+  } = useSteamGames("all")
 
-  const filteredGames = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase()
-    return [...games]
-      .filter((game) => game.name.toLowerCase().includes(normalizedQuery))
-      .sort((a, b) => b.playtime_forever - a.playtime_forever)
-  }, [games, query])
+  const [showCompleted, setShowCompleted] = useState(false)
+  const [onlyWithAchievements, setOnlyWithAchievements] = useState(true)
+  const [order, setOrder] = useState<GamesOrder>("completed")
+  const [trackedIds, setTrackedIds] = useState<Set<string>>(new Set())
+  const [trackedIdsLoading, setTrackedIdsLoading] = useState(true)
+  const [scope, setScope] = useState<"all" | "tracked">("all")
+
+  const games = useMemo(
+    () => mapOwnedGamesToGameCards(ownedGames, (appid) => getSteamHeaderImageUrl(appid)),
+    [ownedGames],
+  )
+  const appIds = useMemo(() => games.map((game) => game.id), [games])
+  const {
+    achievementsMap,
+    loading: achievementsLoading,
+    isRefreshing: isRefreshingAchievements,
+    refetch: refetchAchievements,
+  } = useSteamAchievementsBatch(appIds)
+
+  const updatedLabel = gamesLastUpdated ? `Updated at ${gamesLastUpdated.toLocaleTimeString()}` : "Not updated yet"
+  const refreshInProgress = isRefreshingGames || isRefreshingAchievements
+
+  useEffect(() => {
+    let isMounted = true
+
+    async function loadTrackedIds() {
+      try {
+        const ids = await getAllowedGameIdsClient()
+        if (isMounted) {
+          setTrackedIds(ids)
+          setTrackedIdsLoading(false)
+        }
+      } catch {
+        if (isMounted) {
+          setTrackedIds(new Set())
+          setTrackedIdsLoading(false)
+        }
+      }
+    }
+
+    void loadTrackedIds()
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  const handleRefresh = useCallback(async () => {
+    await Promise.all([refetchGames(), refetchAchievements()])
+  }, [refetchAchievements, refetchGames])
+
+  const gamesWithStats = useMemo(
+    () => sortGames(buildGamesWithStats(games, achievementsMap), order),
+    [games, achievementsMap, order],
+  )
+
+  const visibleGames = useMemo(() => {
+    let filtered = filterVisibleGames(gamesWithStats, showCompleted)
+
+    if (onlyWithAchievements) {
+      filtered = filtered.filter((game) => game.totalAchievements > 0)
+    }
+
+    if (scope === "tracked") {
+      filtered = filtered.filter((game) => trackedIds.has(String(game.id)))
+    }
+
+    return filtered
+  }, [gamesWithStats, onlyWithAchievements, scope, showCompleted, trackedIds])
+
+  const filterDataLoading = scope === "tracked" && trackedIdsLoading
+  const listLoading = loading || achievementsLoading || filterDataLoading
 
   return (
-    <Card className="border-white/10">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-lg">
-          <Library className="h-5 w-5 text-accent" />
-          Full Library
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search your library"
-            className="h-10 w-full rounded-xl border border-white/10 bg-white/5 pl-9 pr-3 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-accent/50"
-          />
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <GamesFilterBar order={order} setOrder={setOrder} showCompleted={showCompleted} setShowCompleted={setShowCompleted} onlyWithAchievements={onlyWithAchievements} setOnlyWithAchievements={setOnlyWithAchievements} />
+        <div className="flex items-center gap-3">
+          <div className="inline-flex gap-1 rounded-[1.2rem] border border-white/10 bg-card/80 p-1.5">
+            <Button
+              variant={scope === "all" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setScope("all")}
+              className={scope === "all" ? "bg-accent text-white hover:bg-accent/90" : "text-muted-foreground hover:bg-white/8 hover:text-foreground"}
+            >
+              All
+            </Button>
+            <Button
+              variant={scope === "tracked" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setScope("tracked")}
+              className={scope === "tracked" ? "bg-accent text-white hover:bg-accent/90" : "text-muted-foreground hover:bg-white/8 hover:text-foreground"}
+            >
+              Tracked
+            </Button>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={refreshInProgress}
+            className="gap-2"
+          >
+            <RefreshCw className={`h-4 w-4 ${refreshInProgress ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
         </div>
+      </div>
 
-        {loading ? (
-          <div className="rounded-[1rem] border border-white/8 bg-white/4 px-4 py-8 text-center text-sm text-muted-foreground">
-            Loading library...
-          </div>
-        ) : error ? (
-          <div className="rounded-[1rem] border border-destructive/30 bg-destructive/10 px-4 py-8 text-center text-sm text-destructive">
-            Failed to load the full library.
-          </div>
-        ) : (
-          <div className="rounded-[1rem] border border-white/8 bg-white/4">
-            <div className="flex items-center justify-between border-b border-white/8 px-4 py-3 text-sm text-muted-foreground">
-              <span>{filteredGames.length} visible games</span>
-              <Link href="/games" className="text-accent transition-colors hover:text-accent/80">
-                Open advanced view
-              </Link>
-            </div>
-            <div className="max-h-[32rem] overflow-y-auto">
-              {filteredGames.map((game) => (
-                <Link
-                  key={game.appid}
-                  href={`/game/${game.appid}`}
-                  className="flex items-center gap-3 border-b border-white/6 px-4 py-3 transition-colors hover:bg-white/5 last:border-b-0"
-                >
-                  <img
-                    src={getSteamImageUrl(game.appid, game.img_icon_url)}
-                    alt={game.name}
-                    className="h-11 w-11 rounded-xl border border-white/10 bg-slate-900/70 object-cover"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-foreground">{game.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {(game.playtime_forever / 60).toFixed(1)} hours played
-                    </p>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+      <p className="text-xs text-muted-foreground">{updatedLabel}</p>
+
+      {listLoading ? (
+        <p className="text-center text-muted-foreground py-8">Loading games...</p>
+      ) : error ? (
+        <p className="text-center text-destructive py-8">{error}</p>
+      ) : visibleGames.length === 0 ? (
+        <p className="rounded-[1.2rem] border border-white/10 bg-white/4 px-6 py-10 text-center text-muted-foreground">
+          No games match the current filters.
+        </p>
+      ) : (
+        <div className="space-y-4">
+          {visibleGames.map((game: SteamGameCardModel) => (
+            <GameCard
+              key={game.id}
+              id={game.id}
+              name={game.name}
+              image={game.image}
+              playtime={game.playtime}
+              achievements={game.achievements}
+              achievementsLoading={achievementsLoading}
+              href={`/game/${game.id}`}
+            />
+          ))}
+        </div>
+      )}
+    </div>
   )
 }

@@ -2,14 +2,12 @@
 
 import { Trophy, Gamepad2, Target, RefreshCw, ListTodo } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useRouter } from "next/navigation"
 import { useSteamStats } from "@/hooks/use-steam-data"
 import { CardGrid } from "@/components/ui/card-grid"
 import { Button } from "@/components/ui/button"
 
 export function StatsOverview() {
   const { stats, loading, isRefreshing, lastUpdated, error, refetch } = useSteamStats()
-  const router = useRouter()
 
   const updatedLabel = lastUpdated ? `Updated at ${lastUpdated.toLocaleTimeString()}` : "Not updated yet"
 
@@ -78,8 +76,8 @@ export function StatsOverview() {
           value: stat.value,
           description: stat.description,
           icon: <stat.icon className={`h-4 w-4 ${stat.color}`} />,
-          onClick: idx === 0 ? () => router.push('/games') : undefined,
-          clickable: idx === 0,
+          onClick: undefined,
+          clickable: false,
           className: idx === 0 ? "relative before:absolute before:inset-x-6 before:top-0 before:h-px before:bg-gradient-to-r before:from-transparent before:via-accent/60 before:to-transparent" : "",
         }))}
       />

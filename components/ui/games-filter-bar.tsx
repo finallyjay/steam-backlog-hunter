@@ -8,9 +8,11 @@ interface GamesFilterBarProps {
   setOrder: (value: "completed" | "alphabetical" | "achievementsAsc" | "achievementsDesc") => void
   showCompleted: boolean
   setShowCompleted: (value: boolean) => void
+  onlyWithAchievements: boolean
+  setOnlyWithAchievements: (value: boolean) => void
 }
 
-export function GamesFilterBar({ order, setOrder, showCompleted, setShowCompleted }: GamesFilterBarProps) {
+export function GamesFilterBar({ order, setOrder, showCompleted, setShowCompleted, onlyWithAchievements, setOnlyWithAchievements }: GamesFilterBarProps) {
   return (
     <div className="flex flex-wrap items-center gap-6 mb-6 justify-between">
       <div className="flex items-center gap-2">
@@ -30,11 +32,19 @@ export function GamesFilterBar({ order, setOrder, showCompleted, setShowComplete
           </SelectContent>
         </Select>
       </div>
-      <div className="flex items-center gap-2">
-        <Switch checked={showCompleted} onCheckedChange={setShowCompleted} id="showCompletedSwitch" />
-        <label htmlFor="showCompletedSwitch" className="text-sm font-medium cursor-pointer">
-          Include completed
-        </label>
+      <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
+          <Switch checked={onlyWithAchievements} onCheckedChange={setOnlyWithAchievements} id="onlyWithAchievementsSwitch" />
+          <label htmlFor="onlyWithAchievementsSwitch" className="text-sm font-medium cursor-pointer">
+            With achievements only
+          </label>
+        </div>
+        <div className="flex items-center gap-2">
+          <Switch checked={showCompleted} onCheckedChange={setShowCompleted} id="showCompletedSwitch" />
+          <label htmlFor="showCompletedSwitch" className="text-sm font-medium cursor-pointer">
+            Include completed
+          </label>
+        </div>
       </div>
     </div>
   )

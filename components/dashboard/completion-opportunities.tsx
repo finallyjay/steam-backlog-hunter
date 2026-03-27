@@ -153,7 +153,7 @@ export function CompletionOpportunities() {
               >
                 <div className="flex items-start gap-4">
                   <img
-                    src={game.image || "/placeholder.svg"}
+                    src={game.image || "/placeholder-landscape.svg"}
                     alt={game.name}
                     className="h-14 w-14 rounded-2xl border border-white/10 bg-slate-900/70 object-cover"
                   />
