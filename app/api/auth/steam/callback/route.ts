@@ -1,8 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server"
+import crypto from "node:crypto"
 import { cookies } from "next/headers"
 import { isSteamIdWhitelisted } from "@/lib/whitelist"
 
 const STEAM_OPENID_URL = "https://steamcommunity.com/openid/login"
+const STEAM_ID_REGEX = /^\d{17}$/
+const STEAM_CLAIMED_ID_PREFIX = "https://steamcommunity.com/openid/id/"
 
 function getAppUrl(path: string, request: NextRequest): string {
   const baseUrl = process.env.NEXTAUTH_URL?.replace(/\/$/, "")
@@ -14,20 +17,35 @@ function getAppUrl(path: string, request: NextRequest): string {
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
+  const cookieStore = await cookies()
 
-  // Verify the OpenID response
-  const params = new URLSearchParams()
+  // --- CSRF nonce validation ---
+  const nonce = searchParams.get("nonce")
+  const nonceCookie = cookieStore.get("steam_openid_nonce")
 
-  // Copy all parameters from the callback
-  for (const [key, value] of searchParams.entries()) {
-    params.append(key, value)
+  if (!nonce || !nonceCookie?.value || !crypto.timingSafeEqual(
+    Buffer.from(nonce),
+    Buffer.from(nonceCookie.value),
+  )) {
+    cookieStore.delete("steam_openid_nonce")
+    return NextResponse.redirect(getAppUrl("/?error=auth_failed", request))
   }
 
-  // Change mode to check_authentication for verification
+  // Consume the nonce — it's single-use
+  cookieStore.delete("steam_openid_nonce")
+
+  // --- Verify the OpenID response with Steam ---
+  const params = new URLSearchParams()
+
+  for (const [key, value] of searchParams.entries()) {
+    if (key !== "nonce") {
+      params.append(key, value)
+    }
+  }
+
   params.set("openid.mode", "check_authentication")
 
   try {
-    // Verify with Steam
     const verifyResponse = await fetch(STEAM_OPENID_URL, {
       method: "POST",
       headers: {
@@ -38,60 +56,70 @@ export async function GET(request: NextRequest) {
 
     const verifyText = await verifyResponse.text()
 
-    if (verifyText.includes("is_valid:true")) {
-      // Extract Steam ID from the claimed_id
-      const claimedId = searchParams.get("openid.claimed_id")
-      const steamId = claimedId?.split("/").pop()
-
-      if (steamId) {
-        if (!isSteamIdWhitelisted(steamId)) {
-          return NextResponse.redirect(getAppUrl("/?error=not_whitelisted", request))
-        }
-
-        // Fetch user info from Steam API
-        const steamApiKey = process.env.STEAM_API_KEY
-        if (!steamApiKey) {
-          throw new Error("Steam API key not configured")
-        }
-
-        const userInfoResponse = await fetch(
-          `https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=${steamApiKey}&steamids=${steamId}`,
-        )
-
-        const userInfo = await userInfoResponse.json()
-        const player = userInfo.response.players[0]
-
-        if (player) {
-          // Store user session (in a real app, you'd use a proper session store)
-          const cookieStore = await cookies()
-          cookieStore.set(
-            "steam_user",
-            JSON.stringify({
-              steamId: player.steamid,
-              displayName: player.personaname,
-              avatar: player.avatarfull,
-              profileUrl: player.profileurl,
-              timecreated: player.timecreated || null,
-              personaState: player.personastate ?? null,
-            }),
-            {
-              httpOnly: true,
-              secure: process.env.NODE_ENV === "production",
-              sameSite: "lax",
-              path: "/",
-              maxAge: 60 * 60 * 24 * 7, // 7 days
-            },
-          )
-
-          // Redirect to the dashboard; prefer the domain from NEXTAUTH_URL when available
-          const dashboardUrl = getAppUrl("/dashboard", request)
-          return NextResponse.redirect(dashboardUrl)
-        }
-      }
+    if (!verifyText.includes("is_valid:true")) {
+      return NextResponse.redirect(getAppUrl("/?error=auth_failed", request))
     }
 
-    // If verification failed, redirect to home with error
-    return NextResponse.redirect(getAppUrl("/?error=auth_failed", request))
+    // --- Validate claimed_id format and extract Steam ID ---
+    const claimedId = searchParams.get("openid.claimed_id") ?? ""
+    if (!claimedId.startsWith(STEAM_CLAIMED_ID_PREFIX)) {
+      return NextResponse.redirect(getAppUrl("/?error=auth_failed", request))
+    }
+
+    const steamId = claimedId.slice(STEAM_CLAIMED_ID_PREFIX.length)
+    if (!STEAM_ID_REGEX.test(steamId)) {
+      return NextResponse.redirect(getAppUrl("/?error=auth_failed", request))
+    }
+
+    // --- Verify return_to matches our realm ---
+    const returnTo = searchParams.get("openid.return_to") ?? ""
+    const expectedRealm = process.env.NEXTAUTH_URL || new URL("/", request.url).origin
+    if (!returnTo.startsWith(expectedRealm)) {
+      return NextResponse.redirect(getAppUrl("/?error=auth_failed", request))
+    }
+
+    if (!isSteamIdWhitelisted(steamId)) {
+      return NextResponse.redirect(getAppUrl("/?error=not_whitelisted", request))
+    }
+
+    // --- Fetch user info from Steam API ---
+    const steamApiKey = process.env.STEAM_API_KEY
+    if (!steamApiKey) {
+      throw new Error("Steam API key not configured")
+    }
+
+    const userInfoUrl = new URL("https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/")
+    userInfoUrl.searchParams.set("key", steamApiKey)
+    userInfoUrl.searchParams.set("steamids", steamId)
+
+    const userInfoResponse = await fetch(userInfoUrl)
+    const userInfo = await userInfoResponse.json()
+    const player = userInfo.response.players[0]
+
+    if (!player) {
+      return NextResponse.redirect(getAppUrl("/?error=auth_failed", request))
+    }
+
+    cookieStore.set(
+      "steam_user",
+      JSON.stringify({
+        steamId: player.steamid,
+        displayName: player.personaname,
+        avatar: player.avatarfull,
+        profileUrl: player.profileurl,
+        timecreated: player.timecreated || null,
+        personaState: player.personastate ?? null,
+      }),
+      {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 60 * 60 * 24 * 7, // 7 days
+      },
+    )
+
+    return NextResponse.redirect(getAppUrl("/dashboard", request))
   } catch (error) {
     console.error("Steam auth error:", error)
     return NextResponse.redirect(getAppUrl("/?error=auth_error", request))

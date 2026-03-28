@@ -31,10 +31,7 @@ export async function POST() {
   } catch (error) {
     console.error("Steam sync API error:", error)
     return NextResponse.json(
-      {
-        error: "Failed to synchronize Steam data",
-        details: error instanceof Error ? error.message : "Unknown error",
-      },
+      { error: "Failed to synchronize Steam data" },
       { status: 500 },
     )
   }

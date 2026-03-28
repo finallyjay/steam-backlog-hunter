@@ -2,8 +2,14 @@
 import { NextRequest } from "next/server"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
+const TEST_NONCE = "a".repeat(64)
+
 const { mockCookieStore } = vi.hoisted(() => {
-  const mockCookieStore = { set: vi.fn() }
+  const mockCookieStore = {
+    set: vi.fn(),
+    get: vi.fn(),
+    delete: vi.fn(),
+  }
   return { mockCookieStore }
 })
 vi.mock("next/headers", () => ({
@@ -31,12 +37,14 @@ describe("GET /api/auth/steam/callback", () => {
     process.env.NEXTAUTH_URL = "https://example.com"
     process.env.STEAM_WHITELIST_IDS = "76561198000000001"
 
+    mockCookieStore.get.mockReturnValue({ value: TEST_NONCE })
+
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
       text: async () => "is_valid:true",
     }))
 
     const request = new NextRequest(
-      "https://example.com/api/auth/steam/callback?openid.claimed_id=https://steamcommunity.com/openid/id/76561198000000099",
+      `https://example.com/api/auth/steam/callback?nonce=${TEST_NONCE}&openid.claimed_id=https://steamcommunity.com/openid/id/76561198000000099&openid.return_to=https://example.com/api/auth/steam/callback?nonce=${TEST_NONCE}`,
     )
 
     const response = await GET(request)
@@ -51,10 +59,13 @@ describe("GET /api/auth/steam/callback", () => {
     process.env.STEAM_WHITELIST_IDS = steamId
     process.env.STEAM_API_KEY = "test-api-key"
 
+    mockCookieStore.get.mockReturnValue({ value: TEST_NONCE })
+
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockImplementation((url: string) => {
-        if (typeof url === "string" && url.includes("GetPlayerSummaries")) {
+      vi.fn().mockImplementation((url: string | URL) => {
+        const urlStr = url instanceof URL ? url.toString() : url
+        if (urlStr.includes("GetPlayerSummaries")) {
           return Promise.resolve({
             json: async () => ({
               response: {
@@ -80,7 +91,7 @@ describe("GET /api/auth/steam/callback", () => {
     )
 
     const request = new NextRequest(
-      `https://example.com/api/auth/steam/callback?openid.claimed_id=https://steamcommunity.com/openid/id/${steamId}`,
+      `https://example.com/api/auth/steam/callback?nonce=${TEST_NONCE}&openid.claimed_id=https://steamcommunity.com/openid/id/${steamId}&openid.return_to=https://example.com/api/auth/steam/callback?nonce=${TEST_NONCE}`,
     )
 
     const response = await GET(request)

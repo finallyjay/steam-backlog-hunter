@@ -16,7 +16,16 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "appIds parameter required" }, { status: 400 })
     }
 
-    const appIds = appIdsParam.split(",").map(Number).filter((id) => !Number.isNaN(id))
+    const appIds = appIdsParam
+      .split(",")
+      .map(Number)
+      .filter((id) => Number.isFinite(id) && id > 0)
+      .slice(0, 200)
+
+    if (appIds.length === 0) {
+      return NextResponse.json({ error: "No valid app IDs provided" }, { status: 400 })
+    }
+
     const achievementsMap = getBatchStoredAchievements(user.steamId, appIds)
 
     return NextResponse.json({ achievementsMap })

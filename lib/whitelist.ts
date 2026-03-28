@@ -1,3 +1,5 @@
+const STEAM_ID_REGEX = /^\d{17}$/
+
 export function getSteamWhitelist(): Set<string> {
   const rawWhitelist = process.env.STEAM_WHITELIST_IDS
 
@@ -8,7 +10,7 @@ export function getSteamWhitelist(): Set<string> {
   const ids = rawWhitelist
     .split(",")
     .map((id) => id.trim())
-    .filter((id) => id.length > 0)
+    .filter((id) => STEAM_ID_REGEX.test(id))
 
   return new Set(ids)
 }

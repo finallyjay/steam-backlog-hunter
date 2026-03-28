@@ -13,11 +13,12 @@ export async function GET(request: NextRequest) {
     const appId = searchParams.get("appId")
     const forceRefresh = searchParams.get("refresh") === "1" || searchParams.get("force") === "1"
 
-    if (!appId) {
-      return NextResponse.json({ error: "App ID required" }, { status: 400 })
+    const appIdNum = Number(appId)
+    if (!appId || !Number.isFinite(appIdNum) || appIdNum <= 0) {
+      return NextResponse.json({ error: "Valid App ID required" }, { status: 400 })
     }
 
-    const achievements = await getAchievementsForGame(user.steamId, Number(appId), { forceRefresh })
+    const achievements = await getAchievementsForGame(user.steamId, appIdNum, { forceRefresh })
     if (!achievements) {
       return NextResponse.json({ error: "Failed to fetch achievements" }, { status: 404 })
     }
@@ -25,10 +26,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("Steam achievements API error:", error)
     return NextResponse.json(
-      {
-        error: "Failed to fetch achievements",
-        details: error instanceof Error ? error.message : "Unknown error",
-      },
+      { error: "Failed to fetch achievements" },
       { status: 500 },
     )
   }

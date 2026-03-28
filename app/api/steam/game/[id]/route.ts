@@ -11,12 +11,13 @@ export async function GET(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const { id: appId } = await params
-  if (!appId) {
-    return NextResponse.json({ error: "App ID required" }, { status: 400 })
+  const { id } = await params
+  const appId = Number(id)
+  if (!id || !Number.isFinite(appId) || appId <= 0) {
+    return NextResponse.json({ error: "Valid App ID required" }, { status: 400 })
   }
 
-  const game = await getStoredGameForUser(user.steamId, Number(appId))
+  const game = await getStoredGameForUser(user.steamId, appId)
 
   if (!game) {
     return NextResponse.json({ error: "Game not found" }, { status: 404 })
