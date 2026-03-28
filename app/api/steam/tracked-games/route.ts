@@ -10,7 +10,7 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const appIds = Array.from(await getTrackedGameIdsServer()).map((id) => Number(id)).sort((a, b) => a - b)
+    const appIds = Array.from(await getTrackedGameIdsServer(user.steamId)).map((id) => Number(id)).sort((a, b) => a - b)
     return NextResponse.json({ appIds })
   } catch (error) {
     console.error("Tracked games API error:", error)
@@ -25,7 +25,7 @@ export async function POST() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const result = await reseedTrackedGamesServer()
+    const result = await reseedTrackedGamesServer(user.steamId)
     return NextResponse.json(result)
   } catch (error) {
     console.error("Tracked games reseed API error:", error)

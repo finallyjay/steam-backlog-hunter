@@ -95,11 +95,14 @@ function initializeSchema(db: DatabaseSync) {
     );
 
     CREATE TABLE IF NOT EXISTS tracked_games (
-      appid INTEGER PRIMARY KEY,
+      steam_id TEXT NOT NULL,
+      appid INTEGER NOT NULL,
       source TEXT NOT NULL DEFAULT 'seed',
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
-      FOREIGN KEY (appid) REFERENCES games(appid)
+      PRIMARY KEY (steam_id, appid),
+      FOREIGN KEY (appid) REFERENCES games(appid),
+      FOREIGN KEY (steam_id) REFERENCES steam_profile(steam_id)
     );
 
     CREATE INDEX IF NOT EXISTS idx_user_games_steam_id ON user_games(steam_id);
@@ -166,7 +169,29 @@ function initializeSchema(db: DatabaseSync) {
     db.exec("ALTER TABLE user_games ADD COLUMN rtime_last_played INTEGER;")
   }
 
-  reseedTrackedGames(db)
+  // Migrate tracked_games to per-user schema (add steam_id to PK)
+  const trackedGamesColumns = db.prepare("PRAGMA table_info(tracked_games)").all() as Array<{ name: string }>
+  const hasSteamIdColumn = trackedGamesColumns.some((column) => column.name === "steam_id")
+
+  if (!hasSteamIdColumn) {
+    db.exec(`
+      CREATE TABLE tracked_games_new (
+        steam_id TEXT NOT NULL,
+        appid INTEGER NOT NULL,
+        source TEXT NOT NULL DEFAULT 'seed',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY (steam_id, appid),
+        FOREIGN KEY (appid) REFERENCES games(appid),
+        FOREIGN KEY (steam_id) REFERENCES steam_profile(steam_id)
+      );
+      DROP TABLE tracked_games;
+      ALTER TABLE tracked_games_new RENAME TO tracked_games;
+    `)
+  }
+
+  // Note: reseedTrackedGames is no longer called at init because it requires a steamId.
+  // It runs per-user when sync is triggered.
 }
 
 function parseTrackedGamesSeed(rawJson: string): number[] {
@@ -178,7 +203,7 @@ function parseTrackedGamesSeed(rawJson: string): number[] {
   return parsed.filter((entry): entry is number => typeof entry === "number" && Number.isFinite(entry))
 }
 
-function reseedTrackedGames(db: DatabaseSync): number {
+function reseedTrackedGames(db: DatabaseSync, steamId: string): number {
   const jsonPath = join(process.cwd(), "lib", "data", "tracked-games-seed.json")
   if (!existsSync(jsonPath)) {
     return 0
@@ -197,31 +222,31 @@ function reseedTrackedGames(db: DatabaseSync): number {
     ON CONFLICT(appid) DO NOTHING
   `)
   const insertTrackedGame = db.prepare(`
-    INSERT INTO tracked_games (appid, source, created_at, updated_at)
-    VALUES (?, 'seed', ?, ?)
-    ON CONFLICT(appid) DO UPDATE SET
+    INSERT INTO tracked_games (steam_id, appid, source, created_at, updated_at)
+    VALUES (?, ?, 'seed', ?, ?)
+    ON CONFLICT(steam_id, appid) DO UPDATE SET
       updated_at = excluded.updated_at
   `)
   const deleteMissingSeedGames = db.prepare(`
     DELETE FROM tracked_games
-    WHERE source = 'seed' AND appid NOT IN (${appIds.map(() => "?").join(",")})
+    WHERE steam_id = ? AND source = 'seed' AND appid NOT IN (${appIds.map(() => "?").join(",")})
   `)
   const deleteAllSeedGames = db.prepare(`
     DELETE FROM tracked_games
-    WHERE source = 'seed'
+    WHERE steam_id = ? AND source = 'seed'
   `)
 
   db.exec("BEGIN")
   try {
     for (const appId of appIds) {
       insertPlaceholderGame.run(appId, `Steam app ${appId}`, now, now)
-      insertTrackedGame.run(appId, now, now)
+      insertTrackedGame.run(steamId, appId, now, now)
     }
 
     if (appIds.length > 0) {
-      deleteMissingSeedGames.run(...appIds)
+      deleteMissingSeedGames.run(steamId, ...appIds)
     } else {
-      deleteAllSeedGames.run()
+      deleteAllSeedGames.run(steamId)
     }
 
     db.exec("COMMIT")
@@ -232,9 +257,9 @@ function reseedTrackedGames(db: DatabaseSync): number {
   }
 }
 
-export function reseedTrackedGamesFromFile() {
+export function reseedTrackedGamesFromFile(steamId: string) {
   const db = getSqliteDatabase()
-  return reseedTrackedGames(db)
+  return reseedTrackedGames(db, steamId)
 }
 
 export function getSqliteDatabase() {

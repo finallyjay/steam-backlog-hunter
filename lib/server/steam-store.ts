@@ -103,16 +103,16 @@ function parseJson<T>(value: string | null | undefined): T | null {
   }
 }
 
-function markGameAsTracked(appId: number, source: "seed" | "discovered" | "manual" = "discovered") {
+function markGameAsTracked(steamId: string, appId: number, source: "seed" | "discovered" | "manual" = "discovered") {
   const db = getSqliteDatabase()
   const now = nowIso()
 
   db.prepare(`
-    INSERT INTO tracked_games (appid, source, created_at, updated_at)
-    VALUES (?, ?, ?, ?)
-    ON CONFLICT(appid) DO UPDATE SET
+    INSERT INTO tracked_games (steam_id, appid, source, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(steam_id, appid) DO UPDATE SET
       updated_at = excluded.updated_at
-  `).run(appId, source, now, now)
+  `).run(steamId, appId, source, now, now)
 }
 
 function upsertProfile(steamId: string) {
@@ -342,7 +342,7 @@ export function getBatchStoredAchievements(steamId: string, appIds: number[]): R
   return result
 }
 
-function persistSchema(appId: number, schema: GameSchema | null) {
+function persistSchema(steamId: string, appId: number, schema: GameSchema | null) {
   const db = getSqliteDatabase()
   const now = nowIso()
   db.prepare(`
@@ -352,7 +352,7 @@ function persistSchema(appId: number, schema: GameSchema | null) {
   `).run(schema ? JSON.stringify(schema) : null, now, now, appId)
 
   if (schema?.availableGameStats?.achievements?.length) {
-    markGameAsTracked(appId, "discovered")
+    markGameAsTracked(steamId, appId, "discovered")
   }
 }
 
@@ -517,7 +517,7 @@ export async function getStoredGameForUser(steamId: string, appId: number, optio
   return getStoredGame(steamId, appId)
 }
 
-async function ensureSchema(appId: number, options?: { forceRefresh?: boolean }) {
+async function ensureSchema(steamId: string, appId: number, options?: { forceRefresh?: boolean }) {
   const forceRefresh = options?.forceRefresh ?? false
   const storedSchema = getStoredSchema(appId)
 
@@ -526,7 +526,7 @@ async function ensureSchema(appId: number, options?: { forceRefresh?: boolean })
   }
 
   const schema = (await getGameSchema(appId)) as GameSchema | null
-  persistSchema(appId, schema)
+  persistSchema(steamId, appId, schema)
   return schema
 }
 
@@ -559,7 +559,7 @@ export async function getAchievementsForGame(
 
   const [playerAchievements, schema] = await Promise.all([
     getPlayerAchievements(steamId, appId),
-    ensureSchema(appId, options),
+    ensureSchema(steamId, appId, options),
   ])
 
   if (!playerAchievements) {
@@ -569,7 +569,7 @@ export async function getAchievementsForGame(
   const enrichedAchievements = buildAchievementsView(playerAchievements.achievements, schema)
   persistAchievements(steamId, appId, enrichedAchievements)
   if (enrichedAchievements.length > 0) {
-    markGameAsTracked(appId, "discovered")
+    markGameAsTracked(steamId, appId, "discovered")
   }
 
   return {
@@ -635,7 +635,7 @@ function computeStatsFromDatabase(steamId: string, allowedIds: Set<string>): Ste
 }
 
 async function syncAchievementsForStats(steamId: string, forceRefresh: boolean) {
-  const allowedIds = await getTrackedGameIdsServer()
+  const allowedIds = await getTrackedGameIdsServer(steamId)
   const ownedGames = await ensureOwnedGamesSynced(steamId, { forceRefresh })
   const candidateGames = ownedGames.filter((game) => allowedIds.has(String(game.appid)))
 

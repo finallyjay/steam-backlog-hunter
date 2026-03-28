@@ -25,7 +25,7 @@ export async function POST() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    await reseedTrackedGamesServer()
+    await reseedTrackedGamesServer(user.steamId)
     const result = await synchronizeUserData(user.steamId)
     return NextResponse.json(result)
   } catch (error) {
