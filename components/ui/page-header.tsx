@@ -13,7 +13,7 @@ export function PageHeader({ title, icon, children }: PageHeaderProps) {
         <div className="flex items-center gap-3">
           {icon}
           <div>
-            <p className="text-[0.7rem] font-semibold uppercase tracking-[0.32em] text-accent/80">Steam control room</p>
+            <p className="text-accent/80 text-[0.7rem] font-semibold tracking-[0.32em] uppercase">Steam control room</p>
             <h1 className="text-2xl font-semibold tracking-tight text-balance">{title}</h1>
           </div>
         </div>

@@ -12,11 +12,30 @@ export function StatsOverview() {
   const updatedLabel = lastUpdated ? `Updated at ${lastUpdated.toLocaleTimeString()}` : "Not updated yet"
 
   if (loading) {
-    return <CardGrid items={Array.from({ length: 4 }).map(() => ({ title: "", value: "", description: "", icon: <Skeleton className="h-8 w-8" /> }))} />
+    return (
+      <CardGrid
+        items={Array.from({ length: 4 }).map(() => ({
+          title: "",
+          value: "",
+          description: "",
+          icon: <Skeleton className="h-8 w-8" />,
+        }))}
+      />
+    )
   }
 
   if (error) {
-    return <CardGrid items={[{ title: "Error", description: "Failed to load stats", icon: <Trophy className="h-8 w-8 text-destructive" /> }]} />
+    return (
+      <CardGrid
+        items={[
+          {
+            title: "Error",
+            description: "Failed to load stats",
+            icon: <Trophy className="text-destructive h-8 w-8" />,
+          },
+        ]}
+      />
+    )
   }
 
   const statsData = [
@@ -52,12 +71,10 @@ export function StatsOverview() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between rounded-[1.2rem] border border-white/10 bg-card/80 px-4 py-3">
+      <div className="bg-card/80 flex items-center justify-between rounded-[1.2rem] border border-white/10 px-4 py-3">
         <div>
-          <p className="text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-accent/80">Library pulse</p>
-          <p className="text-xs text-muted-foreground">
-            {updatedLabel}
-          </p>
+          <p className="text-accent/80 text-[0.68rem] font-semibold tracking-[0.24em] uppercase">Library pulse</p>
+          <p className="text-muted-foreground text-xs">{updatedLabel}</p>
         </div>
         <Button
           variant="outline"
@@ -78,7 +95,10 @@ export function StatsOverview() {
           icon: <stat.icon className={`h-4 w-4 ${stat.color}`} />,
           onClick: undefined,
           clickable: false,
-          className: idx === 0 ? "relative before:absolute before:inset-x-6 before:top-0 before:h-px before:bg-gradient-to-r before:from-transparent before:via-accent/60 before:to-transparent" : "",
+          className:
+            idx === 0
+              ? "relative before:absolute before:inset-x-6 before:top-0 before:h-px before:bg-gradient-to-r before:from-transparent before:via-accent/60 before:to-transparent"
+              : "",
         }))}
       />
     </div>

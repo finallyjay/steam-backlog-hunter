@@ -1,4 +1,3 @@
-
 export interface SteamUser {
   steamId: string
   displayName: string
@@ -7,4 +6,3 @@ export interface SteamUser {
   timecreated?: number | null
   personaState?: number | null
 }
-

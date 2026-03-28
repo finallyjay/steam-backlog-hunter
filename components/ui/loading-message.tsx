@@ -5,5 +5,5 @@ interface LoadingMessageProps {
 }
 
 export function LoadingMessage({ message = "Loading user..." }: LoadingMessageProps) {
-  return <p className="text-center text-muted-foreground py-8">{message}</p>
+  return <p className="text-muted-foreground py-8 text-center">{message}</p>
 }

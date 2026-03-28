@@ -20,7 +20,7 @@ interface DashboardTabsProps {
 
 export function DashboardTabs({ value, onChange }: DashboardTabsProps) {
   return (
-    <div className="flex flex-wrap gap-2 rounded-[1.2rem] border border-white/10 bg-card/80 p-2">
+    <div className="bg-card/80 flex flex-wrap gap-2 rounded-[1.2rem] border border-white/10 p-2">
       {tabConfig.map((tab) => {
         const Icon = tab.icon
         const active = value === tab.id
@@ -31,7 +31,11 @@ export function DashboardTabs({ value, onChange }: DashboardTabsProps) {
             variant={active ? "default" : "ghost"}
             size="sm"
             onClick={() => onChange(tab.id)}
-            className={active ? "bg-accent text-accent-foreground hover:bg-accent/90" : "text-muted-foreground hover:bg-white/8 hover:text-foreground"}
+            className={
+              active
+                ? "bg-accent text-accent-foreground hover:bg-accent/90"
+                : "text-muted-foreground hover:text-foreground hover:bg-white/8"
+            }
           >
             <Icon className="h-4 w-4" />
             {tab.label}

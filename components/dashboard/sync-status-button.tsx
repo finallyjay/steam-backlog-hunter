@@ -112,10 +112,10 @@ export function SyncStatusButton() {
         disabled={syncing}
         className="gap-2 bg-transparent"
       >
-        <RefreshCw className={`h-4 w-4 ${(syncing || loadingStatus) ? "animate-spin" : ""}`} />
+        <RefreshCw className={`h-4 w-4 ${syncing || loadingStatus ? "animate-spin" : ""}`} />
         <span className="hidden sm:inline">{syncing ? "Syncing..." : "Sync Steam"}</span>
       </Button>
-      <p className="hidden text-xs text-muted-foreground sm:block">
+      <p className="text-muted-foreground hidden text-xs sm:block">
         {loadingStatus ? "Loading sync status..." : formatTimestamp(label)}
       </p>
     </div>

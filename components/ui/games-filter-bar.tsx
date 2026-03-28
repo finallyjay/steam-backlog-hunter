@@ -12,14 +12,23 @@ interface GamesFilterBarProps {
   setOnlyWithAchievements: (value: boolean) => void
 }
 
-export function GamesFilterBar({ order, setOrder, showCompleted, setShowCompleted, onlyWithAchievements, setOnlyWithAchievements }: GamesFilterBarProps) {
+export function GamesFilterBar({
+  order,
+  setOrder,
+  showCompleted,
+  setShowCompleted,
+  onlyWithAchievements,
+  setOnlyWithAchievements,
+}: GamesFilterBarProps) {
   return (
-    <div className="flex flex-wrap items-center gap-6 mb-6 justify-between">
+    <div className="mb-6 flex flex-wrap items-center justify-between gap-6">
       <div className="flex items-center gap-2">
         <label className="text-sm font-medium">Sort by:</label>
         <Select
           value={order}
-          onValueChange={(value) => setOrder(value as "completed" | "alphabetical" | "achievementsAsc" | "achievementsDesc")}
+          onValueChange={(value) =>
+            setOrder(value as "completed" | "alphabetical" | "achievementsAsc" | "achievementsDesc")
+          }
         >
           <SelectTrigger className="w-44">
             <SelectValue placeholder="Sort by..." />
@@ -34,14 +43,18 @@ export function GamesFilterBar({ order, setOrder, showCompleted, setShowComplete
       </div>
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
-          <Switch checked={onlyWithAchievements} onCheckedChange={setOnlyWithAchievements} id="onlyWithAchievementsSwitch" />
-          <label htmlFor="onlyWithAchievementsSwitch" className="text-sm font-medium cursor-pointer">
+          <Switch
+            checked={onlyWithAchievements}
+            onCheckedChange={setOnlyWithAchievements}
+            id="onlyWithAchievementsSwitch"
+          />
+          <label htmlFor="onlyWithAchievementsSwitch" className="cursor-pointer text-sm font-medium">
             With achievements only
           </label>
         </div>
         <div className="flex items-center gap-2">
           <Switch checked={showCompleted} onCheckedChange={setShowCompleted} id="showCompletedSwitch" />
-          <label htmlFor="showCompletedSwitch" className="text-sm font-medium cursor-pointer">
+          <label htmlFor="showCompletedSwitch" className="cursor-pointer text-sm font-medium">
             Include completed
           </label>
         </div>

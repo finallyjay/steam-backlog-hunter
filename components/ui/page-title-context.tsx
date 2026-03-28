@@ -13,11 +13,7 @@ const PageTitleContext = createContext<PageTitleContextValue>({
 
 export function PageTitleProvider({ children }: { children: React.ReactNode }) {
   const [title, setTitle] = useState("")
-  return (
-    <PageTitleContext.Provider value={{ title, setTitle }}>
-      {children}
-    </PageTitleContext.Provider>
-  )
+  return <PageTitleContext.Provider value={{ title, setTitle }}>{children}</PageTitleContext.Provider>
 }
 
 export function usePageTitle() {

@@ -4,11 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import { getAllowedGameIdsClient } from "@/lib/allowed-games"
 import type { SteamGame } from "@/lib/steam-api"
-import type {
-  SteamAchievementsApiResponse,
-  SteamGamesApiResponse,
-  SteamStatsApiResponse,
-} from "@/lib/types/api"
+import type { SteamAchievementsApiResponse, SteamGamesApiResponse, SteamStatsApiResponse } from "@/lib/types/api"
 import type { SteamAchievementView, SteamStatsResponse } from "@/lib/types/steam"
 
 const REFRESH_COOLDOWN_MS = 3000
@@ -31,7 +27,13 @@ export function useSteamAchievementsBatch(appIds: number[]) {
 
   const appIdsKey = useMemo(() => [...new Set(appIds)].sort((a, b) => a - b).join(","), [appIds])
   const normalizedAppIds = useMemo(
-    () => (appIdsKey ? appIdsKey.split(",").map((id) => Number(id)).filter((id) => Number.isFinite(id)) : []),
+    () =>
+      appIdsKey
+        ? appIdsKey
+            .split(",")
+            .map((id) => Number(id))
+            .filter((id) => Number.isFinite(id))
+        : [],
     [appIdsKey],
   )
   const inFlightRef = useRef(false)

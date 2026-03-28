@@ -49,13 +49,13 @@ pnpm dev      # http://localhost:3000
 
 ## Commands
 
-| Command | Description |
-|---------|-------------|
-| `pnpm dev` | Start development server |
-| `pnpm build` | Production build |
-| `pnpm start` | Run production server |
-| `pnpm lint` | ESLint + typecheck |
-| `pnpm test` | Run tests (Vitest) |
+| Command      | Description              |
+| ------------ | ------------------------ |
+| `pnpm dev`   | Start development server |
+| `pnpm build` | Production build         |
+| `pnpm start` | Run production server    |
+| `pnpm lint`  | ESLint + typecheck       |
+| `pnpm test`  | Run tests (Vitest)       |
 
 ## Auth + Whitelist
 

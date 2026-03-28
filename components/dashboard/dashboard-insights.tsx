@@ -23,7 +23,13 @@ type ChartKind = "donut" | "bars"
 
 const CHART_COLORS = ["#61ceff", "#53d1a8", "#f3c969", "#2d415c", "#f58f74"]
 
-function ChartTooltip({ active, payload }: { active?: boolean; payload?: Array<{ name: string; value: number; payload: { color: string } }> }) {
+function ChartTooltip({
+  active,
+  payload,
+}: {
+  active?: boolean
+  payload?: Array<{ name: string; value: number; payload: { color: string } }>
+}) {
   if (!active || !payload?.length) return null
 
   const item = payload[0]
@@ -31,24 +37,14 @@ function ChartTooltip({ active, payload }: { active?: boolean; payload?: Array<{
     <div className="rounded-xl border border-white/10 bg-slate-900/95 px-3 py-2 shadow-xl backdrop-blur-sm">
       <div className="flex items-center gap-2">
         <span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.payload.color }} />
-        <span className="text-sm text-muted-foreground">{item.name}</span>
-        <span className="ml-1 text-sm font-semibold text-foreground">{item.value}</span>
+        <span className="text-muted-foreground text-sm">{item.name}</span>
+        <span className="text-foreground ml-1 text-sm font-semibold">{item.value}</span>
       </div>
     </div>
   )
 }
 
-function MetricLegend({
-  label,
-  value,
-  color,
-  href,
-}: {
-  label: string
-  value: number
-  color: string
-  href?: string
-}) {
+function MetricLegend({ label, value, color, href }: { label: string; value: number; color: string; href?: string }) {
   const content = (
     <div
       className="flex items-center justify-between rounded-xl border border-white/8 bg-white/4 px-3 py-2 transition-colors"
@@ -56,9 +52,9 @@ function MetricLegend({
     >
       <div className="flex items-center gap-2">
         <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
-        <span className="text-sm text-muted-foreground">{label}</span>
+        <span className="text-muted-foreground text-sm">{label}</span>
       </div>
-      <span className="text-sm font-medium text-foreground">
+      <span className="text-foreground text-sm font-medium">
         <AnimatedNumber value={value} />
       </span>
     </div>
@@ -71,19 +67,14 @@ function MetricLegend({
         className="block rounded-xl transition-transform hover:-translate-y-0.5"
         style={{ ["--hover-color" as string]: color }}
       >
-        <div
-          className="rounded-xl hover:bg-white/6"
-          style={{ boxShadow: `inset 0 0 0 1px ${color}22` }}
-        >
+        <div className="rounded-xl hover:bg-white/6" style={{ boxShadow: `inset 0 0 0 1px ${color}22` }}>
           {content}
         </div>
       </Link>
     )
   }
 
-  return (
-    content
-  )
+  return content
 }
 
 function InsightCard({
@@ -109,8 +100,8 @@ function InsightCard({
     <div className="grid gap-5">
       <div className="rounded-[1.25rem] border border-white/8 bg-white/4 p-4">
         <div className="mb-3">
-          <p className="text-sm font-semibold text-foreground">{title}</p>
-          <p className="text-sm text-muted-foreground">{description}</p>
+          <p className="text-foreground text-sm font-semibold">{title}</p>
+          <p className="text-muted-foreground text-sm">{description}</p>
         </div>
         <div className="h-56">
           {!loading ? (
@@ -153,7 +144,7 @@ function InsightCard({
               )}
             </ResponsiveContainer>
           ) : (
-            <div className="flex h-full items-center justify-center rounded-2xl border border-white/8 bg-white/4 text-sm text-muted-foreground">
+            <div className="text-muted-foreground flex h-full items-center justify-center rounded-2xl border border-white/8 bg-white/4 text-sm">
               Waiting for chart data
             </div>
           )}
@@ -161,11 +152,11 @@ function InsightCard({
       </div>
 
       <div className="rounded-[1.25rem] border border-white/8 bg-white/4 px-4 py-4">
-        <p className="mb-1 flex items-center gap-2 text-sm font-medium text-foreground">
-          <Activity className="h-4 w-4 text-accent" />
+        <p className="text-foreground mb-1 flex items-center gap-2 text-sm font-medium">
+          <Activity className="text-accent h-4 w-4" />
           Current reading
         </p>
-        <p className="text-sm text-muted-foreground">{insight}</p>
+        <p className="text-muted-foreground text-sm">{insight}</p>
       </div>
 
       <div className="space-y-3">
@@ -269,9 +260,10 @@ export function DashboardInsights({ stats, loading = false }: DashboardInsightsP
         title: "Playtime Bands",
         description: "How your full library is distributed by time spent.",
         data: bands,
-        insight: allGames.length > 0
-          ? `${bands[0].value} games remain untouched, while ${bands[3].value} already have 50+ hours logged.`
-          : "Load the full library to reveal playtime bands.",
+        insight:
+          allGames.length > 0
+            ? `${bands[0].value} games remain untouched, while ${bands[3].value} already have 50+ hours logged.`
+            : "Load the full library to reveal playtime bands.",
         chartKind: "bars" as const,
       }
     }
@@ -286,9 +278,10 @@ export function DashboardInsights({ stats, loading = false }: DashboardInsightsP
         { name: "Played", value: played },
         { name: "Unplayed", value: unplayed },
       ],
-      insight: allGames.length > 0
-        ? `${played} of ${allGames.length} games have been launched at least once.`
-        : "Load the library to reveal backlog coverage.",
+      insight:
+        allGames.length > 0
+          ? `${played} of ${allGames.length} games have been launched at least once.`
+          : "Load the library to reveal backlog coverage.",
       chartKind: "donut" as const,
     }
   }, [allGames, libraryMetric])
@@ -296,92 +289,112 @@ export function DashboardInsights({ stats, loading = false }: DashboardInsightsP
   return (
     <div className="grid gap-6">
       <div className="rounded-[1.25rem] border border-white/8 bg-white/4 px-4 py-4">
-        <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Average Completion</p>
+        <p className="text-muted-foreground text-[0.68rem] font-semibold tracking-[0.18em] uppercase">
+          Average Completion
+        </p>
         <div className="mt-2 flex items-end gap-2">
-          <span className="text-3xl font-semibold tracking-tight text-foreground">
+          <span className="text-foreground text-3xl font-semibold tracking-tight">
             <AnimatedNumber value={Math.floor(stats?.averageCompletion ?? 0)} />
           </span>
-          <span className="pb-1 text-sm text-muted-foreground">% avg completion</span>
+          <span className="text-muted-foreground pb-1 text-sm">% avg completion</span>
         </div>
-        <p className="mt-2 text-sm text-muted-foreground">Average completion across games with at least one unlocked achievement.</p>
+        <p className="text-muted-foreground mt-2 text-sm">
+          Average completion across games with at least one unlocked achievement.
+        </p>
       </div>
 
       <div className="grid gap-6 xl:grid-cols-2">
-      <Card className="border-white/10">
-        <CardHeader className="space-y-4">
-          <div className="flex items-center gap-2 text-lg">
-            <PieChartIcon className="h-5 w-5 text-accent" />
-            <CardTitle>Trackable Games</CardTitle>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant={trackableMetric === "achievements" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setTrackableMetric("achievements")}
-              className={trackableMetric === "achievements" ? "bg-accent text-accent-foreground hover:bg-accent/90" : "border border-white/8 bg-white/4 text-muted-foreground hover:bg-white/8 hover:text-foreground"}
-            >
-              Achievements
-            </Button>
-            <Button
-              variant={trackableMetric === "completion" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setTrackableMetric("completion")}
-              className={trackableMetric === "completion" ? "bg-accent text-accent-foreground hover:bg-accent/90" : "border border-white/8 bg-white/4 text-muted-foreground hover:bg-white/8 hover:text-foreground"}
-            >
-              Completion
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <InsightCard
-            title={trackableModel.title}
-            description={trackableModel.description}
-            data={trackableModel.data}
-            insight={trackableModel.insight}
-            loading={loading}
-            chartKind="donut"
-            links={undefined}
-          />
-        </CardContent>
-      </Card>
+        <Card className="border-white/10">
+          <CardHeader className="space-y-4">
+            <div className="flex items-center gap-2 text-lg">
+              <PieChartIcon className="text-accent h-5 w-5" />
+              <CardTitle>Trackable Games</CardTitle>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant={trackableMetric === "achievements" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setTrackableMetric("achievements")}
+                className={
+                  trackableMetric === "achievements"
+                    ? "bg-accent text-accent-foreground hover:bg-accent/90"
+                    : "text-muted-foreground hover:text-foreground border border-white/8 bg-white/4 hover:bg-white/8"
+                }
+              >
+                Achievements
+              </Button>
+              <Button
+                variant={trackableMetric === "completion" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setTrackableMetric("completion")}
+                className={
+                  trackableMetric === "completion"
+                    ? "bg-accent text-accent-foreground hover:bg-accent/90"
+                    : "text-muted-foreground hover:text-foreground border border-white/8 bg-white/4 hover:bg-white/8"
+                }
+              >
+                Completion
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <InsightCard
+              title={trackableModel.title}
+              description={trackableModel.description}
+              data={trackableModel.data}
+              insight={trackableModel.insight}
+              loading={loading}
+              chartKind="donut"
+              links={undefined}
+            />
+          </CardContent>
+        </Card>
 
-      <Card className="border-white/10">
-        <CardHeader className="space-y-4">
-          <div className="flex items-center gap-2 text-lg">
-            <Trophy className="h-5 w-5 text-accent" />
-            <CardTitle>All Library</CardTitle>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant={libraryMetric === "state" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setLibraryMetric("state")}
-              className={libraryMetric === "state" ? "bg-accent text-accent-foreground hover:bg-accent/90" : "border border-white/8 bg-white/4 text-muted-foreground hover:bg-white/8 hover:text-foreground"}
-            >
-              State
-            </Button>
-            <Button
-              variant={libraryMetric === "playtime" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setLibraryMetric("playtime")}
-              className={libraryMetric === "playtime" ? "bg-accent text-accent-foreground hover:bg-accent/90" : "border border-white/8 bg-white/4 text-muted-foreground hover:bg-white/8 hover:text-foreground"}
-            >
-              Playtime
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <InsightCard
-            title={libraryModel.title}
-            description={libraryModel.description}
-            data={libraryModel.data}
-            insight={libraryModel.insight}
-            loading={allGamesLoading}
-            chartKind={libraryModel.chartKind}
-            links={undefined}
-          />
-        </CardContent>
-      </Card>
+        <Card className="border-white/10">
+          <CardHeader className="space-y-4">
+            <div className="flex items-center gap-2 text-lg">
+              <Trophy className="text-accent h-5 w-5" />
+              <CardTitle>All Library</CardTitle>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant={libraryMetric === "state" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setLibraryMetric("state")}
+                className={
+                  libraryMetric === "state"
+                    ? "bg-accent text-accent-foreground hover:bg-accent/90"
+                    : "text-muted-foreground hover:text-foreground border border-white/8 bg-white/4 hover:bg-white/8"
+                }
+              >
+                State
+              </Button>
+              <Button
+                variant={libraryMetric === "playtime" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setLibraryMetric("playtime")}
+                className={
+                  libraryMetric === "playtime"
+                    ? "bg-accent text-accent-foreground hover:bg-accent/90"
+                    : "text-muted-foreground hover:text-foreground border border-white/8 bg-white/4 hover:bg-white/8"
+                }
+              >
+                Playtime
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <InsightCard
+              title={libraryModel.title}
+              description={libraryModel.description}
+              data={libraryModel.data}
+              insight={libraryModel.insight}
+              loading={allGamesLoading}
+              chartKind={libraryModel.chartKind}
+              links={undefined}
+            />
+          </CardContent>
+        </Card>
       </div>
     </div>
   )

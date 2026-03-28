@@ -18,16 +18,18 @@ export function RecentGames() {
     error,
     refetch: refetchGames,
   } = useSteamGames("recent")
-  const recentGames = useMemo(() => (
-    games.slice(0, 6).map((game) => ({
-      id: game.appid.toString(),
-      name: game.name,
-      playtime: Number((game.playtime_forever / 60).toFixed(1)),
-      image: getSteamHeaderImageUrl(game.appid),
-      appid: game.appid,
-    }))
-  ), [games])
-  const appIds = useMemo(() => recentGames.map(g => g.appid), [recentGames])
+  const recentGames = useMemo(
+    () =>
+      games.slice(0, 6).map((game) => ({
+        id: game.appid.toString(),
+        name: game.name,
+        playtime: Number((game.playtime_forever / 60).toFixed(1)),
+        image: getSteamHeaderImageUrl(game.appid),
+        appid: game.appid,
+      })),
+    [games],
+  )
+  const appIds = useMemo(() => recentGames.map((g) => g.appid), [recentGames])
   const {
     achievementsMap,
     loading: achievementsLoading,
@@ -48,15 +50,15 @@ export function RecentGames() {
       <Card className="border-white/10">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
-            <Play className="h-5 w-5 text-accent" />
+            <Play className="text-accent h-5 w-5" />
             Recently Played Games
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-4 p-3 rounded-lg bg-muted/50">
-                <Skeleton className="w-16 h-16 rounded-lg" />
+              <div key={i} className="bg-muted/50 flex items-center gap-4 rounded-lg p-3">
+                <Skeleton className="h-16 w-16 rounded-lg" />
                 <div className="flex-1 space-y-2">
                   <Skeleton className="h-4 w-32" />
                   <Skeleton className="h-3 w-24" />
@@ -75,12 +77,12 @@ export function RecentGames() {
       <Card className="border-destructive/40">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
-            <Play className="h-5 w-5 text-accent" />
+            <Play className="text-accent h-5 w-5" />
             Recently Played Games
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-destructive">Failed to load recent games</p>
+          <p className="text-destructive text-sm">Failed to load recent games</p>
         </CardContent>
       </Card>
     )
@@ -91,22 +93,26 @@ export function RecentGames() {
       <CardHeader>
         <div className="flex items-center justify-between gap-3">
           <CardTitle className="flex items-center gap-2 text-lg">
-            <Play className="h-5 w-5 text-accent" />
+            <Play className="text-accent h-5 w-5" />
             Recently Played Games
           </CardTitle>
-          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isRefreshing} className="gap-2 border-white/10 bg-white/5 hover:bg-white/10">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="gap-2 border-white/10 bg-white/5 hover:bg-white/10"
+          >
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
             Refresh
           </Button>
         </div>
-        <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-          {updatedLabel}
-        </p>
+        <p className="text-muted-foreground text-xs tracking-[0.18em] uppercase">{updatedLabel}</p>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
           {recentGames.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">
+            <p className="text-muted-foreground py-8 text-center text-sm">
               No recently played games found. Make sure your Steam profile is public.
             </p>
           ) : (
