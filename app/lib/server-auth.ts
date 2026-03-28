@@ -1,6 +1,7 @@
 import { cookies } from "next/headers"
 import type { SteamUser } from "@/lib/auth"
 import { isSteamIdWhitelisted } from "@/lib/whitelist"
+import { logger } from "@/lib/server/logger"
 
 export async function getCurrentUser(): Promise<SteamUser | null> {
   try {
@@ -20,7 +21,7 @@ export async function getCurrentUser(): Promise<SteamUser | null> {
 
     return user
   } catch (error) {
-    console.error("Error getting current user:", error)
+    logger.error({ err: error }, "Error getting current user")
     return null
   }
 }

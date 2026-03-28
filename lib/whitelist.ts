@@ -1,7 +1,9 @@
+import { env } from "@/lib/env"
+
 const STEAM_ID_REGEX = /^\d{17}$/
 
 export function getSteamWhitelist(): Set<string> {
-  const rawWhitelist = process.env.STEAM_WHITELIST_IDS
+  const rawWhitelist = env.STEAM_WHITELIST_IDS
 
   if (!rawWhitelist) {
     return new Set()

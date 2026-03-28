@@ -53,7 +53,7 @@ class SteamAPIError extends Error {
 async function steamAPIRequest(endpoint: string, params: Record<string, string>) {
   const apiKey = process.env.STEAM_API_KEY
   if (!apiKey) {
-    throw new SteamAPIError("Steam API key not configured")
+    throw new SteamAPIError("STEAM_API_KEY is not configured", 500)
   }
 
   const url = new URL(`${STEAM_API_BASE}${endpoint}`)
@@ -66,7 +66,7 @@ async function steamAPIRequest(endpoint: string, params: Record<string, string>)
 
   try {
     const response = await fetch(url.toString(), {
-      cache: 'no-store',
+      cache: "no-store",
     })
 
     if (!response.ok) {
@@ -88,7 +88,7 @@ export async function getOwnedGames(steamId: string): Promise<SteamGame[]> {
       steamid: steamId,
       include_appinfo: "1",
       include_played_free_games: "1",
-      l: "es"
+      l: "es",
     })
 
     return data.response?.games || []
@@ -103,7 +103,7 @@ export async function getRecentlyPlayedGames(steamId: string): Promise<SteamGame
     const data = await steamAPIRequest("/IPlayerService/GetRecentlyPlayedGames/v1/", {
       steamid: steamId,
       count: "25",
-      l: "es"
+      l: "es",
     })
 
     return data.response?.games || []
@@ -118,7 +118,7 @@ export async function getPlayerAchievements(steamId: string, appId: number): Pro
     const data = await steamAPIRequest("/ISteamUserStats/GetPlayerAchievements/v1/", {
       steamid: steamId,
       appid: appId.toString(),
-      l: "es"
+      l: "es",
     })
 
     if (!data.playerstats?.success) {
@@ -132,7 +132,7 @@ export async function getPlayerAchievements(steamId: string, appId: number): Pro
       success: data.playerstats.success,
     }
   } catch (error) {
-    console.error(`Error fetching achievements for app ${appId}:`, error)
+    console.error("Error fetching achievements for app:", appId, error)
     return null
   }
 }
@@ -145,7 +145,7 @@ export async function getGameSchema(appId: number): Promise<unknown> {
 
     return data.game || null
   } catch (error) {
-    console.error(`Error fetching game schema for app ${appId}:`, error)
+    console.error("Error fetching game schema for app:", appId, error)
     return null
   }
 }

@@ -1,16 +1,14 @@
 import "server-only"
 
 import { getStatsForUser } from "@/lib/server/steam-store"
+import { logger } from "@/lib/server/logger"
 import type { SteamStatsResponse } from "@/lib/types/steam"
 
-export async function getUserStats(
-  steamId: string,
-  options?: { forceRefresh?: boolean },
-): Promise<SteamStatsResponse> {
+export async function getUserStats(steamId: string, options?: { forceRefresh?: boolean }): Promise<SteamStatsResponse> {
   try {
     return await getStatsForUser(steamId, options)
   } catch (error) {
-    console.error("Error fetching user stats:", error)
+    logger.error({ err: error }, "Error fetching user stats")
     return {
       totalGames: 0,
       totalAchievements: 0,

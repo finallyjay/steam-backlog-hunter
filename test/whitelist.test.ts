@@ -1,4 +1,12 @@
-import { afterEach, describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
+
+vi.mock("@/lib/env", () => ({
+  env: {
+    get STEAM_WHITELIST_IDS() {
+      return process.env.STEAM_WHITELIST_IDS
+    },
+  },
+}))
 
 import { getSteamWhitelist, isSteamIdWhitelisted } from "@/lib/whitelist"
 

@@ -2,6 +2,17 @@
 import { NextRequest } from "next/server"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
+vi.mock("@/lib/env", () => ({
+  env: new Proxy(
+    {},
+    {
+      get(_target, prop) {
+        return process.env[prop as string]
+      },
+    },
+  ),
+}))
+
 const TEST_NONCE = "a".repeat(64)
 
 const { mockCookieStore } = vi.hoisted(() => {
@@ -39,9 +50,12 @@ describe("GET /api/auth/steam/callback", () => {
 
     mockCookieStore.get.mockReturnValue({ value: TEST_NONCE })
 
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
-      text: async () => "is_valid:true",
-    }))
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        text: async () => "is_valid:true",
+      }),
+    )
 
     const request = new NextRequest(
       `https://example.com/api/auth/steam/callback?nonce=${TEST_NONCE}&openid.claimed_id=https://steamcommunity.com/openid/id/76561198000000099&openid.return_to=https://example.com/api/auth/steam/callback?nonce=${TEST_NONCE}`,
