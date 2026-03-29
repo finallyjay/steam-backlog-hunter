@@ -11,7 +11,11 @@ const envSchema = z.object({
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
 })
 
+let cached: z.infer<typeof envSchema> | null = null
+
 function validateEnv() {
+  if (cached) return cached
+
   const result = envSchema.safeParse(process.env)
 
   if (!result.success) {
@@ -19,8 +23,13 @@ function validateEnv() {
     throw new Error("Invalid environment variables. See above for details.")
   }
 
-  return result.data
+  cached = result.data
+  return cached
 }
 
-/** Validated environment variables, parsed via Zod schema on first access. */
-export const env = validateEnv()
+/** Validated environment variables, parsed and cached on first access. */
+export const env = new Proxy({} as z.infer<typeof envSchema>, {
+  get(_, prop: string) {
+    return validateEnv()[prop as keyof z.infer<typeof envSchema>]
+  },
+})

@@ -23,7 +23,8 @@ describe("env validation", () => {
   it("throws when STEAM_API_KEY is missing", async () => {
     vi.stubEnv("STEAM_API_KEY", "")
 
-    await expect(import("@/lib/env")).rejects.toThrow("Invalid environment variables")
+    const mod = await import("@/lib/env")
+    expect(() => mod.env.STEAM_API_KEY).toThrow("Invalid environment variables")
   })
 
   it("accepts optional fields when not provided", async () => {
