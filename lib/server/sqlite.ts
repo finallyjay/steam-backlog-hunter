@@ -122,6 +122,12 @@ function createBaseSchema(db: DatabaseSync) {
       FOREIGN KEY (steam_id) REFERENCES steam_profile(steam_id)
     );
 
+    CREATE TABLE IF NOT EXISTS allowed_users (
+      steam_id TEXT PRIMARY KEY,
+      added_by TEXT,
+      added_at TEXT NOT NULL
+    );
+
     CREATE INDEX IF NOT EXISTS idx_user_games_steam_id ON user_games(steam_id);
     CREATE INDEX IF NOT EXISTS idx_user_games_steam_id_owned ON user_games(steam_id, owned);
     CREATE INDEX IF NOT EXISTS idx_stats_snapshot_steam_id ON stats_snapshot(steam_id);
@@ -224,6 +230,32 @@ const migrations: Array<(db: DatabaseSync) => void> = [
         FOREIGN KEY (steam_id) REFERENCES steam_profile(steam_id)
       );
     `)
+  },
+
+  // Migration 5: Create allowed_users table and seed from env var
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS allowed_users (
+        steam_id TEXT PRIMARY KEY,
+        added_by TEXT,
+        added_at TEXT NOT NULL
+      );
+    `)
+
+    const rawWhitelist = process.env.STEAM_WHITELIST_IDS
+    if (rawWhitelist) {
+      const now = new Date().toISOString()
+      const ids = rawWhitelist
+        .split(",")
+        .map((id) => id.trim())
+        .filter((id) => /^\d{17}$/.test(id))
+      const insert = db.prepare(
+        "INSERT OR IGNORE INTO allowed_users (steam_id, added_by, added_at) VALUES (?, 'env_seed', ?)",
+      )
+      for (const id of ids) {
+        insert.run(id, now)
+      }
+    }
   },
 ]
 
