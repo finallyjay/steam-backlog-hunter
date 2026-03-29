@@ -24,10 +24,6 @@ vi.mock("@/lib/server/rate-limit", () => ({
   rateLimit: vi.fn(),
 }))
 
-vi.mock("@/lib/server/tracked-games", () => ({
-  reseedTrackedGamesServer: vi.fn(),
-}))
-
 vi.mock("@/lib/server/steam-store", () => ({
   getUserSyncStatus: vi.fn(),
   synchronizeUserData: vi.fn(),
@@ -37,7 +33,6 @@ import { GET, POST } from "@/app/api/steam/sync/route"
 import { getCurrentUser } from "@/app/lib/server-auth"
 import { rateLimit } from "@/lib/server/rate-limit"
 import { synchronizeUserData } from "@/lib/server/steam-store"
-import { reseedTrackedGamesServer } from "@/lib/server/tracked-games"
 
 const mockUser = {
   steamId: "76561198000000001",
@@ -84,7 +79,6 @@ describe("POST /api/steam/sync", () => {
     const syncResult = { synced: true }
     vi.mocked(getCurrentUser).mockResolvedValue(mockUser)
     vi.mocked(rateLimit).mockReturnValue({ success: true, remaining: 4 })
-    vi.mocked(reseedTrackedGamesServer).mockResolvedValue({ count: 0 })
     vi.mocked(synchronizeUserData).mockResolvedValue(syncResult as never)
 
     const response = await POST()
@@ -92,7 +86,6 @@ describe("POST /api/steam/sync", () => {
 
     expect(response.status).toBe(200)
     expect(body).toEqual(syncResult)
-    expect(reseedTrackedGamesServer).toHaveBeenCalledWith(mockUser.steamId)
     expect(synchronizeUserData).toHaveBeenCalledWith(mockUser.steamId)
   })
 })

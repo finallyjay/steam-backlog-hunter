@@ -2,7 +2,6 @@ import { NextResponse } from "next/server"
 
 import { getCurrentUser } from "@/app/lib/server-auth"
 import { rateLimit } from "@/lib/server/rate-limit"
-import { reseedTrackedGamesServer } from "@/lib/server/tracked-games"
 import { getUserSyncStatus, synchronizeUserData } from "@/lib/server/steam-store"
 import { logger } from "@/lib/server/logger"
 
@@ -34,8 +33,8 @@ export async function GET() {
  * POST /api/steam/sync
  *
  * Triggers a full data synchronization for the authenticated user.
- * Re-seeds tracked games from the seed file, then fetches and persists
- * all owned games, achievements, and profile data from the Steam API.
+ * Fetches and persists all owned games, achievements, and profile data
+ * from the Steam API.
  *
  * @ratelimit 5 requests per minute per user
  * @returns {{ synced: boolean, ... }} Sync result details
@@ -55,7 +54,6 @@ export async function POST() {
       return NextResponse.json({ error: "Too many requests" }, { status: 429 })
     }
 
-    await reseedTrackedGamesServer(user.steamId)
     const result = await synchronizeUserData(user.steamId)
     return NextResponse.json(result)
   } catch (error) {

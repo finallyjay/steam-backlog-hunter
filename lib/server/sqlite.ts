@@ -1,6 +1,6 @@
 import "server-only"
 
-import { accessSync, constants, existsSync, mkdirSync, readFileSync } from "node:fs"
+import { accessSync, constants, mkdirSync } from "node:fs"
 import { DatabaseSync } from "node:sqlite"
 import { dirname, join } from "node:path"
 
@@ -236,74 +236,6 @@ function runMigrations(db: DatabaseSync) {
       throw new Error(msg)
     }
   }
-}
-
-function parseTrackedGamesSeed(rawJson: string): number[] {
-  const parsed = JSON.parse(rawJson) as unknown
-  if (!Array.isArray(parsed)) {
-    return []
-  }
-
-  return parsed.filter((entry): entry is number => typeof entry === "number" && Number.isFinite(entry))
-}
-
-function reseedTrackedGames(db: DatabaseSync, steamId: string): number {
-  const jsonPath = join(process.cwd(), "lib", "data", "tracked-games-seed.json")
-  if (!existsSync(jsonPath)) {
-    return 0
-  }
-
-  const rawJson = readFileSync(jsonPath, "utf-8")
-  const appIds = Array.from(new Set(parseTrackedGamesSeed(rawJson)))
-  const now = new Date().toISOString()
-  const insertPlaceholderGame = db.prepare(`
-    INSERT INTO games (
-      appid,
-      name,
-      created_at,
-      updated_at
-    ) VALUES (?, ?, ?, ?)
-    ON CONFLICT(appid) DO NOTHING
-  `)
-  const insertTrackedGame = db.prepare(`
-    INSERT INTO tracked_games (steam_id, appid, source, created_at, updated_at)
-    VALUES (?, ?, 'seed', ?, ?)
-    ON CONFLICT(steam_id, appid) DO UPDATE SET
-      updated_at = excluded.updated_at
-  `)
-  const deleteMissingSeedGames = db.prepare(`
-    DELETE FROM tracked_games
-    WHERE steam_id = ? AND source = 'seed' AND appid NOT IN (${appIds.map(() => "?").join(",")})
-  `)
-  const deleteAllSeedGames = db.prepare(`
-    DELETE FROM tracked_games
-    WHERE steam_id = ? AND source = 'seed'
-  `)
-
-  db.exec("BEGIN")
-  try {
-    for (const appId of appIds) {
-      insertPlaceholderGame.run(appId, `Steam app ${appId}`, now, now)
-      insertTrackedGame.run(steamId, appId, now, now)
-    }
-
-    if (appIds.length > 0) {
-      deleteMissingSeedGames.run(steamId, ...appIds)
-    } else {
-      deleteAllSeedGames.run(steamId)
-    }
-
-    db.exec("COMMIT")
-    return appIds.length
-  } catch (error) {
-    db.exec("ROLLBACK")
-    throw error
-  }
-}
-
-export function reseedTrackedGamesFromFile(steamId: string) {
-  const db = getSqliteDatabase()
-  return reseedTrackedGames(db, steamId)
 }
 
 export function getSqliteDatabase() {
