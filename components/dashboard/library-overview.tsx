@@ -1,22 +1,27 @@
 "use client"
 
-import { useState, useMemo, useEffect, useCallback } from "react"
-import { RefreshCw } from "lucide-react"
+import { useState, useMemo } from "react"
+import { Filter, ArrowUpDown } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { GameCard } from "@/components/ui/game-card"
-import { GamesFilterBar } from "@/components/ui/games-filter-bar"
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select"
 import { useSteamAchievementsBatch, useSteamGames } from "@/hooks/use-steam-data"
 import { getSteamHeaderImageUrl } from "@/lib/steam-api"
-import { buildGamesWithStats, filterVisibleGames, mapOwnedGamesToGameCards, sortGames } from "@/lib/games-mapping"
-import { getAllowedGameIdsClient } from "@/lib/allowed-games"
+import { buildGamesWithStats, mapOwnedGamesToGameCards, sortGames } from "@/lib/games-mapping"
 import type { SteamGameCardModel } from "@/lib/types/steam"
 
 type GamesOrder = "completed" | "alphabetical" | "achievementsAsc" | "achievementsDesc"
-type GamesFilter = "all" | "started" | "perfect" | "untouched"
+type GamesState = "started" | "perfect" | "untouched"
 
 const VALID_ORDERS: GamesOrder[] = ["completed", "alphabetical", "achievementsAsc", "achievementsDesc"]
-const VALID_FILTERS: GamesFilter[] = ["all", "started", "perfect", "untouched"]
+const VALID_STATES: GamesState[] = ["started", "perfect", "untouched"]
+
+const STATE_OPTIONS: Array<{ id: GamesState; label: string }> = [
+  { id: "started", label: "In Progress" },
+  { id: "perfect", label: "Perfect" },
+  { id: "untouched", label: "Untouched" },
+]
 
 interface LibraryOverviewProps {
   initialFilter?: string | null
@@ -24,68 +29,36 @@ interface LibraryOverviewProps {
 }
 
 export function LibraryOverview({ initialFilter, initialOrder }: LibraryOverviewProps = {}) {
-  const {
-    games: ownedGames,
-    loading,
-    isRefreshing: isRefreshingGames,
-    lastUpdated: gamesLastUpdated,
-    error,
-    refetch: refetchGames,
-  } = useSteamGames("all")
+  const { games: ownedGames, loading, error } = useSteamGames("all")
 
-  const parsedFilter = VALID_FILTERS.includes(initialFilter as GamesFilter) ? (initialFilter as GamesFilter) : "all"
+  // Map legacy "started"/"perfect"/"untouched" filter param to the new split model
+  const parsedStates = VALID_STATES.includes(initialFilter as GamesState)
+    ? new Set<GamesState>([initialFilter as GamesState])
+    : new Set<GamesState>()
   const parsedOrder = VALID_ORDERS.includes(initialOrder as GamesOrder) ? (initialOrder as GamesOrder) : "completed"
 
-  const [activeFilter] = useState<GamesFilter>(parsedFilter)
-  const [showCompleted, setShowCompleted] = useState(parsedFilter === "perfect")
-  const [onlyWithAchievements, setOnlyWithAchievements] = useState(parsedFilter !== "untouched")
+  const [activeStates, setActiveStates] = useState<Set<GamesState>>(parsedStates)
+  const [hideNoAchievements, setHideNoAchievements] = useState(true)
+
+  const toggleState = (s: GamesState) => {
+    setActiveStates((prev) => {
+      const next = new Set(prev)
+      if (next.has(s)) {
+        next.delete(s)
+      } else {
+        next.add(s)
+      }
+      return next
+    })
+  }
   const [order, setOrder] = useState<GamesOrder>(parsedOrder)
-  const [trackedIds, setTrackedIds] = useState<Set<string>>(new Set())
-  const [trackedIdsLoading, setTrackedIdsLoading] = useState(true)
-  const [scope, setScope] = useState<"all" | "tracked">("all")
 
   const games = useMemo(
     () => mapOwnedGamesToGameCards(ownedGames, (appid) => getSteamHeaderImageUrl(appid)),
     [ownedGames],
   )
   const appIds = useMemo(() => games.map((game) => game.id), [games])
-  const {
-    achievementsMap,
-    loading: achievementsLoading,
-    isRefreshing: isRefreshingAchievements,
-    refetch: refetchAchievements,
-  } = useSteamAchievementsBatch(appIds)
-
-  const updatedLabel = gamesLastUpdated ? `Updated at ${gamesLastUpdated.toLocaleTimeString()}` : "Not updated yet"
-  const refreshInProgress = isRefreshingGames || isRefreshingAchievements
-
-  useEffect(() => {
-    let isMounted = true
-
-    async function loadTrackedIds() {
-      try {
-        const ids = await getAllowedGameIdsClient()
-        if (isMounted) {
-          setTrackedIds(ids)
-          setTrackedIdsLoading(false)
-        }
-      } catch {
-        if (isMounted) {
-          setTrackedIds(new Set())
-          setTrackedIdsLoading(false)
-        }
-      }
-    }
-
-    void loadTrackedIds()
-    return () => {
-      isMounted = false
-    }
-  }, [])
-
-  const handleRefresh = useCallback(async () => {
-    await Promise.all([refetchGames(), refetchAchievements()])
-  }, [refetchAchievements, refetchGames])
+  const { achievementsMap, loading: achievementsLoading } = useSteamAchievementsBatch(appIds)
 
   const gamesWithStats = useMemo(
     () => sortGames(buildGamesWithStats(games, achievementsMap), order),
@@ -93,76 +66,97 @@ export function LibraryOverview({ initialFilter, initialOrder }: LibraryOverview
   )
 
   const visibleGames = useMemo(() => {
-    let filtered = filterVisibleGames(gamesWithStats, showCompleted)
+    let filtered = gamesWithStats
 
-    if (onlyWithAchievements) {
+    // Hide games without achievement support
+    if (hideNoAchievements) {
       filtered = filtered.filter((game) => game.totalAchievements > 0)
     }
 
-    if (scope === "tracked") {
-      filtered = filtered.filter((game) => trackedIds.has(String(game.id)))
-    }
-
-    if (activeFilter === "started") {
-      filtered = filtered.filter((game) => game.totalAchievements > 0 && game.percent > 0 && !game.completed)
-    } else if (activeFilter === "perfect") {
-      filtered = filtered.filter((game) => game.completed)
-    } else if (activeFilter === "untouched") {
-      filtered = filtered.filter((game) => game.totalAchievements === 0 || game.percent === 0)
+    // State filter (union of selected states, empty = all)
+    if (activeStates.size > 0) {
+      filtered = filtered.filter((game) => {
+        if (activeStates.has("started") && game.totalAchievements > 0 && game.percent > 0 && !game.completed)
+          return true
+        if (activeStates.has("perfect") && game.completed) return true
+        if (activeStates.has("untouched") && (game.totalAchievements === 0 || game.percent === 0)) return true
+        return false
+      })
     }
 
     return filtered
-  }, [gamesWithStats, onlyWithAchievements, scope, showCompleted, trackedIds, activeFilter])
+  }, [gamesWithStats, activeStates, hideNoAchievements])
 
-  const filterDataLoading = scope === "tracked" && trackedIdsLoading
-  const listLoading = loading || achievementsLoading || filterDataLoading
+  const listLoading = loading || achievementsLoading
+
+  const totalCount = gamesWithStats.length
+  const filteredCount = visibleGames.length
+  const hasActiveFilters = activeStates.size > 0 || hideNoAchievements
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <GamesFilterBar
-          order={order}
-          setOrder={setOrder}
-          showCompleted={showCompleted}
-          setShowCompleted={setShowCompleted}
-          onlyWithAchievements={onlyWithAchievements}
-          setOnlyWithAchievements={setOnlyWithAchievements}
-        />
-        <div className="flex items-center gap-3">
-          <div className="bg-card/80 border-surface-4 inline-flex gap-1 rounded-lg border p-1.5">
-            <Button
-              variant={scope === "all" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setScope("all")}
-              className={
-                scope === "all"
-                  ? "bg-accent hover:bg-accent/90 text-white"
-                  : "text-muted-foreground hover:text-foreground hover:bg-surface-3"
-              }
-            >
-              All
-            </Button>
-            <Button
-              variant={scope === "tracked" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setScope("tracked")}
-              className={
-                scope === "tracked"
-                  ? "bg-accent hover:bg-accent/90 text-white"
-                  : "text-muted-foreground hover:text-foreground hover:bg-surface-3"
-              }
-            >
-              Tracked
-            </Button>
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <Filter className="text-muted-foreground h-3.5 w-3.5" />
+          <div className="bg-card/80 border-surface-4 flex gap-1 rounded-lg border p-1">
+            {STATE_OPTIONS.map((opt) => {
+              const active = activeStates.has(opt.id)
+              return (
+                <Button
+                  key={opt.id}
+                  variant={active ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => toggleState(opt.id)}
+                  className={
+                    active
+                      ? "bg-accent text-accent-foreground hover:bg-accent/90"
+                      : "text-muted-foreground hover:text-foreground hover:bg-surface-3"
+                  }
+                >
+                  {opt.label}
+                </Button>
+              )
+            })}
           </div>
-          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshInProgress} className="gap-2">
-            <RefreshCw className={`h-4 w-4 ${refreshInProgress ? "animate-spin" : ""}`} />
-            Refresh
+
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setHideNoAchievements((v) => !v)}
+            className={
+              hideNoAchievements
+                ? "border-accent/25 bg-accent/10 text-accent border"
+                : "text-muted-foreground hover:text-foreground hover:bg-surface-3"
+            }
+          >
+            Has achievements
           </Button>
         </div>
-      </div>
 
-      <p className="text-muted-foreground text-xs">{updatedLabel}</p>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-muted-foreground text-sm">
+            {listLoading
+              ? "Loading..."
+              : hasActiveFilters
+                ? `${filteredCount} of ${totalCount} games`
+                : `${totalCount} games`}
+          </p>
+          <div className="flex items-center gap-2">
+            <ArrowUpDown className="text-muted-foreground h-3.5 w-3.5" />
+            <Select value={order} onValueChange={(v) => setOrder(v as GamesOrder)}>
+              <SelectTrigger className="w-44">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="completed">Completion %</SelectItem>
+                <SelectItem value="alphabetical">A-Z</SelectItem>
+                <SelectItem value="achievementsDesc">Most achievements</SelectItem>
+                <SelectItem value="achievementsAsc">Fewest achievements</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
 
       {listLoading ? (
         <p className="text-muted-foreground py-8 text-center">Loading games...</p>

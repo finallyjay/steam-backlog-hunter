@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import { Pie, PieChart, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis } from "recharts"
 import { Activity, PieChart as PieChartIcon, Trophy } from "lucide-react"
 
@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { AnimatedNumber } from "@/components/ui/animated-number"
 import { useSteamGames } from "@/hooks/use-steam-data"
-import { getAllowedGameIdsClient } from "@/lib/allowed-games"
 import type { SteamStatsResponse } from "@/lib/types/steam"
 
 interface DashboardInsightsProps {
@@ -177,67 +176,41 @@ function InsightCard({
 export function DashboardInsights({ stats, loading = false }: DashboardInsightsProps) {
   const [trackableMetric, setTrackableMetric] = useState<TrackableMetric>("achievements")
   const [libraryMetric, setLibraryMetric] = useState<LibraryMetric>("state")
-  const [trackableCount, setTrackableCount] = useState<number | null>(null)
   const { games: allGames, loading: allGamesLoading } = useSteamGames("all")
-
-  useEffect(() => {
-    let isMounted = true
-
-    async function loadTrackableCount() {
-      try {
-        const allowedIds = await getAllowedGameIdsClient()
-        if (!isMounted) {
-          return
-        }
-
-        const count = allGames.filter((game) => allowedIds.has(String(game.appid))).length
-        setTrackableCount(count)
-      } catch {
-        if (isMounted) {
-          setTrackableCount(null)
-        }
-      }
-    }
-
-    void loadTrackableCount()
-
-    return () => {
-      isMounted = false
-    }
-  }, [allGames])
 
   const trackableModel = useMemo(() => {
     if (trackableMetric === "completion") {
       const perfect = stats?.perfectGames ?? 0
       const started = Math.max((stats?.startedGames ?? 0) - perfect, 0)
-      const untouched = Math.max((trackableCount ?? 0) - (stats?.startedGames ?? 0), 0)
+      const gamesWithAchievements = allGames.filter((g) => g.has_community_visible_stats).length
+      const untouched = Math.max(gamesWithAchievements - (stats?.startedGames ?? 0), 0)
 
       return {
         title: "Completion State",
-        description: "Which tracked games are fully done, started, or still untouched.",
+        description: "Which games with achievements are fully done, started, or still untouched.",
         data: [
           { name: "Perfect", value: perfect },
           { name: "Started", value: started },
           { name: "Untouched", value: untouched },
         ],
         insight: stats
-          ? `${perfect} tracked games are perfect, ${started} are in progress, and ${untouched} have not been started yet.`
-          : "Sync data to reveal trackable completion state.",
+          ? `${perfect} games are perfect, ${started} are in progress, and ${untouched} have not been started yet.`
+          : "Sync data to reveal completion state.",
       }
     }
 
     return {
       title: "Achievement Split",
-      description: "Unlocked versus still pending achievements across trackable games.",
+      description: "Unlocked versus still pending achievements across all games.",
       data: [
         { name: "Unlocked", value: stats?.totalAchievements ?? 0 },
         { name: "Pending", value: stats?.pendingAchievements ?? 0 },
       ],
       insight: stats
-        ? `${stats.pendingAchievements} pending achievements remain in the trackable catalog.`
+        ? `${stats.pendingAchievements} pending achievements remain across your games.`
         : "Sync data to reveal the achievement split.",
     }
-  }, [stats, trackableCount, trackableMetric])
+  }, [stats, allGames, trackableMetric])
 
   const libraryModel = useMemo(() => {
     if (libraryMetric === "playtime") {
@@ -293,7 +266,7 @@ export function DashboardInsights({ stats, loading = false }: DashboardInsightsP
           <CardHeader className="space-y-4">
             <div className="flex items-center gap-2 text-lg">
               <PieChartIcon className="text-accent h-5 w-5" />
-              <CardTitle>Trackable Games</CardTitle>
+              <CardTitle>Achievements</CardTitle>
             </div>
             <div className="flex flex-wrap gap-2">
               <Button
