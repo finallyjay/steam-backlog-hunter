@@ -8,6 +8,7 @@ const envSchema = z.object({
   STEAM_WHITELIST_IDS: z.string().optional(),
   NEXTAUTH_URL: z.string().url().optional(),
   SQLITE_PATH: z.string().optional(),
+  ADMIN_STEAM_ID: z.string().optional(),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
 })
 
