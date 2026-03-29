@@ -56,7 +56,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
               finallyjay
             </a>
           </p>
-          <p className="text-muted-foreground/60 text-xs">v0.8.1 · Not affiliated with Valve Corporation</p>
+          <p className="text-muted-foreground/60 text-xs">v0.9.0 · Not affiliated with Valve Corporation</p>
         </div>
       </footer>
       <Toaster />
