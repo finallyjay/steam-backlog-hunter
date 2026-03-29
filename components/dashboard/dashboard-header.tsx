@@ -70,6 +70,7 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
                 type="button"
                 className="text-muted-foreground hover:text-foreground sm:hidden"
                 onClick={() => setMobileMenuOpen((prev) => !prev)}
+                aria-expanded={mobileMenuOpen}
                 aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
               >
                 {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
