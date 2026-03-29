@@ -75,6 +75,7 @@ The app will be available at `http://localhost:3000`.
 | `STEAM_WHITELIST_IDS` | Yes        | Comma-separated Steam64 IDs allowed to sign in                            |
 | `NEXTAUTH_URL`        | Production | Your app's public URL (e.g. `https://steam.example.com`)                  |
 | `SQLITE_PATH`         | No         | Custom SQLite database path (see [Database](#database))                   |
+| `ADMIN_STEAM_ID`      | No         | Steam64 ID with admin access (`/admin` user management)                   |
 | `LOG_LEVEL`           | No         | Pino log level (default: `info`)                                          |
 
 ## Scripts
