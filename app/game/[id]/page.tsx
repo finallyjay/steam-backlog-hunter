@@ -13,6 +13,7 @@ import type { SteamAchievementView } from "@/lib/types/steam"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { ExternalLink, Lock, RefreshCw, Trophy } from "lucide-react"
+import { formatPlaytime } from "@/lib/utils"
 
 type AchievementTab = "pending" | "unlocked"
 
@@ -106,9 +107,7 @@ export default function GameDetailPage() {
             <div className="flex-1 space-y-4 pt-1">
               <div>
                 <h1 className="mb-1 text-2xl font-bold">{game.name}</h1>
-                <div className="text-muted-foreground text-sm">
-                  {(game.playtime_forever / 60).toFixed(1)} hours played
-                </div>
+                <div className="text-muted-foreground text-sm">{formatPlaytime(game.playtime_forever / 60)} played</div>
               </div>
 
               {!loadingAchievements && total > 0 && (
