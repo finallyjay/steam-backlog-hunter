@@ -1,6 +1,5 @@
 import "server-only"
 
-import { getTrackedGameIdsServer } from "@/lib/server/tracked-games"
 import type { SteamStatsResponse } from "@/lib/types/steam"
 import { getSqliteDatabase } from "@/lib/server/sqlite"
 import { isStale, upsertProfile, getProfileSync, roundPercent } from "@/lib/server/steam-store-utils"
@@ -26,7 +25,7 @@ type StatsSnapshotRow = {
   computed_at: string
 }
 
-function computeStatsFromDatabase(steamId: string, allowedIds: Set<string>): SteamStatsResponse {
+function computeStatsFromDatabase(steamId: string): SteamStatsResponse {
   const db = getSqliteDatabase()
   const totals = db
     .prepare(
@@ -40,33 +39,24 @@ function computeStatsFromDatabase(steamId: string, allowedIds: Set<string>): Ste
     )
     .get(steamId) as { total_games: number; total_playtime_minutes: number }
 
-  const allowedAppIds = Array.from(allowedIds).map((id) => Number(id))
-  const achievementTotals =
-    allowedAppIds.length > 0
-      ? (db
-          .prepare(
-            `
-        SELECT
-          COALESCE(SUM(unlocked_count), 0) AS total_achievements,
-          COALESCE(SUM(CASE WHEN total_count > unlocked_count THEN total_count - unlocked_count ELSE 0 END), 0) AS pending_achievements,
-          COALESCE(SUM(CASE WHEN unlocked_count > 0 THEN 1 ELSE 0 END), 0) AS started_games,
-          COALESCE(SUM(perfect_game), 0) AS perfect_games
-        FROM user_games
-        WHERE steam_id = ? AND owned = 1 AND appid IN (${allowedAppIds.map(() => "?").join(",")})
-      `,
-          )
-          .get(steamId, ...allowedAppIds) as {
-          total_achievements: number
-          pending_achievements: number
-          started_games: number
-          perfect_games: number
-        })
-      : {
-          total_achievements: 0,
-          pending_achievements: 0,
-          started_games: 0,
-          perfect_games: 0,
-        }
+  const achievementTotals = db
+    .prepare(
+      `
+    SELECT
+      COALESCE(SUM(unlocked_count), 0) AS total_achievements,
+      COALESCE(SUM(CASE WHEN total_count > unlocked_count THEN total_count - unlocked_count ELSE 0 END), 0) AS pending_achievements,
+      COALESCE(SUM(CASE WHEN unlocked_count > 0 THEN 1 ELSE 0 END), 0) AS started_games,
+      COALESCE(SUM(perfect_game), 0) AS perfect_games
+    FROM user_games
+    WHERE steam_id = ? AND owned = 1 AND total_count > 0
+  `,
+    )
+    .get(steamId) as {
+    total_achievements: number
+    pending_achievements: number
+    started_games: number
+    perfect_games: number
+  }
 
   const libraryAverageRow = db
     .prepare(
@@ -146,9 +136,17 @@ export function getStoredStatsSnapshot(steamId: string) {
 }
 
 async function syncAchievementsForStats(steamId: string, forceRefresh: boolean) {
-  const allowedIds = await getTrackedGameIdsServer(steamId)
   const ownedGames = await ensureOwnedGamesSynced(steamId, { forceRefresh })
-  const candidateGames = ownedGames.filter((game) => allowedIds.has(String(game.appid)))
+
+  // Only sync games that already have confirmed achievements (total_count > 0)
+  // or that have never been checked yet (no achievements_synced_at)
+  const candidateGames = ownedGames.filter((game) => {
+    if (!game.has_community_visible_stats) return false
+    const stored = getStoredAchievements(steamId, game.appid)
+    // Already synced with 0 achievements — skip (broken/retired game)
+    if (stored?.achievements_synced_at && (stored.total_count ?? 0) === 0) return false
+    return true
+  })
 
   for (let index = 0; index < candidateGames.length; index += ACHIEVEMENTS_CONCURRENCY) {
     const chunk = candidateGames.slice(index, index + ACHIEVEMENTS_CONCURRENCY)
@@ -167,8 +165,6 @@ async function syncAchievementsForStats(steamId: string, forceRefresh: boolean) 
       }),
     )
   }
-
-  return allowedIds
 }
 
 /**
@@ -192,8 +188,8 @@ export async function getStatsForUser(steamId: string, options?: { forceRefresh?
     }
   }
 
-  const allowedIds = await syncAchievementsForStats(steamId, forceRefresh)
-  const stats = computeStatsFromDatabase(steamId, allowedIds)
+  await syncAchievementsForStats(steamId, forceRefresh)
+  const stats = computeStatsFromDatabase(steamId)
   persistStatsSnapshot(steamId, stats)
 
   return stats

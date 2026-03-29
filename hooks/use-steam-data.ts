@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
-import { getAllowedGameIdsClient } from "@/lib/allowed-games"
 import type { SteamGame } from "@/lib/steam-api"
 import type { SteamAchievementsApiResponse, SteamGamesApiResponse, SteamStatsApiResponse } from "@/lib/types/api"
 import type { SteamAchievementView, SteamStatsResponse } from "@/lib/types/steam"
@@ -61,10 +60,7 @@ export function useSteamAchievementsBatch(appIds: number[]) {
           return
         }
 
-        const allowedIds = await getAllowedGameIdsClient()
-        const filteredAppIds = normalizedAppIds.filter((id) => allowedIds.has(String(id)))
-
-        const response = await fetch(`/api/steam/achievements/batch?appIds=${filteredAppIds.join(",")}`)
+        const response = await fetch(`/api/steam/achievements/batch?appIds=${normalizedAppIds.join(",")}`)
         if (!response.ok) {
           throw new Error("Failed to fetch achievements batch")
         }
@@ -302,14 +298,6 @@ export function useSteamAchievements(appId: number | null) {
       setError(null)
 
       try {
-        const allowedIds = await getAllowedGameIdsClient()
-        if (!allowedIds.has(String(appId))) {
-          setAchievements([])
-          setLastUpdated(new Date())
-          hasLoadedRef.current = true
-          return
-        }
-
         const query = options?.manual ? "&refresh=1" : ""
         const response = await fetch(`/api/steam/achievements?appId=${appId}${query}`)
         if (!response.ok) {

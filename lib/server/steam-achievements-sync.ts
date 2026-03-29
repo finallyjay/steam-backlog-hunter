@@ -38,25 +38,6 @@ type GameSchema = {
   }
 }
 
-/** Inserts or updates a game in the tracked_games table for achievement monitoring. */
-export function markGameAsTracked(
-  steamId: string,
-  appId: number,
-  source: "seed" | "discovered" | "manual" = "discovered",
-) {
-  const db = getSqliteDatabase()
-  const now = nowIso()
-
-  db.prepare(
-    `
-    INSERT INTO tracked_games (steam_id, appid, source, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?)
-    ON CONFLICT(steam_id, appid) DO UPDATE SET
-      updated_at = excluded.updated_at
-  `,
-  ).run(steamId, appId, source, now, now)
-}
-
 /** Retrieves stored achievement data for a single game from SQLite. */
 export function getStoredAchievements(steamId: string, appId: number) {
   const db = getSqliteDatabase()
@@ -124,7 +105,7 @@ export function persistAchievements(steamId: string, appId: number, achievements
   ).run(JSON.stringify(achievements), now, unlockedCount, totalCount, perfectGame, now, steamId, appId)
 }
 
-function persistSchema(steamId: string, appId: number, schema: GameSchema | null) {
+function persistSchema(appId: number, schema: GameSchema | null) {
   const db = getSqliteDatabase()
   const now = nowIso()
   db.prepare(
@@ -134,10 +115,6 @@ function persistSchema(steamId: string, appId: number, schema: GameSchema | null
     WHERE appid = ?
   `,
   ).run(schema ? JSON.stringify(schema) : null, now, now, appId)
-
-  if (schema?.availableGameStats?.achievements?.length) {
-    markGameAsTracked(steamId, appId, "discovered")
-  }
 }
 
 /** Retrieves the stored game schema (achievement definitions) from SQLite. */
@@ -164,7 +141,7 @@ export async function ensureSchema(steamId: string, appId: number, options?: { f
   }
 
   const schema = (await getGameSchema(appId)) as GameSchema | null
-  persistSchema(steamId, appId, schema)
+  persistSchema(appId, schema)
   return schema
 }
 
@@ -226,14 +203,13 @@ export async function getAchievementsForGame(steamId: string, appId: number, opt
   ])
 
   if (!playerAchievements) {
+    // Mark as checked with 0 achievements so we don't retry broken/retired games
+    persistAchievements(steamId, appId, [])
     return null
   }
 
   const enrichedAchievements = buildAchievementsView(playerAchievements.achievements, schema)
   persistAchievements(steamId, appId, enrichedAchievements)
-  if (enrichedAchievements.length > 0) {
-    markGameAsTracked(steamId, appId, "discovered")
-  }
 
   return {
     steamID: playerAchievements.steamID,

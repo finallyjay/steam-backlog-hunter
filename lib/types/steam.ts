@@ -1,10 +1,5 @@
 import type { SteamAchievement, SteamGame } from "@/lib/steam-api"
 
-export interface AllowedSteamGame {
-  id: number
-  name: string
-}
-
 export interface SteamAchievementView extends SteamAchievement {
   displayName: string
   description: string
