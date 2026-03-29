@@ -191,6 +191,18 @@ function initializeSchema(db: DatabaseSync) {
         FOREIGN KEY (appid) REFERENCES games(appid),
         FOREIGN KEY (steam_id) REFERENCES steam_profile(steam_id)
       );
+    `)
+
+    // Migrate existing data: assign all rows to the first known user
+    const profile = db.prepare("SELECT steam_id FROM steam_profile LIMIT 1").get() as { steam_id: string } | undefined
+    if (profile) {
+      db.exec(`
+        INSERT INTO tracked_games_new (steam_id, appid, source, created_at, updated_at)
+        SELECT '${profile.steam_id}', appid, source, created_at, updated_at FROM tracked_games;
+      `)
+    }
+
+    db.exec(`
       DROP TABLE tracked_games;
       ALTER TABLE tracked_games_new RENAME TO tracked_games;
     `)
