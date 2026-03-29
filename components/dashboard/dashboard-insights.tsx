@@ -238,7 +238,6 @@ export function DashboardInsights({ stats, loading = false }: DashboardInsightsP
               <PieChartIcon className="text-accent h-5 w-5" />
               <CardTitle>Completion</CardTitle>
             </div>
-            <div className="h-8" />
           </CardHeader>
           <CardContent>
             <InsightCard
