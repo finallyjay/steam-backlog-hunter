@@ -77,15 +77,7 @@ describe("GameCard", () => {
   })
 
   it("renders game with no achievements", () => {
-    render(
-      <GameCard
-        id={440}
-        name="TF2"
-        image="/steam-icon.png"
-        playtime={5}
-        achievements={[]}
-      />,
-    )
+    render(<GameCard id={440} name="TF2" image="/steam-icon.png" playtime={5} achievements={[]} />)
 
     expect(screen.getByText("TF2")).toBeInTheDocument()
     expect(screen.getByText("-")).toBeInTheDocument()

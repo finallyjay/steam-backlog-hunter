@@ -36,7 +36,15 @@ function getFallbackUrl(id: number | string, stage: FallbackStage): string {
   }
 }
 
-export function GameCard({ id, name, image, playtime, achievements = [], achievementsLoading = false, href }: GameCardProps) {
+export function GameCard({
+  id,
+  name,
+  image,
+  playtime,
+  achievements = [],
+  achievementsLoading = false,
+  href,
+}: GameCardProps) {
   const [imageSrc, setImageSrc] = useState(image || "/placeholder-landscape.svg")
   const [fallbackIndex, setFallbackIndex] = useState(0)
 
@@ -50,12 +58,12 @@ export function GameCard({ id, name, image, playtime, achievements = [], achieve
   const cardContent = (
     <div
       data-game-id={id}
-      className={`group relative flex items-stretch gap-4 overflow-hidden rounded-[1.2rem] border border-white/10 px-4 py-4 transition-all duration-300 ${isCompleted ? "bg-emerald-500/10 hover:border-emerald-300/40" : "bg-white/4 hover:border-accent/45 hover:bg-white/6"}`}
+      className={`group relative flex items-stretch gap-4 overflow-hidden rounded-[1.2rem] border border-white/10 px-4 py-4 transition-all duration-300 ${isCompleted ? "bg-emerald-500/10 hover:border-emerald-300/40" : "hover:border-accent/45 bg-white/4 hover:bg-white/6"}`}
     >
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
       <img
         src={imageSrc}
-        alt={name}
+        alt={`Cover art for ${name}`}
         className="h-auto min-h-[5.9rem] w-48 rounded-2xl border border-white/10 bg-slate-900/70 object-cover shadow-lg"
         onError={() => {
           const nextIndex = fallbackIndex + 1
@@ -65,12 +73,10 @@ export function GameCard({ id, name, image, playtime, achievements = [], achieve
           }
         }}
       />
-      <div className="flex-1 min-w-0">
-        <h3 className="flex items-center gap-2 truncate text-base font-semibold tracking-tight">
-          {name}
-        </h3>
+      <div className="min-w-0 flex-1">
+        <h3 className="flex items-center gap-2 truncate text-base font-semibold tracking-tight">{name}</h3>
         {(playtime !== undefined || !achievementsLoading) && (
-          <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+          <div className="text-muted-foreground mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
             {playtime !== undefined ? (
               <div className="flex items-center gap-2">
                 <Clock className="h-3 w-3" />
@@ -82,14 +88,14 @@ export function GameCard({ id, name, image, playtime, achievements = [], achieve
               total > 0 ? (
                 <div className="flex items-center gap-2">
                   <Trophy className={`h-3.5 w-3.5 ${isCompleted ? "text-emerald-300" : "text-accent/90"}`} />
-                  <span className="font-medium text-foreground/90">
+                  <span className="text-foreground/90 font-medium">
                     {unlocked}/{total} ({percent}%)
                   </span>
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
-                  <Trophy className="h-3.5 w-3.5 text-muted-foreground/70" />
-                  <span className="font-medium text-foreground/75">-</span>
+                  <Trophy className="text-muted-foreground/70 h-3.5 w-3.5" />
+                  <span className="text-foreground/75 font-medium">-</span>
                 </div>
               )
             ) : null}
@@ -97,7 +103,7 @@ export function GameCard({ id, name, image, playtime, achievements = [], achieve
         )}
         <div className="mt-2">
           {achievementsLoading ? (
-            <span className="text-xs text-muted-foreground">Loading achievements...</span>
+            <span className="text-muted-foreground text-xs">Loading achievements...</span>
           ) : total > 0 ? (
             <Progress value={percent} indicatorClassName={progressColor} />
           ) : (
@@ -108,6 +114,10 @@ export function GameCard({ id, name, image, playtime, achievements = [], achieve
     </div>
   )
   return href ? (
-    <Link href={href} className="block">{cardContent}</Link>
-  ) : cardContent
+    <Link href={href} className="block">
+      {cardContent}
+    </Link>
+  ) : (
+    cardContent
+  )
 }

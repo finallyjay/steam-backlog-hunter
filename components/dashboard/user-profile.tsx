@@ -40,20 +40,24 @@ export function UserProfile({ user, stats, statsLoading = false, statsUpdatedLab
           <CardTitle className="flex items-center gap-4">
             <img
               src={user.avatar || "/placeholder.svg"}
-              alt={user.displayName}
+              alt={`${user.displayName}'s Steam avatar`}
               className="h-14 w-14 rounded-2xl border border-white/10 shadow-lg"
             />
             <div className="space-y-1">
-              <p className="text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-accent/80">Operator profile</p>
+              <p className="text-accent/80 text-[0.72rem] font-semibold tracking-[0.28em] uppercase">
+                Operator profile
+              </p>
               <h2 className="text-2xl font-semibold tracking-tight">{user.displayName}</h2>
             </div>
           </CardTitle>
           {!statsLoading && stats && (
             <div className="text-right">
-              <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Avg. completion</p>
+              <p className="text-muted-foreground text-[0.68rem] font-semibold tracking-[0.18em] uppercase">
+                Avg. completion
+              </p>
               <p className="mt-1 flex items-baseline justify-end text-3xl font-semibold tracking-tight">
                 <AnimatedNumber value={stats.averageCompletion} />
-                <span className="ml-1.5 self-center text-lg text-muted-foreground">%</span>
+                <span className="text-muted-foreground ml-1.5 self-center text-lg">%</span>
               </p>
             </div>
           )}
@@ -69,13 +73,18 @@ export function UserProfile({ user, stats, statsLoading = false, statsUpdatedLab
                 ? `Member since ${new Date(user.timecreated * 1000).getFullYear()}`
                 : "Member since ???"}
             </Badge>
-            <Button variant="ghost" size="sm" asChild className="h-9 gap-2 px-3 text-muted-foreground hover:text-foreground">
+            <Button
+              variant="ghost"
+              size="sm"
+              asChild
+              className="text-muted-foreground hover:text-foreground h-9 gap-2 px-3"
+            >
               <a href={user.profileUrl} target="_blank" rel="noopener noreferrer">
                 <ExternalLink className="h-4 w-4" />
                 Steam profile
               </a>
             </Button>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-muted-foreground text-sm">
               {statsUpdatedLabel || "Stats will appear after the first sync."}
             </p>
           </div>
@@ -86,7 +95,7 @@ export function UserProfile({ user, stats, statsLoading = false, statsUpdatedLab
                 key={item.label}
                 className="rounded-[1.15rem] border border-white/10 bg-slate-950/28 px-4 py-4 backdrop-blur-sm"
               >
-                <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                <p className="text-muted-foreground text-[0.68rem] font-semibold tracking-[0.18em] uppercase">
                   {item.label}
                 </p>
                 <p className="mt-2 text-2xl font-semibold tracking-tight">

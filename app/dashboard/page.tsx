@@ -42,13 +42,18 @@ export default function DashboardPage() {
 
   return (
     <PageContainer>
+      <h1 className="sr-only">Dashboard</h1>
       <div className="grid gap-8">
         {user ? (
           <UserProfile
             user={user}
             stats={stats}
             statsLoading={statsLoading}
-            statsUpdatedLabel={statsLastUpdated ? `Stats refreshed at ${statsLastUpdated.toLocaleTimeString()}` : "Sync Steam to refresh your dashboard snapshot."}
+            statsUpdatedLabel={
+              statsLastUpdated
+                ? `Stats refreshed at ${statsLastUpdated.toLocaleTimeString()}`
+                : "Sync Steam to refresh your dashboard snapshot."
+            }
           />
         ) : null}
 

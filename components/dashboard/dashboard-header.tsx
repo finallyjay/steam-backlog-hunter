@@ -34,11 +34,11 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
       <div className="container mx-auto px-4 py-4 md:px-6 lg:px-8">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-accent/15 text-accent shadow-[0_0_30px_-14px_rgba(88,198,255,0.8)]">
+            <div className="bg-accent/15 text-accent flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 shadow-[0_0_30px_-14px_rgba(88,198,255,0.8)]">
               <Gamepad2 className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-[0.7rem] font-semibold uppercase tracking-[0.32em] text-accent/80">Backlog hunter</p>
+              <p className="text-accent/80 text-[0.7rem] font-semibold tracking-[0.32em] uppercase">Backlog hunter</p>
               <h1 className="text-xl font-semibold tracking-tight text-balance sm:text-2xl">Steam Backlog Hunter</h1>
             </div>
             <Badge variant="secondary" className="ml-2 hidden border border-white/10 bg-white/6 text-sm sm:inline-flex">
@@ -46,23 +46,23 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
             </Badge>
           </div>
 
-          <div className="flex items-center gap-4">
+          <nav aria-label="Main navigation" className="flex items-center gap-4">
             <SyncStatusButton />
 
             <Link href="/dashboard" className="flex items-center gap-3 hover:underline">
               <img
                 src={user.avatar || "/placeholder.svg"}
-                alt={user.displayName}
-                className="w-8 h-8 rounded-full border-2 border-accent/20"
+                alt={`${user.displayName}'s Steam avatar`}
+                className="border-accent/20 h-8 w-8 rounded-full border-2"
               />
-              <span className="font-medium hidden sm:inline">{user.displayName}</span>
+              <span className="hidden font-medium sm:inline">{user.displayName}</span>
             </Link>
 
             <Button variant="outline" size="sm" onClick={handleLogout} className="gap-2 bg-transparent">
               <LogOut className="h-4 w-4" />
               <span className="hidden sm:inline">Logout</span>
             </Button>
-          </div>
+          </nav>
         </div>
       </div>
     </header>
