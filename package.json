@@ -11,7 +11,7 @@
     "test": "pnpm exec vitest run",
     "typecheck": "pnpm exec next typegen && pnpm exec tsc --noEmit",
     "prepare": "husky",
-    "start": "next start"
+    "start": "node .next/standalone/server.js"
   },
   "lint-staged": {
     "*.{ts,tsx,js,mjs}": [
