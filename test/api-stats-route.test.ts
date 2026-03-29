@@ -33,6 +33,7 @@ describe("GET /api/steam/stats", () => {
     })
     vi.mocked(getUserStats).mockResolvedValue({
       totalGames: 1,
+      gamesWithAchievements: 1,
       totalAchievements: 2,
       pendingAchievements: 3,
       startedGames: 1,
@@ -50,6 +51,7 @@ describe("GET /api/steam/stats", () => {
   it("returns stats data in response body", async () => {
     const expectedStats = {
       totalGames: 5,
+      gamesWithAchievements: 3,
       totalAchievements: 42,
       pendingAchievements: 10,
       startedGames: 3,

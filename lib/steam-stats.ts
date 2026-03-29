@@ -12,6 +12,7 @@ export async function getUserStats(steamId: string, options?: { forceRefresh?: b
     logger.error({ err: error }, "Error fetching user stats")
     return {
       totalGames: 0,
+      gamesWithAchievements: 0,
       totalAchievements: 0,
       pendingAchievements: 0,
       startedGames: 0,

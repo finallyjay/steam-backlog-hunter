@@ -43,6 +43,7 @@ function computeStatsFromDatabase(steamId: string): SteamStatsResponse {
     .prepare(
       `
     SELECT
+      COUNT(*) AS games_with_achievements,
       COALESCE(SUM(unlocked_count), 0) AS total_achievements,
       COALESCE(SUM(CASE WHEN total_count > unlocked_count THEN total_count - unlocked_count ELSE 0 END), 0) AS pending_achievements,
       COALESCE(SUM(CASE WHEN unlocked_count > 0 THEN 1 ELSE 0 END), 0) AS started_games,
@@ -52,6 +53,7 @@ function computeStatsFromDatabase(steamId: string): SteamStatsResponse {
   `,
     )
     .get(steamId) as {
+    games_with_achievements: number
     total_achievements: number
     pending_achievements: number
     started_games: number
@@ -70,6 +72,7 @@ function computeStatsFromDatabase(steamId: string): SteamStatsResponse {
 
   return {
     totalGames: totals.total_games ?? 0,
+    gamesWithAchievements: achievementTotals.games_with_achievements ?? 0,
     totalAchievements: achievementTotals.total_achievements ?? 0,
     pendingAchievements: achievementTotals.pending_achievements ?? 0,
     startedGames: achievementTotals.started_games ?? 0,
@@ -177,8 +180,13 @@ export async function getStatsForUser(steamId: string, options?: { forceRefresh?
 
   const snapshot = getStoredStatsSnapshot(steamId)
   if (!forceRefresh && snapshot && !isStale(snapshot.computed_at, STATS_STALE_MS)) {
+    const db = getSqliteDatabase()
+    const achCount = db
+      .prepare("SELECT COUNT(*) as c FROM user_games WHERE steam_id = ? AND owned = 1 AND total_count > 0")
+      .get(steamId) as { c: number }
     return {
       totalGames: snapshot.total_games,
+      gamesWithAchievements: achCount.c,
       totalAchievements: snapshot.total_achievements,
       pendingAchievements: snapshot.pending_achievements,
       startedGames: snapshot.started_games,
