@@ -24,10 +24,10 @@ const nextConfig = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://va.vercel-scripts.com",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://va.vercel-scripts.com https://static.cloudflareinsights.com",
               "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' data: https://steamcdn-a.akamaihd.net https://cdn.akamai.steamstatic.com https://avatars.steamstatic.com https://store.steampowered.com https://shared.akamai.steamstatic.com https://cdn.fastly.steamstatic.com https://media.steampowered.com https://community.steamstatic.com https://community.fastly.steamstatic.com",
-              "connect-src 'self' https://va.vercel-scripts.com https://api.steampowered.com",
+              "img-src 'self' data: https://steamcdn-a.akamaihd.net https://cdn.akamai.steamstatic.com https://avatars.steamstatic.com https://store.steampowered.com https://shared.akamai.steamstatic.com https://shared.fastly.steamstatic.com https://cdn.fastly.steamstatic.com https://media.steampowered.com https://community.steamstatic.com https://community.fastly.steamstatic.com",
+              "connect-src 'self' https://va.vercel-scripts.com https://static.cloudflareinsights.com https://api.steampowered.com",
               "font-src 'self'",
             ].join("; "),
           },
