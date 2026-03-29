@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useCallback } from "react"
 import { Trophy, PieChart, ArrowUpDown, Play } from "lucide-react"
 import Select from "react-select"
 
@@ -136,6 +136,20 @@ export function LibraryOverview({
   const [playedFilter, setPlayedFilter] = useState<PlayedFilter>(parsedPlayed)
   const [achievementScope, setAchievementScope] = useState<AchievementScope>(parsedAchievements)
   const [order, setOrder] = useState<GamesOrder>(parsedOrder)
+  const [locallyHidden, setLocallyHidden] = useState<Set<number>>(new Set())
+
+  const handleHideGame = useCallback(async (appId: number) => {
+    try {
+      await fetch("/api/steam/games/hide", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ appId }),
+      })
+      setLocallyHidden((prev) => new Set([...prev, appId]))
+    } catch {
+      // ignore
+    }
+  }, [])
 
   const games = useMemo(
     () => mapOwnedGamesToGameCards(ownedGames, (appid) => getSteamHeaderImageUrl(appid)),
@@ -177,8 +191,11 @@ export function LibraryOverview({
       filtered = filtered.filter((game) => game.playtime === 0)
     }
 
+    // Hide locally hidden games
+    filtered = filtered.filter((game) => !locallyHidden.has(game.id))
+
     return filtered
-  }, [gamesWithStats, state, achievementScope, playedFilter])
+  }, [gamesWithStats, state, achievementScope, playedFilter, locallyHidden])
 
   const listLoading = loading || achievementsLoading
   const totalCount = gamesWithStats.length
@@ -313,6 +330,7 @@ export function LibraryOverview({
               serverTotal={game.totalAchievements}
               serverUnlocked={game.unlockedAchievements}
               serverPerfect={game.completed}
+              onHide={handleHideGame}
             />
           ))}
         </div>

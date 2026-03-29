@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useState } from "react"
-import { Clock, Trophy } from "lucide-react"
+import { Clock, EyeOff, Trophy } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
 import { formatPlaytime } from "@/lib/utils"
 import type { SteamAchievementView } from "@/lib/types/steam"
@@ -18,6 +18,7 @@ interface GameCardProps {
   serverTotal?: number
   serverUnlocked?: number
   serverPerfect?: boolean
+  onHide?: (appId: number) => void
 }
 
 const FALLBACK_STAGES = ["primary", "header", "legacy", "capsule", "generic", "placeholder"] as const
@@ -51,6 +52,7 @@ export function GameCard({
   serverTotal = 0,
   serverUnlocked = 0,
   serverPerfect = false,
+  onHide,
 }: GameCardProps) {
   const [imageSrc, setImageSrc] = useState(image || "/placeholder-landscape.svg")
   const [fallbackIndex, setFallbackIndex] = useState(0)
@@ -70,6 +72,20 @@ export function GameCard({
       className={`group border-surface-4 relative flex items-stretch gap-4 overflow-hidden rounded-lg border px-4 py-4 transition-all duration-300 ${isCompleted ? "bg-success/10 hover:border-success/40" : "hover:border-accent/45 bg-surface-1 hover:bg-surface-2"}`}
     >
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+      {onHide && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            onHide(Number(id))
+          }}
+          className="bg-background/80 text-muted-foreground hover:text-foreground absolute top-2 right-2 z-10 rounded-md p-1.5 opacity-0 transition-opacity group-hover:opacity-100"
+          aria-label={`Hide ${name}`}
+        >
+          <EyeOff className="h-3.5 w-3.5" />
+        </button>
+      )}
       <img
         src={imageSrc}
         alt={`Cover art for ${name}`}
