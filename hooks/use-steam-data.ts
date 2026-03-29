@@ -99,7 +99,7 @@ export function useSteamAchievementsBatch(appIds: number[]) {
 
   useEffect(() => {
     function handleInvalidate() {
-      void fetchBatch({ manual: true })
+      void fetchBatch()
     }
 
     window.addEventListener(STEAM_DATA_INVALIDATED_EVENT, handleInvalidate)
@@ -177,7 +177,7 @@ export function useSteamGames(type: "recent" | "all" = "recent") {
 
   useEffect(() => {
     function handleInvalidate() {
-      void loadGames({ manual: true })
+      void loadGames()
     }
 
     window.addEventListener(STEAM_DATA_INVALIDATED_EVENT, handleInvalidate)
@@ -250,7 +250,7 @@ export function useSteamStats() {
 
   useEffect(() => {
     function handleInvalidate() {
-      void loadStats({ force: true, manual: true })
+      void loadStats()
     }
 
     window.addEventListener(STEAM_DATA_INVALIDATED_EVENT, handleInvalidate)
@@ -347,7 +347,7 @@ export function useSteamAchievements(appId: number | null) {
 
   useEffect(() => {
     function handleInvalidate() {
-      void loadAchievements({ manual: true })
+      void loadAchievements()
     }
 
     window.addEventListener(STEAM_DATA_INVALIDATED_EVENT, handleInvalidate)
