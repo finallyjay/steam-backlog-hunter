@@ -114,6 +114,14 @@ function createBaseSchema(db: DatabaseSync) {
       FOREIGN KEY (steam_id) REFERENCES steam_profile(steam_id)
     );
 
+    CREATE TABLE IF NOT EXISTS hidden_games (
+      steam_id TEXT NOT NULL,
+      appid INTEGER NOT NULL,
+      hidden_at TEXT NOT NULL,
+      PRIMARY KEY (steam_id, appid),
+      FOREIGN KEY (steam_id) REFERENCES steam_profile(steam_id)
+    );
+
     CREATE INDEX IF NOT EXISTS idx_user_games_steam_id ON user_games(steam_id);
     CREATE INDEX IF NOT EXISTS idx_user_games_steam_id_owned ON user_games(steam_id, owned);
     CREATE INDEX IF NOT EXISTS idx_stats_snapshot_steam_id ON stats_snapshot(steam_id);
@@ -203,6 +211,19 @@ const migrations: Array<(db: DatabaseSync) => void> = [
       WHERE total_count = 0 AND achievements_synced_at IS NOT NULL
     `,
     ).run()
+  },
+
+  // Migration 4: Create hidden_games table for game blacklist
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS hidden_games (
+        steam_id TEXT NOT NULL,
+        appid INTEGER NOT NULL,
+        hidden_at TEXT NOT NULL,
+        PRIMARY KEY (steam_id, appid),
+        FOREIGN KEY (steam_id) REFERENCES steam_profile(steam_id)
+      );
+    `)
   },
 ]
 
