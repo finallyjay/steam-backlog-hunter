@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { useMemo, useState } from "react"
 import { Pie, PieChart, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis } from "recharts"
-import { Activity, PieChart as PieChartIcon, Trophy } from "lucide-react"
+import { PieChart as PieChartIcon, Trophy } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -16,7 +16,6 @@ interface DashboardInsightsProps {
   loading?: boolean
 }
 
-type TrackableMetric = "achievements" | "completion"
 type LibraryMetric = "state" | "playtime"
 type ChartKind = "donut" | "bars"
 
@@ -33,7 +32,7 @@ function ChartTooltip({
   payload,
 }: {
   active?: boolean
-  payload?: Array<{ name: string; value: number; payload: { color: string } }>
+  payload?: Array<{ name: string; value: number; payload: { color: string; name?: string } }>
 }) {
   if (!active || !payload?.length) return null
 
@@ -42,7 +41,7 @@ function ChartTooltip({
     <div className="border-surface-4 rounded-xl border bg-slate-900/95 px-3 py-2 shadow-xl backdrop-blur-sm">
       <div className="flex items-center gap-2">
         <span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.payload.color }} />
-        <span className="text-muted-foreground text-sm">{item.name}</span>
+        <span className="text-muted-foreground text-sm">{item.payload.name ?? item.name}</span>
         <span className="text-foreground ml-1 text-sm font-semibold">{item.value}</span>
       </div>
     </div>
@@ -78,7 +77,6 @@ function MetricLegend({ label, value, color, href }: { label: string; value: num
 
 function InsightCard({
   title,
-  description,
   data,
   insight,
   loading,
@@ -86,7 +84,6 @@ function InsightCard({
   links,
 }: {
   title: string
-  description: string
   data: Array<{ name: string; value: number }>
   insight: string
   loading: boolean
@@ -100,7 +97,7 @@ function InsightCard({
       <div className="border-surface-3 bg-surface-1 rounded-lg border p-4">
         <div className="mb-3">
           <p className="text-foreground text-sm font-semibold">{title}</p>
-          <p className="text-muted-foreground text-sm">{description}</p>
+          <p className="text-muted-foreground text-sm">{insight}</p>
         </div>
         <div className="h-56 min-h-0 min-w-0">
           {!loading ? (
@@ -116,8 +113,8 @@ function InsightCard({
                     width={72}
                     tick={{ fill: "rgba(226,232,240,0.72)", fontSize: 12 }}
                   />
-                  <Tooltip content={<ChartTooltip />} />
-                  <Bar dataKey="value" radius={999}>
+                  <Tooltip content={<ChartTooltip />} cursor={{ fill: "rgba(255,255,255,0.05)" }} />
+                  <Bar dataKey="value" radius={4} barSize={20}>
                     {chartData.map((entry) => (
                       <Cell key={entry.name} fill={entry.color} />
                     ))}
@@ -150,14 +147,6 @@ function InsightCard({
         </div>
       </div>
 
-      <div className="border-surface-3 bg-surface-1 rounded-lg border px-4 py-4">
-        <p className="text-foreground mb-1 flex items-center gap-2 text-sm font-medium">
-          <Activity className="text-accent h-4 w-4" />
-          Current reading
-        </p>
-        <p className="text-muted-foreground text-sm">{insight}</p>
-      </div>
-
       <div className="space-y-3">
         {chartData.map((entry) => (
           <MetricLegend
@@ -174,43 +163,26 @@ function InsightCard({
 }
 
 export function DashboardInsights({ stats, loading = false }: DashboardInsightsProps) {
-  const [trackableMetric, setTrackableMetric] = useState<TrackableMetric>("achievements")
   const [libraryMetric, setLibraryMetric] = useState<LibraryMetric>("state")
   const { games: allGames, loading: allGamesLoading } = useSteamGames("all")
 
-  const trackableModel = useMemo(() => {
-    if (trackableMetric === "completion") {
-      const perfect = stats?.perfectGames ?? 0
-      const started = Math.max((stats?.startedGames ?? 0) - perfect, 0)
-      const gamesWithAchievements = allGames.filter((g) => g.has_community_visible_stats).length
-      const untouched = Math.max(gamesWithAchievements - (stats?.startedGames ?? 0), 0)
-
-      return {
-        title: "Completion State",
-        description: "Which games with achievements are fully done, started, or still untouched.",
-        data: [
-          { name: "Perfect", value: perfect },
-          { name: "Started", value: started },
-          { name: "Untouched", value: untouched },
-        ],
-        insight: stats
-          ? `${perfect} games are perfect, ${started} are in progress, and ${untouched} have not been started yet.`
-          : "Sync data to reveal completion state.",
-      }
-    }
+  const completionModel = useMemo(() => {
+    const perfect = stats?.perfectGames ?? 0
+    const started = Math.max((stats?.startedGames ?? 0) - perfect, 0)
+    const untouched = Math.max((stats?.gamesWithAchievements ?? 0) - (stats?.startedGames ?? 0), 0)
 
     return {
-      title: "Achievement Split",
-      description: "Unlocked versus still pending achievements across all games.",
+      title: "Completion State",
       data: [
-        { name: "Unlocked", value: stats?.totalAchievements ?? 0 },
-        { name: "Pending", value: stats?.pendingAchievements ?? 0 },
+        { name: "Untouched", value: untouched },
+        { name: "Started", value: started },
+        { name: "Perfect", value: perfect },
       ],
       insight: stats
-        ? `${stats.pendingAchievements} pending achievements remain across your games.`
-        : "Sync data to reveal the achievement split.",
+        ? `${perfect} games are perfect, ${started} are in progress, and ${untouched} have not been started yet.`
+        : "Sync data to reveal completion state.",
     }
-  }, [stats, allGames, trackableMetric])
+  }, [stats])
 
   const libraryModel = useMemo(() => {
     if (libraryMetric === "playtime") {
@@ -231,7 +203,6 @@ export function DashboardInsights({ stats, loading = false }: DashboardInsightsP
 
       return {
         title: "Playtime Bands",
-        description: "How your full library is distributed by time spent.",
         data: bands,
         insight:
           allGames.length > 0
@@ -246,7 +217,6 @@ export function DashboardInsights({ stats, loading = false }: DashboardInsightsP
 
     return {
       title: "Library State",
-      description: "Played games versus the untouched backlog across your whole library.",
       data: [
         { name: "Played", value: played },
         { name: "Unplayed", value: unplayed },
@@ -266,55 +236,22 @@ export function DashboardInsights({ stats, loading = false }: DashboardInsightsP
           <CardHeader className="space-y-4">
             <div className="flex items-center gap-2 text-lg">
               <PieChartIcon className="text-accent h-5 w-5" />
-              <CardTitle>Achievements</CardTitle>
+              <CardTitle>Completion</CardTitle>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant={trackableMetric === "achievements" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setTrackableMetric("achievements")}
-                className={
-                  trackableMetric === "achievements"
-                    ? "bg-accent text-accent-foreground hover:bg-accent/90"
-                    : "text-muted-foreground hover:text-foreground border-surface-3 bg-surface-1 hover:bg-surface-3 border"
-                }
-              >
-                Achievements
-              </Button>
-              <Button
-                variant={trackableMetric === "completion" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setTrackableMetric("completion")}
-                className={
-                  trackableMetric === "completion"
-                    ? "bg-accent text-accent-foreground hover:bg-accent/90"
-                    : "text-muted-foreground hover:text-foreground border-surface-3 bg-surface-1 hover:bg-surface-3 border"
-                }
-              >
-                Completion
-              </Button>
-            </div>
+            <div className="h-8" />
           </CardHeader>
           <CardContent>
             <InsightCard
-              title={trackableModel.title}
-              description={trackableModel.description}
-              data={trackableModel.data}
-              insight={trackableModel.insight}
+              title={completionModel.title}
+              data={completionModel.data}
+              insight={completionModel.insight}
               loading={loading}
               chartKind="donut"
-              links={
-                trackableMetric === "achievements"
-                  ? {
-                      Unlocked: "/games?order=achievementsDesc",
-                      Pending: "/games?filter=started&order=achievementsAsc",
-                    }
-                  : {
-                      Perfect: "/games?filter=perfect",
-                      Started: "/games?filter=started",
-                      Untouched: "/games?filter=untouched",
-                    }
-              }
+              links={{
+                Perfect: "/games?filter=perfect",
+                Started: "/games?filter=started",
+                Untouched: "/games?filter=untouched",
+              }}
             />
           </CardContent>
         </Card>
@@ -355,7 +292,6 @@ export function DashboardInsights({ stats, loading = false }: DashboardInsightsP
           <CardContent>
             <InsightCard
               title={libraryModel.title}
-              description={libraryModel.description}
               data={libraryModel.data}
               insight={libraryModel.insight}
               loading={allGamesLoading}
