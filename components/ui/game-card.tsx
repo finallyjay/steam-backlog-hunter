@@ -51,20 +51,20 @@ export function GameCard({
   const unlocked = achievements.filter((achievement) => achievement.achieved === 1).length
   const total = achievements.length
   const percent = total > 0 ? Math.round((unlocked / total) * 100) : 0
-  let progressColor = "bg-red-500"
-  if (percent >= 80) progressColor = "bg-emerald-400"
-  else if (percent >= 40) progressColor = "bg-amber-400"
+  let progressColor = "bg-danger"
+  if (percent >= 80) progressColor = "bg-success"
+  else if (percent >= 40) progressColor = "bg-warning"
   const isCompleted = total > 0 && unlocked === total
   const cardContent = (
     <div
       data-game-id={id}
-      className={`group relative flex items-stretch gap-4 overflow-hidden rounded-[1.2rem] border border-white/10 px-4 py-4 transition-all duration-300 ${isCompleted ? "bg-emerald-500/10 hover:border-emerald-300/40" : "hover:border-accent/45 bg-white/4 hover:bg-white/6"}`}
+      className={`group border-surface-4 relative flex items-stretch gap-4 overflow-hidden rounded-lg border px-4 py-4 transition-all duration-300 ${isCompleted ? "bg-success/10 hover:border-success/40" : "hover:border-accent/45 bg-surface-1 hover:bg-surface-2"}`}
     >
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
       <img
         src={imageSrc}
         alt={`Cover art for ${name}`}
-        className="h-auto min-h-[5.9rem] w-48 rounded-2xl border border-white/10 bg-slate-900/70 object-cover shadow-lg"
+        className="border-surface-4 h-auto min-h-[5.9rem] w-48 rounded-2xl border bg-slate-900/70 object-cover shadow-lg"
         onError={() => {
           const nextIndex = fallbackIndex + 1
           if (nextIndex < FALLBACK_STAGES.length) {
@@ -87,7 +87,7 @@ export function GameCard({
             {!achievementsLoading ? (
               total > 0 ? (
                 <div className="flex items-center gap-2">
-                  <Trophy className={`h-3.5 w-3.5 ${isCompleted ? "text-emerald-300" : "text-accent/90"}`} />
+                  <Trophy className={`h-3.5 w-3.5 ${isCompleted ? "text-success" : "text-accent/90"}`} />
                   <span className="text-foreground/90 font-medium">
                     {unlocked}/{total} ({percent}%)
                   </span>

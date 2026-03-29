@@ -19,7 +19,7 @@ export default function HomePage() {
   return (
     <div className="min-h-screen">
       <PageHeader title="Steam Backlog Hunter" icon={<Gamepad2 className="text-accent h-8 w-8" />}>
-        <Badge variant="secondary" className="border border-white/10 bg-white/6 text-sm">
+        <Badge variant="secondary" className="border-surface-4 bg-surface-2 border text-sm">
           Personal build
         </Badge>
       </PageHeader>
@@ -57,7 +57,7 @@ export default function HomePage() {
             </div>
 
             <div className="grid gap-4 sm:grid-cols-3">
-              <Card className="border-white/10 bg-white/4 py-5">
+              <Card className="border-surface-4 bg-surface-1 py-5">
                 <CardHeader className="px-5">
                   <CardTitle className="text-muted-foreground text-sm tracking-[0.22em] uppercase">Signal</CardTitle>
                   <CardDescription className="text-foreground text-base">
@@ -65,7 +65,7 @@ export default function HomePage() {
                   </CardDescription>
                 </CardHeader>
               </Card>
-              <Card className="border-white/10 bg-white/4 py-5">
+              <Card className="border-surface-4 bg-surface-1 py-5">
                 <CardHeader className="px-5">
                   <CardTitle className="text-muted-foreground text-sm tracking-[0.22em] uppercase">Control</CardTitle>
                   <CardDescription className="text-foreground text-base">
@@ -73,7 +73,7 @@ export default function HomePage() {
                   </CardDescription>
                 </CardHeader>
               </Card>
-              <Card className="border-white/10 bg-white/4 py-5">
+              <Card className="border-surface-4 bg-surface-1 py-5">
                 <CardHeader className="px-5">
                   <CardTitle className="text-muted-foreground text-sm tracking-[0.22em] uppercase">Focus</CardTitle>
                   <CardDescription className="text-foreground text-base">
@@ -85,7 +85,7 @@ export default function HomePage() {
           </section>
 
           <section className="space-y-6">
-            <div className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02)),linear-gradient(135deg,rgba(88,198,255,0.18),transparent_45%)] p-6 shadow-[0_30px_80px_-45px_rgba(88,198,255,0.75)]">
+            <div className="border-surface-4 rounded-[2rem] border bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02)),linear-gradient(135deg,rgba(88,198,255,0.18),transparent_45%)] p-6 shadow-[0_30px_80px_-45px_rgba(88,198,255,0.75)]">
               <div className="mb-6 flex items-start justify-between gap-6">
                 <div>
                   <p className="text-accent/90 text-[0.72rem] font-semibold tracking-[0.28em] uppercase">
@@ -93,19 +93,19 @@ export default function HomePage() {
                   </p>
                   <h3 className="mt-2 text-2xl font-semibold tracking-tight">Sign in and index your library</h3>
                 </div>
-                <div className="text-muted-foreground rounded-full border border-white/10 bg-white/8 px-3 py-1 text-xs tracking-[0.22em] uppercase">
+                <div className="text-muted-foreground border-surface-4 bg-surface-3 rounded-full border px-3 py-1 text-xs tracking-[0.22em] uppercase">
                   OpenID
                 </div>
               </div>
 
               <div className="mb-6 grid gap-4 sm:grid-cols-2">
-                <div className="rounded-2xl border border-white/10 bg-slate-950/35 p-4">
+                <div className="border-surface-4 rounded-2xl border bg-slate-950/35 p-4">
                   <p className="text-muted-foreground text-xs tracking-[0.18em] uppercase">What gets stored</p>
                   <p className="text-foreground/90 mt-2 text-sm">
                     Owned games, achievement snapshots, game schemas and library-wide stats in SQLite.
                   </p>
                 </div>
-                <div className="rounded-2xl border border-white/10 bg-slate-950/35 p-4">
+                <div className="border-surface-4 rounded-2xl border bg-slate-950/35 p-4">
                   <p className="text-muted-foreground text-xs tracking-[0.18em] uppercase">Why it feels fast</p>
                   <p className="text-foreground/90 mt-2 text-sm">
                     The app serves cached snapshots instead of rebuilding the entire Steam state on every screen.
@@ -124,10 +124,10 @@ export default function HomePage() {
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <Card className="border-white/10 bg-white/4 py-5">
+              <Card className="border-surface-4 bg-surface-1 py-5">
                 <CardHeader className="px-5">
                   <div className="mb-3 flex items-center gap-3">
-                    <div className="bg-accent/12 text-accent rounded-2xl border border-white/10 p-3">
+                    <div className="bg-accent/12 text-accent border-surface-4 rounded-2xl border p-3">
                       <Trophy className="h-5 w-5" />
                     </div>
                     <div>
@@ -137,10 +137,10 @@ export default function HomePage() {
                   </div>
                 </CardHeader>
               </Card>
-              <Card className="border-white/10 bg-white/4 py-5">
+              <Card className="border-surface-4 bg-surface-1 py-5">
                 <CardHeader className="px-5">
                   <div className="mb-3 flex items-center gap-3">
-                    <div className="bg-accent/12 text-accent rounded-2xl border border-white/10 p-3">
+                    <div className="bg-accent/12 text-accent border-surface-4 rounded-2xl border p-3">
                       <TrendingUp className="h-5 w-5" />
                     </div>
                     <div>

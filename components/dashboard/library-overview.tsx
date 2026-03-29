@@ -108,7 +108,7 @@ export function LibraryOverview() {
           setOnlyWithAchievements={setOnlyWithAchievements}
         />
         <div className="flex items-center gap-3">
-          <div className="bg-card/80 inline-flex gap-1 rounded-[1.2rem] border border-white/10 p-1.5">
+          <div className="bg-card/80 border-surface-4 inline-flex gap-1 rounded-lg border p-1.5">
             <Button
               variant={scope === "all" ? "default" : "ghost"}
               size="sm"
@@ -116,7 +116,7 @@ export function LibraryOverview() {
               className={
                 scope === "all"
                   ? "bg-accent hover:bg-accent/90 text-white"
-                  : "text-muted-foreground hover:text-foreground hover:bg-white/8"
+                  : "text-muted-foreground hover:text-foreground hover:bg-surface-3"
               }
             >
               All
@@ -128,7 +128,7 @@ export function LibraryOverview() {
               className={
                 scope === "tracked"
                   ? "bg-accent hover:bg-accent/90 text-white"
-                  : "text-muted-foreground hover:text-foreground hover:bg-white/8"
+                  : "text-muted-foreground hover:text-foreground hover:bg-surface-3"
               }
             >
               Tracked
@@ -148,7 +148,7 @@ export function LibraryOverview() {
       ) : error ? (
         <p className="text-destructive py-8 text-center">{error}</p>
       ) : visibleGames.length === 0 ? (
-        <p className="text-muted-foreground rounded-[1.2rem] border border-white/10 bg-white/4 px-6 py-10 text-center">
+        <p className="text-muted-foreground border-surface-4 bg-surface-1 rounded-lg border px-6 py-10 text-center">
           No games match the current filters.
         </p>
       ) : (

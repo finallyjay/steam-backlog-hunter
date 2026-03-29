@@ -21,7 +21,13 @@ type TrackableMetric = "achievements" | "completion"
 type LibraryMetric = "state" | "playtime"
 type ChartKind = "donut" | "bars"
 
-const CHART_COLORS = ["#61ceff", "#53d1a8", "#f3c969", "#2d415c", "#f58f74"]
+const CHART_COLORS = [
+  "var(--color-chart-1)",
+  "var(--color-chart-2)",
+  "var(--color-chart-3)",
+  "var(--color-chart-4)",
+  "var(--color-chart-5)",
+]
 
 function ChartTooltip({
   active,
@@ -34,7 +40,7 @@ function ChartTooltip({
 
   const item = payload[0]
   return (
-    <div className="rounded-xl border border-white/10 bg-slate-900/95 px-3 py-2 shadow-xl backdrop-blur-sm">
+    <div className="border-surface-4 rounded-xl border bg-slate-900/95 px-3 py-2 shadow-xl backdrop-blur-sm">
       <div className="flex items-center gap-2">
         <span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.payload.color }} />
         <span className="text-muted-foreground text-sm">{item.name}</span>
@@ -47,7 +53,7 @@ function ChartTooltip({
 function MetricLegend({ label, value, color, href }: { label: string; value: number; color: string; href?: string }) {
   const content = (
     <div
-      className="flex items-center justify-between rounded-xl border border-white/8 bg-white/4 px-3 py-2 transition-colors"
+      className="border-surface-3 bg-surface-1 flex items-center justify-between rounded-xl border px-3 py-2 transition-colors"
       style={href ? { borderColor: `${color}33` } : undefined}
     >
       <div className="flex items-center gap-2">
@@ -67,7 +73,7 @@ function MetricLegend({ label, value, color, href }: { label: string; value: num
         className="block rounded-xl transition-transform hover:-translate-y-0.5"
         style={{ ["--hover-color" as string]: color }}
       >
-        <div className="rounded-xl hover:bg-white/6" style={{ boxShadow: `inset 0 0 0 1px ${color}22` }}>
+        <div className="hover:bg-surface-2 rounded-xl" style={{ boxShadow: `inset 0 0 0 1px ${color}22` }}>
           {content}
         </div>
       </Link>
@@ -98,7 +104,7 @@ function InsightCard({
 
   return (
     <div className="grid gap-5">
-      <div className="rounded-[1.25rem] border border-white/8 bg-white/4 p-4">
+      <div className="border-surface-3 bg-surface-1 rounded-lg border p-4">
         <div className="mb-3">
           <p className="text-foreground text-sm font-semibold">{title}</p>
           <p className="text-muted-foreground text-sm">{description}</p>
@@ -144,14 +150,14 @@ function InsightCard({
               )}
             </ResponsiveContainer>
           ) : (
-            <div className="text-muted-foreground flex h-full items-center justify-center rounded-2xl border border-white/8 bg-white/4 text-sm">
+            <div className="text-muted-foreground border-surface-3 bg-surface-1 flex h-full items-center justify-center rounded-2xl border text-sm">
               Waiting for chart data
             </div>
           )}
         </div>
       </div>
 
-      <div className="rounded-[1.25rem] border border-white/8 bg-white/4 px-4 py-4">
+      <div className="border-surface-3 bg-surface-1 rounded-lg border px-4 py-4">
         <p className="text-foreground mb-1 flex items-center gap-2 text-sm font-medium">
           <Activity className="text-accent h-4 w-4" />
           Current reading
@@ -288,7 +294,7 @@ export function DashboardInsights({ stats, loading = false }: DashboardInsightsP
 
   return (
     <div className="grid gap-6">
-      <div className="rounded-[1.25rem] border border-white/8 bg-white/4 px-4 py-4">
+      <div className="border-surface-3 bg-surface-1 rounded-lg border px-4 py-4">
         <p className="text-muted-foreground text-[0.68rem] font-semibold tracking-[0.18em] uppercase">
           Average Completion
         </p>
@@ -304,7 +310,7 @@ export function DashboardInsights({ stats, loading = false }: DashboardInsightsP
       </div>
 
       <div className="grid gap-6 xl:grid-cols-2">
-        <Card className="border-white/10">
+        <Card className="border-surface-4">
           <CardHeader className="space-y-4">
             <div className="flex items-center gap-2 text-lg">
               <PieChartIcon className="text-accent h-5 w-5" />
@@ -318,7 +324,7 @@ export function DashboardInsights({ stats, loading = false }: DashboardInsightsP
                 className={
                   trackableMetric === "achievements"
                     ? "bg-accent text-accent-foreground hover:bg-accent/90"
-                    : "text-muted-foreground hover:text-foreground border border-white/8 bg-white/4 hover:bg-white/8"
+                    : "text-muted-foreground hover:text-foreground border-surface-3 bg-surface-1 hover:bg-surface-3 border"
                 }
               >
                 Achievements
@@ -330,7 +336,7 @@ export function DashboardInsights({ stats, loading = false }: DashboardInsightsP
                 className={
                   trackableMetric === "completion"
                     ? "bg-accent text-accent-foreground hover:bg-accent/90"
-                    : "text-muted-foreground hover:text-foreground border border-white/8 bg-white/4 hover:bg-white/8"
+                    : "text-muted-foreground hover:text-foreground border-surface-3 bg-surface-1 hover:bg-surface-3 border"
                 }
               >
                 Completion
@@ -350,7 +356,7 @@ export function DashboardInsights({ stats, loading = false }: DashboardInsightsP
           </CardContent>
         </Card>
 
-        <Card className="border-white/10">
+        <Card className="border-surface-4">
           <CardHeader className="space-y-4">
             <div className="flex items-center gap-2 text-lg">
               <Trophy className="text-accent h-5 w-5" />
@@ -364,7 +370,7 @@ export function DashboardInsights({ stats, loading = false }: DashboardInsightsP
                 className={
                   libraryMetric === "state"
                     ? "bg-accent text-accent-foreground hover:bg-accent/90"
-                    : "text-muted-foreground hover:text-foreground border border-white/8 bg-white/4 hover:bg-white/8"
+                    : "text-muted-foreground hover:text-foreground border-surface-3 bg-surface-1 hover:bg-surface-3 border"
                 }
               >
                 State
@@ -376,7 +382,7 @@ export function DashboardInsights({ stats, loading = false }: DashboardInsightsP
                 className={
                   libraryMetric === "playtime"
                     ? "bg-accent text-accent-foreground hover:bg-accent/90"
-                    : "text-muted-foreground hover:text-foreground border border-white/8 bg-white/4 hover:bg-white/8"
+                    : "text-muted-foreground hover:text-foreground border-surface-3 bg-surface-1 hover:bg-surface-3 border"
                 }
               >
                 Playtime

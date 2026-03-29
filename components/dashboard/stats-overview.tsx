@@ -58,7 +58,7 @@ export function StatsOverview() {
       value: stats?.pendingAchievements?.toString() || "0",
       description: "Still locked",
       icon: ListTodo,
-      color: "text-emerald-400",
+      color: "text-success",
     },
     {
       title: "Perfect Games",
@@ -71,7 +71,7 @@ export function StatsOverview() {
 
   return (
     <div className="space-y-4">
-      <div className="bg-card/80 flex items-center justify-between rounded-[1.2rem] border border-white/10 px-4 py-3">
+      <div className="bg-card/80 border-surface-4 flex items-center justify-between rounded-lg border px-4 py-3">
         <div>
           <p className="text-accent/80 text-[0.68rem] font-semibold tracking-[0.24em] uppercase">Library pulse</p>
           <p className="text-muted-foreground text-xs">{updatedLabel}</p>
@@ -81,7 +81,7 @@ export function StatsOverview() {
           size="sm"
           onClick={() => refetch({ force: true })}
           disabled={isRefreshing}
-          className="gap-2 border-white/10 bg-white/5 hover:bg-white/10"
+          className="border-surface-4 bg-surface-1 hover:bg-surface-4 gap-2"
         >
           <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
           Refresh

@@ -47,7 +47,7 @@ export function RecentGames() {
   // Renderizado
   if (loading) {
     return (
-      <Card className="border-white/10">
+      <Card className="border-surface-4">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
             <Play className="text-accent h-5 w-5" />
@@ -89,7 +89,7 @@ export function RecentGames() {
   }
 
   return (
-    <Card className="border-white/10">
+    <Card className="border-surface-4">
       <CardHeader>
         <div className="flex items-center justify-between gap-3">
           <CardTitle className="flex items-center gap-2 text-lg">
@@ -101,7 +101,7 @@ export function RecentGames() {
             size="sm"
             onClick={handleRefresh}
             disabled={isRefreshing}
-            className="gap-2 border-white/10 bg-white/5 hover:bg-white/10"
+            className="border-surface-4 bg-surface-1 hover:bg-surface-4 gap-2"
           >
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
             Refresh

@@ -73,7 +73,7 @@ describe("GameCard", () => {
     )
 
     expect(screen.getByText("2/2 (100%)")).toBeInTheDocument()
-    expect(container.querySelector(".bg-emerald-500\\/10")).toBeInTheDocument()
+    expect(container.querySelector(".bg-success\\/10")).toBeInTheDocument()
   })
 
   it("renders game with no achievements", () => {

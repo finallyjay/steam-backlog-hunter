@@ -30,18 +30,21 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
   }
 
   return (
-    <header className="sticky top-0 z-50 border-b border-white/10 bg-slate-950/70 backdrop-blur-xl">
+    <header className="border-surface-4 sticky top-0 z-50 border-b bg-slate-950/70 backdrop-blur-xl">
       <div className="container mx-auto px-4 py-4 md:px-6 lg:px-8">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="bg-accent/15 text-accent flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 shadow-[0_0_30px_-14px_rgba(88,198,255,0.8)]">
+            <div className="bg-accent/15 text-accent border-surface-4 flex h-11 w-11 items-center justify-center rounded-2xl border shadow-[0_0_30px_-14px_rgba(88,198,255,0.8)]">
               <Gamepad2 className="h-5 w-5" />
             </div>
             <div>
               <p className="text-accent/80 text-[0.7rem] font-semibold tracking-[0.32em] uppercase">Backlog hunter</p>
               <h1 className="text-xl font-semibold tracking-tight text-balance sm:text-2xl">Steam Backlog Hunter</h1>
             </div>
-            <Badge variant="secondary" className="ml-2 hidden border border-white/10 bg-white/6 text-sm sm:inline-flex">
+            <Badge
+              variant="secondary"
+              className="border-surface-4 bg-surface-2 ml-2 hidden border text-sm sm:inline-flex"
+            >
               Personal build
             </Badge>
           </div>

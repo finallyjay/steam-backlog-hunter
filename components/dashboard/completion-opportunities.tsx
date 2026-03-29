@@ -73,7 +73,7 @@ export function CompletionOpportunities() {
 
   if (gamesLoading) {
     return (
-      <Card className="border-white/10">
+      <Card className="border-surface-4">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
             <Crosshair className="text-accent h-5 w-5" />
@@ -83,7 +83,7 @@ export function CompletionOpportunities() {
         <CardContent>
           <div className="space-y-4">
             {Array.from({ length: 3 }).map((_, index) => (
-              <div key={index} className="rounded-[1rem] border border-white/8 bg-white/4 p-4">
+              <div key={index} className="border-surface-3 bg-surface-1 rounded-[1rem] border p-4">
                 <div className="flex items-start gap-3">
                   <Skeleton className="h-14 w-14 rounded-2xl" />
                   <div className="flex-1 space-y-2">
@@ -101,7 +101,7 @@ export function CompletionOpportunities() {
   }
 
   return (
-    <Card className="border-white/10">
+    <Card className="border-surface-4">
       <CardHeader>
         <div className="flex items-center justify-between gap-3">
           <CardTitle className="flex items-center gap-2 text-lg">
@@ -113,7 +113,7 @@ export function CompletionOpportunities() {
             size="sm"
             onClick={handleRefresh}
             disabled={isRefreshing}
-            className="gap-2 border-white/10 bg-white/5 hover:bg-white/10"
+            className="border-surface-4 bg-surface-1 hover:bg-surface-4 gap-2"
           >
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
             Refresh
@@ -125,7 +125,7 @@ export function CompletionOpportunities() {
         {achievementsLoading ? (
           <div className="space-y-4">
             {Array.from({ length: 3 }).map((_, index) => (
-              <div key={index} className="rounded-[1rem] border border-white/8 bg-white/4 p-4">
+              <div key={index} className="border-surface-3 bg-surface-1 rounded-[1rem] border p-4">
                 <div className="flex items-start gap-3">
                   <Skeleton className="h-14 w-14 rounded-2xl" />
                   <div className="flex-1 space-y-2">
@@ -138,7 +138,7 @@ export function CompletionOpportunities() {
             ))}
           </div>
         ) : opportunities.length === 0 ? (
-          <div className="rounded-[1.1rem] border border-dashed border-white/10 bg-white/4 px-5 py-8 text-center">
+          <div className="border-surface-4 bg-surface-1 rounded-lg border border-dashed px-5 py-8 text-center">
             <p className="text-muted-foreground text-sm">
               No near-completion targets found in your recent games. Open a game page or sync more activity to surface
               better targets.
@@ -150,13 +150,13 @@ export function CompletionOpportunities() {
               <Link
                 key={game.id}
                 href={`/game/${game.id}`}
-                className="hover:border-accent/45 block rounded-[1.1rem] border border-white/8 bg-white/4 p-4 transition-colors hover:bg-white/6"
+                className="hover:border-accent/45 border-surface-3 bg-surface-1 hover:bg-surface-2 block rounded-lg border p-4 transition-colors"
               >
                 <div className="flex items-start gap-4">
                   <img
                     src={game.image || "/placeholder-landscape.svg"}
                     alt={game.name}
-                    className="h-14 w-14 rounded-2xl border border-white/10 bg-slate-900/70 object-cover"
+                    className="border-surface-4 h-14 w-14 rounded-2xl border bg-slate-900/70 object-cover"
                   />
                   <div className="min-w-0 flex-1 space-y-3">
                     <div className="flex items-start justify-between gap-3">
@@ -164,7 +164,7 @@ export function CompletionOpportunities() {
                         <h3 className="truncate text-base font-semibold tracking-tight">{game.name}</h3>
                         <p className="text-muted-foreground text-sm">{game.playtime.toFixed(1)} hours played</p>
                       </div>
-                      <Badge variant="secondary" className="border border-white/10 bg-white/6">
+                      <Badge variant="secondary" className="border-surface-4 bg-surface-2 border">
                         {game.remaining} left
                       </Badge>
                     </div>

@@ -34,14 +34,14 @@ export function UserProfile({ user, stats, statsLoading = false, statsUpdatedLab
   ]
 
   return (
-    <Card className="overflow-hidden border-white/10 bg-[linear-gradient(135deg,rgba(88,198,255,0.14),transparent_35%),linear-gradient(180deg,rgba(255,255,255,0.04),transparent)]">
+    <Card className="border-surface-4 overflow-hidden bg-[linear-gradient(135deg,rgba(88,198,255,0.14),transparent_35%),linear-gradient(180deg,rgba(255,255,255,0.04),transparent)]">
       <CardHeader className="pb-0">
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-4">
             <img
               src={user.avatar || "/placeholder.svg"}
               alt={`${user.displayName}'s Steam avatar`}
-              className="h-14 w-14 rounded-2xl border border-white/10 shadow-lg"
+              className="border-surface-4 h-14 w-14 rounded-2xl border shadow-lg"
             />
             <div className="space-y-1">
               <p className="text-accent/80 text-[0.72rem] font-semibold tracking-[0.28em] uppercase">
@@ -67,7 +67,7 @@ export function UserProfile({ user, stats, statsLoading = false, statsUpdatedLab
       <CardContent>
         <div className="space-y-5">
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="secondary" className="gap-1 border border-white/10 bg-white/6 px-3 py-1.5">
+            <Badge variant="secondary" className="border-surface-4 bg-surface-2 gap-1 border px-3 py-1.5">
               <Calendar className="h-3 w-3" />
               {user.timecreated
                 ? `Member since ${new Date(user.timecreated * 1000).getFullYear()}`
@@ -93,7 +93,7 @@ export function UserProfile({ user, stats, statsLoading = false, statsUpdatedLab
             {summaryItems.map((item) => (
               <div
                 key={item.label}
-                className="rounded-[1.15rem] border border-white/10 bg-slate-950/28 px-4 py-4 backdrop-blur-sm"
+                className="border-surface-4 bg-surface-1 rounded-lg border px-4 py-4 backdrop-blur-sm"
               >
                 <p className="text-muted-foreground text-[0.68rem] font-semibold tracking-[0.18em] uppercase">
                   {item.label}

@@ -79,9 +79,9 @@ export default function GameDetailPage() {
   const updatedLabel = lastUpdated ? `Updated at ${lastUpdated.toLocaleTimeString()}` : "Not updated yet"
   const displayList = activeTab === "pending" ? pending : unlocked
 
-  let progressColor = "bg-red-500"
-  if (percent >= 80) progressColor = "bg-emerald-400"
-  else if (percent >= 40) progressColor = "bg-amber-400"
+  let progressColor = "bg-danger"
+  if (percent >= 80) progressColor = "bg-success"
+  else if (percent >= 40) progressColor = "bg-warning"
 
   return (
     <div className="from-background to-muted min-h-screen bg-gradient-to-br">
@@ -147,15 +147,15 @@ export default function GameDetailPage() {
         )}
 
         <div className="mb-4">
-          <div className="bg-card/80 inline-flex gap-2 rounded-[1.2rem] border border-white/10 p-2">
+          <div className="bg-card/80 border-surface-4 inline-flex gap-2 rounded-lg border p-2">
             <Button
               variant={activeTab === "pending" ? "default" : "ghost"}
               size="sm"
               onClick={() => setActiveTab("pending")}
               className={
                 activeTab === "pending"
-                  ? "bg-accent hover:bg-accent/90 text-white"
-                  : "text-muted-foreground hover:text-foreground hover:bg-white/8"
+                  ? "bg-accent hover:bg-accent/90 text-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-surface-3"
               }
             >
               <Lock className="h-4 w-4" />
@@ -167,8 +167,8 @@ export default function GameDetailPage() {
               onClick={() => setActiveTab("unlocked")}
               className={
                 activeTab === "unlocked"
-                  ? "bg-accent hover:bg-accent/90 text-white"
-                  : "text-muted-foreground hover:text-foreground hover:bg-white/8"
+                  ? "bg-accent hover:bg-accent/90 text-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-surface-3"
               }
             >
               <Trophy className="h-4 w-4" />
@@ -204,8 +204,8 @@ export default function GameDetailPage() {
             {displayList.map((ach) => (
               <li
                 key={ach.apiname}
-                className={`flex items-center gap-4 rounded-[1.1rem] border border-white/10 p-4 transition-colors ${
-                  ach.achieved ? "bg-white/4" : "bg-white/2 opacity-70"
+                className={`border-surface-4 flex items-center gap-4 rounded-lg border p-4 transition-colors ${
+                  ach.achieved ? "bg-surface-1" : "bg-white/2 opacity-70"
                 }`}
               >
                 <img
