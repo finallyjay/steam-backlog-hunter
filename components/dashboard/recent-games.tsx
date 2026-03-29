@@ -2,22 +2,13 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Play, RefreshCw } from "lucide-react"
+import { Play } from "lucide-react"
 import { GameCard } from "@/components/ui/game-card"
 import { useSteamGames, useSteamAchievementsBatch } from "@/hooks/use-steam-data"
 import { useMemo } from "react"
 import { getSteamHeaderImageUrl } from "@/lib/steam-api"
-import { Button } from "@/components/ui/button"
-
 export function RecentGames() {
-  const {
-    games,
-    loading,
-    isRefreshing: isRefreshingGames,
-    lastUpdated: gamesLastUpdated,
-    error,
-    refetch: refetchGames,
-  } = useSteamGames("recent")
+  const { games, loading, error } = useSteamGames("recent")
   const recentGames = useMemo(
     () =>
       games.slice(0, 6).map((game) => ({
@@ -30,21 +21,7 @@ export function RecentGames() {
     [games],
   )
   const appIds = useMemo(() => recentGames.map((g) => g.appid), [recentGames])
-  const {
-    achievementsMap,
-    loading: achievementsLoading,
-    isRefreshing: isRefreshingAchievements,
-    refetch: refetchAchievements,
-  } = useSteamAchievementsBatch(appIds.length > 0 ? appIds : [])
-  const isRefreshing = isRefreshingGames || isRefreshingAchievements
-  const updatedLabel = gamesLastUpdated ? `Updated at ${gamesLastUpdated.toLocaleTimeString()}` : "Not updated yet"
-
-  async function handleRefresh() {
-    await refetchGames()
-    await refetchAchievements()
-  }
-
-  // Renderizado
+  const { achievementsMap, loading: achievementsLoading } = useSteamAchievementsBatch(appIds.length > 0 ? appIds : [])
   if (loading) {
     return (
       <Card className="border-surface-4">
@@ -91,30 +68,20 @@ export function RecentGames() {
   return (
     <Card className="border-surface-4">
       <CardHeader>
-        <div className="flex items-center justify-between gap-3">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Play className="text-accent h-5 w-5" />
-            Recently Played Games
-          </CardTitle>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-            className="border-surface-4 bg-surface-1 hover:bg-surface-4 gap-2"
-          >
-            <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
-        </div>
-        <p className="text-muted-foreground text-xs tracking-[0.18em] uppercase">{updatedLabel}</p>
+        <CardTitle className="flex items-center gap-2 text-lg">
+          <Play className="text-accent h-5 w-5" />
+          Recently Played Games
+        </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
           {recentGames.length === 0 ? (
-            <p className="text-muted-foreground py-8 text-center text-sm">
-              No recently played games found. Make sure your Steam profile is public.
-            </p>
+            <div className="border-surface-4 bg-surface-1 rounded-lg border px-6 py-10 text-center">
+              <p className="text-muted-foreground">No recently played games.</p>
+              <p className="text-muted-foreground mt-1 text-sm">
+                Hit the Sync button in the header to load your Steam data.
+              </p>
+            </div>
           ) : (
             recentGames.map((game) => {
               const achievements = achievementsMap[game.appid] || []
