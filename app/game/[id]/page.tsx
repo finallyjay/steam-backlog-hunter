@@ -34,10 +34,14 @@ export default function GameDetailPage() {
   const { setTitle } = usePageTitle()
   const [activeTab, setActiveTab] = useState<AchievementTab>("pending")
 
+  const game = games.find((g) => g.appid === appId)
+
   useEffect(() => {
-    setTitle("")
+    if (game?.name) {
+      setTitle(`${game.name} - Steam Backlog Hunter`)
+    }
     return () => setTitle("")
-  }, [setTitle])
+  }, [game?.name, setTitle])
 
   useEffect(() => {
     window.scrollTo(0, 0)
@@ -69,7 +73,6 @@ export default function GameDetailPage() {
     return null
   }
 
-  const game = games.find((g) => g.appid === appId)
   const displayList = activeTab === "pending" ? pending : unlocked
 
   let progressColor = "bg-danger"
