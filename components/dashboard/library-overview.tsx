@@ -99,14 +99,25 @@ export function LibraryOverview() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <GamesFilterBar order={order} setOrder={setOrder} showCompleted={showCompleted} setShowCompleted={setShowCompleted} onlyWithAchievements={onlyWithAchievements} setOnlyWithAchievements={setOnlyWithAchievements} />
+        <GamesFilterBar
+          order={order}
+          setOrder={setOrder}
+          showCompleted={showCompleted}
+          setShowCompleted={setShowCompleted}
+          onlyWithAchievements={onlyWithAchievements}
+          setOnlyWithAchievements={setOnlyWithAchievements}
+        />
         <div className="flex items-center gap-3">
-          <div className="inline-flex gap-1 rounded-[1.2rem] border border-white/10 bg-card/80 p-1.5">
+          <div className="bg-card/80 inline-flex gap-1 rounded-[1.2rem] border border-white/10 p-1.5">
             <Button
               variant={scope === "all" ? "default" : "ghost"}
               size="sm"
               onClick={() => setScope("all")}
-              className={scope === "all" ? "bg-accent text-white hover:bg-accent/90" : "text-muted-foreground hover:bg-white/8 hover:text-foreground"}
+              className={
+                scope === "all"
+                  ? "bg-accent hover:bg-accent/90 text-white"
+                  : "text-muted-foreground hover:text-foreground hover:bg-white/8"
+              }
             >
               All
             </Button>
@@ -114,32 +125,30 @@ export function LibraryOverview() {
               variant={scope === "tracked" ? "default" : "ghost"}
               size="sm"
               onClick={() => setScope("tracked")}
-              className={scope === "tracked" ? "bg-accent text-white hover:bg-accent/90" : "text-muted-foreground hover:bg-white/8 hover:text-foreground"}
+              className={
+                scope === "tracked"
+                  ? "bg-accent hover:bg-accent/90 text-white"
+                  : "text-muted-foreground hover:text-foreground hover:bg-white/8"
+              }
             >
               Tracked
             </Button>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={refreshInProgress}
-            className="gap-2"
-          >
+          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshInProgress} className="gap-2">
             <RefreshCw className={`h-4 w-4 ${refreshInProgress ? "animate-spin" : ""}`} />
             Refresh
           </Button>
         </div>
       </div>
 
-      <p className="text-xs text-muted-foreground">{updatedLabel}</p>
+      <p className="text-muted-foreground text-xs">{updatedLabel}</p>
 
       {listLoading ? (
-        <p className="text-center text-muted-foreground py-8">Loading games...</p>
+        <p className="text-muted-foreground py-8 text-center">Loading games...</p>
       ) : error ? (
-        <p className="text-center text-destructive py-8">{error}</p>
+        <p className="text-destructive py-8 text-center">{error}</p>
       ) : visibleGames.length === 0 ? (
-        <p className="rounded-[1.2rem] border border-white/10 bg-white/4 px-6 py-10 text-center text-muted-foreground">
+        <p className="text-muted-foreground rounded-[1.2rem] border border-white/10 bg-white/4 px-6 py-10 text-center">
           No games match the current filters.
         </p>
       ) : (

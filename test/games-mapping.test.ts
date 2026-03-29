@@ -21,8 +21,8 @@ describe("games mapping", () => {
           img_logo_url: "logo2",
         },
       ],
-      new Set(["730"]),
       (appId, hash) => `/img/${appId}/${hash}`,
+      new Set(["730"]),
     )
 
     expect(cards).toHaveLength(1)
@@ -41,12 +41,8 @@ describe("games mapping", () => {
         { id: 2, name: "B", image: "b", playtime: 1 },
       ],
       {
-        1: [
-          { apiname: "x", achieved: 1, unlocktime: 1, displayName: "x", description: "", icon: "", icongray: "" },
-        ],
-        2: [
-          { apiname: "y", achieved: 0, unlocktime: 0, displayName: "y", description: "", icon: "", icongray: "" },
-        ],
+        1: [{ apiname: "x", achieved: 1, unlocktime: 1, displayName: "x", description: "", icon: "", icongray: "" }],
+        2: [{ apiname: "y", achieved: 0, unlocktime: 0, displayName: "y", description: "", icon: "", icongray: "" }],
       },
     )
 
@@ -64,12 +60,8 @@ describe("games mapping", () => {
         { id: 2, name: "B", image: "b", playtime: 1 },
       ],
       {
-        1: [
-          { apiname: "x", achieved: 1, unlocktime: 1, displayName: "x", description: "", icon: "", icongray: "" },
-        ],
-        2: [
-          { apiname: "y", achieved: 0, unlocktime: 0, displayName: "y", description: "", icon: "", icongray: "" },
-        ],
+        1: [{ apiname: "x", achieved: 1, unlocktime: 1, displayName: "x", description: "", icon: "", icongray: "" }],
+        2: [{ apiname: "y", achieved: 0, unlocktime: 0, displayName: "y", description: "", icon: "", icongray: "" }],
       },
     )
 
@@ -99,9 +91,7 @@ describe("games mapping", () => {
         { id: 3, name: "C", image: "c", playtime: 1 },
       ],
       {
-        1: [
-          { apiname: "x", achieved: 0, unlocktime: 0, displayName: "x", description: "", icon: "", icongray: "" },
-        ],
+        1: [{ apiname: "x", achieved: 0, unlocktime: 0, displayName: "x", description: "", icon: "", icongray: "" }],
         2: [
           { apiname: "y", achieved: 0, unlocktime: 0, displayName: "y", description: "", icon: "", icongray: "" },
           { apiname: "z", achieved: 0, unlocktime: 0, displayName: "z", description: "", icon: "", icongray: "" },
