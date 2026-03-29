@@ -27,6 +27,7 @@ export interface SteamGameCardModel {
   percent: number
   completed: boolean
   totalAchievements: number
+  unlockedAchievements: number
 }
 
 export type SteamGamesResponse = {

@@ -56,6 +56,7 @@ export function buildGamesWithStats(
       percent,
       completed,
       totalAchievements: total,
+      unlockedAchievements: unlocked,
     }
   })
 }

@@ -15,6 +15,9 @@ interface GameCardProps {
   achievements?: SteamAchievementView[]
   achievementsLoading?: boolean
   href?: string
+  serverTotal?: number
+  serverUnlocked?: number
+  serverPerfect?: boolean
 }
 
 const FALLBACK_STAGES = ["primary", "header", "legacy", "capsule", "generic", "placeholder"] as const
@@ -45,17 +48,22 @@ export function GameCard({
   achievements = [],
   achievementsLoading = false,
   href,
+  serverTotal = 0,
+  serverUnlocked = 0,
+  serverPerfect = false,
 }: GameCardProps) {
   const [imageSrc, setImageSrc] = useState(image || "/placeholder-landscape.svg")
   const [fallbackIndex, setFallbackIndex] = useState(0)
 
-  const unlocked = achievements.filter((achievement) => achievement.achieved === 1).length
-  const total = achievements.length
+  // Use detailed achievements if available, fall back to server-side counts
+  const hasDetail = achievements.length > 0
+  const unlocked = hasDetail ? achievements.filter((a) => a.achieved === 1).length : serverUnlocked
+  const total = hasDetail ? achievements.length : serverTotal
   const percent = total > 0 ? Math.round((unlocked / total) * 100) : 0
   let progressColor = "bg-danger"
   if (percent >= 80) progressColor = "bg-success"
   else if (percent >= 40) progressColor = "bg-warning"
-  const isCompleted = total > 0 && unlocked === total
+  const isCompleted = serverPerfect || (total > 0 && unlocked === total)
   const cardContent = (
     <div
       data-game-id={id}
