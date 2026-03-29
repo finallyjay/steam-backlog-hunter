@@ -51,11 +51,8 @@ function ChartTooltip({
 }
 
 function MetricLegend({ label, value, color, href }: { label: string; value: number; color: string; href?: string }) {
-  const content = (
-    <div
-      className="border-surface-3 bg-surface-1 flex items-center justify-between rounded-xl border px-3 py-2 transition-colors"
-      style={href ? { borderColor: `${color}33` } : undefined}
-    >
+  const inner = (
+    <>
       <div className="flex items-center gap-2">
         <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
         <span className="text-muted-foreground text-sm">{label}</span>
@@ -63,24 +60,21 @@ function MetricLegend({ label, value, color, href }: { label: string; value: num
       <span className="text-foreground text-sm font-medium">
         <AnimatedNumber value={value} />
       </span>
-    </div>
+    </>
   )
 
   if (href) {
     return (
       <Link
         href={href}
-        className="block rounded-xl transition-transform hover:-translate-y-0.5"
-        style={{ ["--hover-color" as string]: color }}
+        className="bg-surface-1 hover:bg-surface-2 flex items-center justify-between rounded-lg px-3 py-2.5 transition-colors"
       >
-        <div className="hover:bg-surface-2 rounded-xl" style={{ boxShadow: `inset 0 0 0 1px ${color}22` }}>
-          {content}
-        </div>
+        {inner}
       </Link>
     )
   }
 
-  return content
+  return <div className="bg-surface-1 flex items-center justify-between rounded-lg px-3 py-2.5">{inner}</div>
 }
 
 function InsightCard({
@@ -336,7 +330,18 @@ export function DashboardInsights({ stats, loading = false }: DashboardInsightsP
               insight={trackableModel.insight}
               loading={loading}
               chartKind="donut"
-              links={undefined}
+              links={
+                trackableMetric === "achievements"
+                  ? {
+                      Unlocked: "/games?order=achievementsDesc",
+                      Pending: "/games?filter=started&order=achievementsAsc",
+                    }
+                  : {
+                      Perfect: "/games?filter=perfect",
+                      Started: "/games?filter=started",
+                      Untouched: "/games?filter=untouched",
+                    }
+              }
             />
           </CardContent>
         </Card>
@@ -382,7 +387,14 @@ export function DashboardInsights({ stats, loading = false }: DashboardInsightsP
               insight={libraryModel.insight}
               loading={allGamesLoading}
               chartKind={libraryModel.chartKind}
-              links={undefined}
+              links={
+                libraryMetric === "state"
+                  ? {
+                      Played: "/games?filter=started",
+                      Unplayed: "/games?filter=untouched",
+                    }
+                  : undefined
+              }
             />
           </CardContent>
         </Card>

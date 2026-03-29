@@ -1,3 +1,4 @@
+import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { AnimatedNumber } from "@/components/ui/animated-number"
@@ -143,18 +144,22 @@ export function UserProfile({ user, stats, statsLoading = false, syncLabel }: Us
     {
       label: "Total Games",
       value: stats?.totalGames ?? 0,
+      href: "/games",
     },
     {
       label: "Started Games",
       value: stats?.startedGames ?? 0,
+      href: "/games?filter=started",
     },
     {
       label: "Perfect Games",
       value: stats?.perfectGames ?? 0,
+      href: "/games?filter=perfect",
     },
     {
       label: "Unlocked Achievements",
       value: stats?.totalAchievements ?? 0,
+      href: "/games?order=achievementsDesc",
     },
   ]
 
@@ -278,9 +283,10 @@ export function UserProfile({ user, stats, statsLoading = false, syncLabel }: Us
 
           <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
             {summaryItems.map((item) => (
-              <div
+              <Link
                 key={item.label}
-                className="border-surface-4 bg-surface-1 rounded-lg border px-4 py-4 backdrop-blur-sm"
+                href={item.href}
+                className="border-surface-4 bg-surface-1 hover:border-accent/30 hover:bg-surface-2 rounded-lg border px-4 py-4 backdrop-blur-sm transition-colors"
               >
                 <p className="text-muted-foreground text-[0.68rem] font-semibold tracking-[0.18em] uppercase">
                   {item.label}
@@ -288,7 +294,7 @@ export function UserProfile({ user, stats, statsLoading = false, syncLabel }: Us
                 <p className="mt-2 text-2xl font-semibold tracking-tight">
                   {statsLoading ? "..." : <AnimatedNumber value={item.value} />}
                 </p>
-              </div>
+              </Link>
             ))}
           </div>
         </div>
