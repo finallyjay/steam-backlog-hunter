@@ -10,10 +10,11 @@ interface UserProfileProps {
   user: SteamUser
   stats?: SteamStatsResponse | null
   statsLoading?: boolean
+  syncLabel?: string
   statsUpdatedLabel?: string
 }
 
-export function UserProfile({ user, stats, statsLoading = false, statsUpdatedLabel }: UserProfileProps) {
+export function UserProfile({ user, stats, statsLoading = false, syncLabel, statsUpdatedLabel }: UserProfileProps) {
   const summaryItems = [
     {
       label: "Total Games",
@@ -84,9 +85,8 @@ export function UserProfile({ user, stats, statsLoading = false, statsUpdatedLab
                 Steam profile
               </a>
             </Button>
-            <p className="text-muted-foreground text-sm">
-              {statsUpdatedLabel || "Stats will appear after the first sync."}
-            </p>
+            <span className="text-muted-foreground text-sm">{syncLabel}</span>
+            {statsUpdatedLabel && <span className="text-muted-foreground text-sm">&middot; {statsUpdatedLabel}</span>}
           </div>
 
           <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">

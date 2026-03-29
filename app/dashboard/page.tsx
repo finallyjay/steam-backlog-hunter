@@ -14,10 +14,12 @@ import { PageContainer } from "@/components/ui/page-container"
 import { usePageTitle } from "@/components/ui/page-title-context"
 import { LoadingMessage } from "@/components/ui/loading-message"
 import { useSteamStats } from "@/hooks/use-steam-data"
+import { useSyncStatus } from "@/components/dashboard/sync-status-button"
 
 export default function DashboardPage() {
   const { user, loading } = useCurrentUser()
   const { stats, loading: statsLoading, lastUpdated: statsLastUpdated } = useSteamStats()
+  const { label: syncLabel } = useSyncStatus()
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<DashboardTab>("overview")
 
@@ -49,10 +51,9 @@ export default function DashboardPage() {
             user={user}
             stats={stats}
             statsLoading={statsLoading}
+            syncLabel={syncLabel ?? "Not synced yet"}
             statsUpdatedLabel={
-              statsLastUpdated
-                ? `Stats refreshed at ${statsLastUpdated.toLocaleTimeString()}`
-                : "Sync Steam to refresh your dashboard snapshot."
+              statsLastUpdated ? `Stats refreshed at ${statsLastUpdated.toLocaleTimeString()}` : undefined
             }
           />
         ) : null}

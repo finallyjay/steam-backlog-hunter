@@ -32,43 +32,52 @@ type ApiErrorResponse = {
 
 function formatTimestamp(value: string | null) {
   if (!value) {
-    return "Not synced yet"
+    return null
   }
 
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) {
-    return "Not synced yet"
+    return null
   }
 
   return `Last sync ${date.toLocaleString()}`
 }
 
-export function SyncStatusButton() {
-  const [loadingStatus, setLoadingStatus] = useState(true)
-  const [syncing, setSyncing] = useState(false)
+/** Returns the last sync timestamp label, or null if not synced yet. */
+export function useSyncStatus() {
   const [status, setStatus] = useState<SyncStatusResponse | null>(null)
-  const { toast } = useToast()
+  const [loading, setLoading] = useState(true)
 
   async function loadStatus() {
     try {
-      setLoadingStatus(true)
+      setLoading(true)
       const response = await fetch("/api/steam/sync", { cache: "no-store" })
-      if (!response.ok) {
-        throw new Error("Failed to load sync status")
-      }
-
+      if (!response.ok) return
       const data = (await response.json()) as SyncStatusResponse
       setStatus(data)
-    } catch (error) {
-      console.error("Sync status load error:", error)
+    } catch {
+      // ignore
     } finally {
-      setLoadingStatus(false)
+      setLoading(false)
     }
   }
 
   useEffect(() => {
     void loadStatus()
   }, [])
+
+  const label =
+    formatTimestamp(status?.lastStatsSyncAt ?? null) ??
+    formatTimestamp(status?.lastOwnedGamesSyncAt ?? null) ??
+    formatTimestamp(status?.lastRecentGamesSyncAt ?? null)
+
+  return { label, loading, reload: loadStatus }
+}
+
+export function SyncStatusButton() {
+  const [syncing, setSyncing] = useState(false)
+  const { toast } = useToast()
+  const { reload } = useSyncStatus()
 
   async function handleSync() {
     try {
@@ -83,7 +92,7 @@ export function SyncStatusButton() {
       }
 
       const data = (await response.json()) as SyncResultResponse
-      await loadStatus()
+      await reload()
       invalidateSteamData()
       toast({
         title: "Steam sync completed",
@@ -101,23 +110,16 @@ export function SyncStatusButton() {
     }
   }
 
-  const label = status?.lastStatsSyncAt || status?.lastOwnedGamesSyncAt || status?.lastRecentGamesSyncAt || null
-
   return (
-    <div className="flex flex-col items-end gap-1">
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => void handleSync()}
-        disabled={syncing}
-        className="gap-2 bg-transparent"
-      >
-        <RefreshCw className={`h-4 w-4 ${syncing || loadingStatus ? "animate-spin" : ""}`} />
-        <span className="hidden sm:inline">{syncing ? "Syncing..." : "Sync Steam"}</span>
-      </Button>
-      <p className="text-muted-foreground hidden text-xs sm:block">
-        {loadingStatus ? "Loading sync status..." : formatTimestamp(label)}
-      </p>
-    </div>
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={() => void handleSync()}
+      disabled={syncing}
+      className="text-muted-foreground hover:text-foreground hover:bg-surface-3 gap-1.5"
+    >
+      <RefreshCw className={`h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`} />
+      <span className="hidden sm:inline">{syncing ? "Syncing..." : "Sync"}</span>
+    </Button>
   )
 }
