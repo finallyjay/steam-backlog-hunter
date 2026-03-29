@@ -22,8 +22,9 @@ A self-hosted dashboard for tracking your Steam library, monitoring achievement 
 
 - **Achievement tracking** — pending, unlocked, and completion status per game
 - **Library analytics** — playtime, perfect games, average completion, and indexed totals
+- **Steam profile badges** — level badge (official sprites), years of service, and Game Collector with tooltips
 - **Recently played** — sorted by actual last played time
-- **Completion opportunities** — surfaces games closest to 100% from recent activity
+- **Filterable library** — multi-toggle state filters (In Progress, Perfect, Untouched), sort options, achievements toggle
 - **Game detail pages** — pending/unlocked tabs, progress bar, unlock timestamps, Steam Store link
 - **Image discovery** — automatically probes Steam CDN for the best available game art
 - **Multi-user ready** — whitelist-based access via Steam OpenID, data fully isolated per user
@@ -104,6 +105,7 @@ app/
 │   ├── steam/              #   Data endpoints (games, achievements, stats, sync)
 │   └── health/             #   Infrastructure health check
 ├── dashboard/              # Dashboard page + error boundary
+├── games/                  # Library page with filters
 ├── game/[id]/              # Game detail page + error boundary
 └── page.tsx                # Landing / login
 
@@ -115,12 +117,11 @@ hooks/                      # Custom React hooks (user state, data fetching)
 
 lib/
 ├── server/                 # Server-only modules (marked with "server-only")
-│   ├── sqlite.ts           #   Database schema, migrations, seed
+│   ├── sqlite.ts           #   Database schema and versioned migrations
 │   ├── steam-games-sync.ts #   Game ownership sync
 │   ├── steam-achievements-sync.ts  # Achievement data sync
 │   ├── steam-stats-compute.ts      # Stats aggregation
 │   ├── steam-images.ts     #   Image discovery and probing
-│   ├── tracked-games.ts    #   Per-user tracked games
 │   ├── rate-limit.ts       #   In-memory rate limiter
 │   └── logger.ts           #   Structured logging (Pino)
 ├── steam-api.ts            # Direct Steam Web API calls
@@ -171,8 +172,6 @@ All data endpoints require authentication via `steam_user` httpOnly cookie. JSDo
 | `GET`  | `/api/steam/stats`                           | Get aggregated user stats                             |
 | `GET`  | `/api/steam/sync`                            | Get last sync timestamps                              |
 | `POST` | `/api/steam/sync`                            | Trigger full data sync (rate limited: 5/min per user) |
-| `GET`  | `/api/steam/tracked-games`                   | List tracked game IDs                                 |
-| `POST` | `/api/steam/tracked-games`                   | Reseed tracked games from file                        |
 
 ### Infrastructure
 
@@ -189,6 +188,7 @@ Steam OpenID 2.0 with CSRF nonce protection and timing-safe validation.
 - Sessions stored in httpOnly, secure, SameSite cookies (7-day expiry)
 - Whitelist is re-validated on every server auth check
 - Each user's data is fully isolated by `steam_id`
+- Steam level and community badges are fetched at login
 
 ## Database
 
@@ -208,7 +208,7 @@ To add a new migration, append a function to the `migrations` array in `sqlite.t
 
 ### Tables
 
-`steam_profile` · `games` · `user_games` · `recent_games_snapshot` · `stats_snapshot` · `tracked_games` · `schema_migrations`
+`steam_profile` · `games` · `user_games` · `recent_games_snapshot` · `stats_snapshot` · `schema_migrations`
 
 All user-specific tables are keyed by `steam_id` for multi-user isolation.
 
@@ -235,7 +235,7 @@ Ensure `NEXTAUTH_URL` matches your public URL for Steam OpenID redirects.
 2. Create a feature branch (`git checkout -b feat/my-feature`)
 3. Commit using [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `chore:`, etc.)
 4. Pre-commit hooks will run Prettier and ESLint automatically
-5. Push and open a Pull Request
+5. Create an issue first, then open a Pull Request that closes it
 
 CI runs `lint → test → build` on all PRs.
 
