@@ -196,10 +196,15 @@ function initializeSchema(db: DatabaseSync) {
     // Migrate existing data: assign all rows to the first known user
     const profile = db.prepare("SELECT steam_id FROM steam_profile LIMIT 1").get() as { steam_id: string } | undefined
     if (profile) {
-      db.exec(`
-        INSERT INTO tracked_games_new (steam_id, appid, source, created_at, updated_at)
-        SELECT '${profile.steam_id}', appid, source, created_at, updated_at FROM tracked_games;
-      `)
+      const existingRows = db
+        .prepare("SELECT appid, source, created_at, updated_at FROM tracked_games")
+        .all() as Array<{ appid: number; source: string; created_at: string; updated_at: string }>
+      const insert = db.prepare(
+        "INSERT INTO tracked_games_new (steam_id, appid, source, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+      )
+      for (const row of existingRows) {
+        insert.run(profile.steam_id, row.appid, row.source, row.created_at, row.updated_at)
+      }
     }
 
     db.exec(`

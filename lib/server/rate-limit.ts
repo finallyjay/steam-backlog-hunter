@@ -8,6 +8,8 @@ const store = new Map<string, RateLimitEntry>()
 
 // Clean up expired entries every 60 seconds
 const CLEANUP_INTERVAL_MS = 60_000
+const MAX_STORE_SIZE = 10_000
+const MAX_WINDOW_MS = 10 * 60_000
 
 let lastCleanup = Date.now()
 
@@ -16,8 +18,7 @@ function cleanup(now: number) {
   lastCleanup = now
 
   for (const [key, entry] of store) {
-    // Remove entries where all timestamps are older than any reasonable window (5 minutes)
-    const cutoff = now - 5 * 60_000
+    const cutoff = now - MAX_WINDOW_MS
     entry.timestamps = entry.timestamps.filter((t) => t > cutoff)
     if (entry.timestamps.length === 0) {
       store.delete(key)
@@ -36,6 +37,19 @@ function cleanup(now: number) {
 export function rateLimit(key: string, limit: number, windowMs: number): { success: boolean; remaining: number } {
   const now = Date.now()
   cleanup(now)
+
+  // Evict oldest entries if store grows too large
+  if (store.size > MAX_STORE_SIZE && !store.has(key)) {
+    const sorted = [...store.entries()].sort((a, b) => {
+      const aMin = Math.min(...a[1].timestamps)
+      const bMin = Math.min(...b[1].timestamps)
+      return aMin - bMin
+    })
+    const toDelete = sorted.slice(0, store.size - MAX_STORE_SIZE + 1)
+    for (const [k] of toDelete) {
+      store.delete(k)
+    }
+  }
 
   const entry = store.get(key) ?? { timestamps: [] }
   const windowStart = now - windowMs
