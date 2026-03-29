@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getCurrentUser } from "@/app/lib/server-auth"
 import { getOwnedGamesForUser, getRecentlyPlayedGamesForUser } from "@/lib/server/steam-store"
+import { logger } from "@/lib/server/logger"
 
 export async function GET(request: NextRequest) {
   try {
@@ -22,7 +23,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ games })
   } catch (error) {
-    console.error("Steam games API error:", error)
+    logger.error({ err: error, endpoint: "steam/games" }, "Steam games API error")
     return NextResponse.json({ error: "Failed to fetch games" }, { status: 500 })
   }
 }

@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getCurrentUser } from "@/app/lib/server-auth"
 import { getAchievementsForGame } from "@/lib/server/steam-store"
+import { logger } from "@/lib/server/logger"
 
 export async function GET(request: NextRequest) {
   try {
@@ -24,10 +25,7 @@ export async function GET(request: NextRequest) {
     }
     return NextResponse.json(achievements)
   } catch (error) {
-    console.error("Steam achievements API error:", error)
-    return NextResponse.json(
-      { error: "Failed to fetch achievements" },
-      { status: 500 },
-    )
+    logger.error({ err: error, endpoint: "steam/achievements" }, "Steam achievements API error")
+    return NextResponse.json({ error: "Failed to fetch achievements" }, { status: 500 })
   }
 }

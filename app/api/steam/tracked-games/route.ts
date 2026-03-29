@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 
 import { getCurrentUser } from "@/app/lib/server-auth"
 import { getTrackedGameIdsServer, reseedTrackedGamesServer } from "@/lib/server/tracked-games"
+import { logger } from "@/lib/server/logger"
 
 export async function GET() {
   try {
@@ -10,10 +11,12 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const appIds = Array.from(await getTrackedGameIdsServer(user.steamId)).map((id) => Number(id)).sort((a, b) => a - b)
+    const appIds = Array.from(await getTrackedGameIdsServer(user.steamId))
+      .map((id) => Number(id))
+      .sort((a, b) => a - b)
     return NextResponse.json({ appIds })
   } catch (error) {
-    console.error("Tracked games API error:", error)
+    logger.error({ err: error, endpoint: "steam/tracked-games" }, "Tracked games API error")
     return NextResponse.json({ error: "Failed to fetch tracked games" }, { status: 500 })
   }
 }
@@ -28,7 +31,7 @@ export async function POST() {
     const result = await reseedTrackedGamesServer(user.steamId)
     return NextResponse.json(result)
   } catch (error) {
-    console.error("Tracked games reseed API error:", error)
+    logger.error({ err: error, endpoint: "steam/tracked-games" }, "Tracked games reseed API error")
     return NextResponse.json({ error: "Failed to reseed tracked games" }, { status: 500 })
   }
 }

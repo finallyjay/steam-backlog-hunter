@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { getCurrentUser } from "@/app/lib/server-auth"
 import { getUserStats } from "@/lib/steam-stats"
+import { logger } from "@/lib/server/logger"
 
 export async function GET(request: Request) {
   try {
@@ -15,7 +16,7 @@ export async function GET(request: Request) {
     const stats = await getUserStats(user.steamId, { forceRefresh })
     return NextResponse.json(stats)
   } catch (error) {
-    console.error("Steam stats API error:", error)
+    logger.error({ err: error, endpoint: "steam/stats" }, "Steam stats API error")
     return NextResponse.json({ error: "Failed to fetch stats" }, { status: 500 })
   }
 }

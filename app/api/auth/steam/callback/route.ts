@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import crypto from "node:crypto"
 import { cookies } from "next/headers"
 import { isSteamIdWhitelisted } from "@/lib/whitelist"
+import { logger } from "@/lib/server/logger"
 
 const STEAM_OPENID_URL = "https://steamcommunity.com/openid/login"
 const STEAM_ID_REGEX = /^\d{17}$/
@@ -23,10 +24,8 @@ export async function GET(request: NextRequest) {
   const nonce = searchParams.get("nonce")
   const nonceCookie = cookieStore.get("steam_openid_nonce")
 
-  if (!nonce || !nonceCookie?.value || !crypto.timingSafeEqual(
-    Buffer.from(nonce),
-    Buffer.from(nonceCookie.value),
-  )) {
+  if (!nonce || !nonceCookie?.value || !crypto.timingSafeEqual(Buffer.from(nonce), Buffer.from(nonceCookie.value))) {
+    logger.info("Auth failed: invalid or missing nonce")
     cookieStore.delete("steam_openid_nonce")
     return NextResponse.redirect(getAppUrl("/?error=auth_failed", request))
   }
@@ -57,6 +56,7 @@ export async function GET(request: NextRequest) {
     const verifyText = await verifyResponse.text()
 
     if (!verifyText.includes("is_valid:true")) {
+      logger.info("Auth failed: Steam OpenID verification rejected")
       return NextResponse.redirect(getAppUrl("/?error=auth_failed", request))
     }
 
@@ -79,6 +79,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (!isSteamIdWhitelisted(steamId)) {
+      logger.info({ steamId }, "Auth rejected: Steam ID not whitelisted")
       return NextResponse.redirect(getAppUrl("/?error=not_whitelisted", request))
     }
 
@@ -119,9 +120,11 @@ export async function GET(request: NextRequest) {
       },
     )
 
+    logger.info({ steamId: player.steamid }, "Successful Steam login")
+
     return NextResponse.redirect(getAppUrl("/dashboard", request))
   } catch (error) {
-    console.error("Steam auth error:", error)
+    logger.error({ err: error, endpoint: "auth/steam/callback" }, "Steam auth error")
     return NextResponse.redirect(getAppUrl("/?error=auth_error", request))
   }
 }
