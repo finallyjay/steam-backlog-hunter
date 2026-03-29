@@ -27,6 +27,9 @@ export type GameRow = {
   image_landscape_url: string | null
   image_portrait_url: string | null
   has_community_visible_stats: number | null
+  unlocked_count: number | null
+  total_count: number | null
+  perfect_game: number | null
 }
 
 /** Converts a SQLite game row into a SteamGame object. */
@@ -44,6 +47,9 @@ export function mapRowToSteamGame(row: GameRow): SteamGame {
     image_portrait_url: row.image_portrait_url ?? undefined,
     has_community_visible_stats:
       row.has_community_visible_stats === null ? undefined : row.has_community_visible_stats === 1,
+    unlocked_count: row.unlocked_count ?? undefined,
+    total_count: row.total_count ?? undefined,
+    perfect_game: row.perfect_game === 1,
   }
 }
 
@@ -64,7 +70,10 @@ export function getStoredOwnedGames(steamId: string): SteamGame[] {
       g.image_icon_url,
       g.image_landscape_url,
       g.image_portrait_url,
-      g.has_community_visible_stats
+      g.has_community_visible_stats,
+      ug.unlocked_count,
+      ug.total_count,
+      ug.perfect_game
     FROM user_games ug
     INNER JOIN games g ON g.appid = ug.appid
     WHERE ug.steam_id = ? AND ug.owned = 1
@@ -241,7 +250,10 @@ export async function getRecentlyPlayedGamesForUser(steamId: string, options?: {
       g.image_icon_url,
       g.image_landscape_url,
       g.image_portrait_url,
-      g.has_community_visible_stats
+      g.has_community_visible_stats,
+      ug.unlocked_count,
+      ug.total_count,
+      ug.perfect_game
     FROM user_games ug
     INNER JOIN games g ON g.appid = ug.appid
     WHERE ug.steam_id = ? AND ug.owned = 1 AND ug.rtime_last_played > 0
