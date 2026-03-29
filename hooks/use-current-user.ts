@@ -77,11 +77,29 @@ async function ensureCurrentUserLoaded(): Promise<void> {
   return inFlightRequest
 }
 
+async function revalidateCurrentUser(): Promise<void> {
+  inFlightRequest = null
+  return ensureCurrentUserLoaded()
+}
+
 export function useCurrentUser() {
   const state = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
 
   useEffect(() => {
     void ensureCurrentUserLoaded()
+  }, [])
+
+  useEffect(() => {
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        void revalidateCurrentUser()
+      }
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
+    }
   }, [])
 
   return state

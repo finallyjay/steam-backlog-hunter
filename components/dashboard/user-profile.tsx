@@ -45,9 +45,6 @@ export function UserProfile({ user, stats, statsLoading = false, syncLabel, stat
               className="border-surface-4 h-14 w-14 rounded-2xl border shadow-lg"
             />
             <div className="space-y-1">
-              <p className="text-accent/80 text-[0.72rem] font-semibold tracking-[0.28em] uppercase">
-                Operator profile
-              </p>
               <h2 className="text-2xl font-semibold tracking-tight">{user.displayName}</h2>
             </div>
           </CardTitle>

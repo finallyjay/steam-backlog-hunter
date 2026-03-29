@@ -1,15 +1,14 @@
 "use client"
 
-import { BarChart3, Crosshair, Library, Play } from "lucide-react"
+import { BarChart3, Crosshair, Play } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 
-export type DashboardTab = "overview" | "recent" | "library" | "completion"
+export type DashboardTab = "overview" | "recent" | "completion"
 
 const tabConfig: Array<{ id: DashboardTab; label: string; icon: typeof BarChart3 }> = [
   { id: "overview", label: "Overview", icon: BarChart3 },
   { id: "recent", label: "Recent", icon: Play },
-  { id: "library", label: "Library", icon: Library },
   { id: "completion", label: "Completion", icon: Crosshair },
 ]
 

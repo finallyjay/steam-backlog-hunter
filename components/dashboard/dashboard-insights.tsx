@@ -294,21 +294,6 @@ export function DashboardInsights({ stats, loading = false }: DashboardInsightsP
 
   return (
     <div className="grid gap-6">
-      <div className="border-surface-3 bg-surface-1 rounded-lg border px-4 py-4">
-        <p className="text-muted-foreground text-[0.68rem] font-semibold tracking-[0.18em] uppercase">
-          Average Completion
-        </p>
-        <div className="mt-2 flex items-end gap-2">
-          <span className="text-foreground text-3xl font-semibold tracking-tight">
-            <AnimatedNumber value={Math.floor(stats?.averageCompletion ?? 0)} />
-          </span>
-          <span className="text-muted-foreground pb-1 text-sm">% avg completion</span>
-        </div>
-        <p className="text-muted-foreground mt-2 text-sm">
-          Average completion across games with at least one unlocked achievement.
-        </p>
-      </div>
-
       <div className="grid gap-6 xl:grid-cols-2">
         <Card className="border-surface-4">
           <CardHeader className="space-y-4">

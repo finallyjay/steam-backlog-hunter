@@ -9,7 +9,6 @@ import { RecentGames } from "@/components/dashboard/recent-games"
 import { CompletionOpportunities } from "@/components/dashboard/completion-opportunities"
 import { DashboardInsights } from "@/components/dashboard/dashboard-insights"
 import { DashboardTabs, type DashboardTab } from "@/components/dashboard/dashboard-tabs"
-import { LibraryOverview } from "@/components/dashboard/library-overview"
 import { PageContainer } from "@/components/ui/page-container"
 import { usePageTitle } from "@/components/ui/page-title-context"
 import { LoadingMessage } from "@/components/ui/loading-message"
@@ -67,7 +66,6 @@ export default function DashboardPage() {
         ) : null}
 
         {activeTab === "recent" ? <RecentGames /> : null}
-        {activeTab === "library" ? <LibraryOverview /> : null}
         {activeTab === "completion" ? <CompletionOpportunities /> : null}
       </div>
     </PageContainer>
