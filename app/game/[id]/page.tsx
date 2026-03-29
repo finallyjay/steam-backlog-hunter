@@ -12,7 +12,7 @@ import { usePageTitle } from "@/components/ui/page-title-context"
 import type { SteamAchievementView } from "@/lib/types/steam"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
-import { ExternalLink, Lock, RefreshCw, Trophy } from "lucide-react"
+import { ExternalLink, Lock, Trophy } from "lucide-react"
 import { formatPlaytime } from "@/lib/utils"
 
 type AchievementTab = "pending" | "unlocked"
@@ -27,14 +27,7 @@ function sortByUnlockDateDesc(a: SteamAchievementView, b: SteamAchievementView) 
 export default function GameDetailPage() {
   const params = useParams<{ id: string }>()
   const appId = Number(params.id)
-  const {
-    achievements,
-    loading: loadingAchievements,
-    isRefreshing: isRefreshingAchievements,
-    lastUpdated,
-    error: errorAchievements,
-    refetch,
-  } = useSteamAchievements(appId)
+  const { achievements, loading: loadingAchievements, error: errorAchievements } = useSteamAchievements(appId)
   const { games, loading: loadingGames } = useSteamGames("all")
   const { user, loading: loadingUser } = useCurrentUser()
   const router = useRouter()
@@ -77,7 +70,6 @@ export default function GameDetailPage() {
   }
 
   const game = games.find((g) => g.appid === appId)
-  const updatedLabel = lastUpdated ? `Updated at ${lastUpdated.toLocaleTimeString()}` : "Not updated yet"
   const displayList = activeTab === "pending" ? pending : unlocked
 
   let progressColor = "bg-danger"
@@ -129,17 +121,6 @@ export default function GameDetailPage() {
                     Steam Store
                   </Button>
                 </a>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => void refetch()}
-                  disabled={isRefreshingAchievements}
-                  className="gap-2"
-                >
-                  <RefreshCw className={`h-4 w-4 ${isRefreshingAchievements ? "animate-spin" : ""}`} />
-                  Refresh
-                </Button>
-                <span className="text-muted-foreground text-xs">{updatedLabel}</span>
               </div>
             </div>
           </div>
