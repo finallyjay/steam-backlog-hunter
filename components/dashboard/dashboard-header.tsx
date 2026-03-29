@@ -31,8 +31,10 @@ function NavLink({
     <Link
       href={href}
       onClick={onClick}
-      className={`flex items-center gap-1.5 text-sm transition-colors ${
-        isActive ? "text-foreground font-medium" : "text-muted-foreground hover:text-foreground"
+      className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm transition-colors ${
+        isActive
+          ? "bg-accent text-accent-foreground font-medium"
+          : "text-muted-foreground hover:bg-surface-3 hover:text-foreground"
       }`}
     >
       <Icon className="h-3.5 w-3.5" />
