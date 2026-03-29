@@ -10,10 +10,12 @@ pnpm build            # Production build (standalone output)
 pnpm lint             # ESLint + typecheck (runs both)
 pnpm typecheck        # next typegen + tsc --noEmit
 pnpm test             # Vitest run (all tests)
+pnpm format           # Prettier format all files
 pnpm exec vitest run test/<file>.test.ts  # Run single test file
 ```
 
 CI runs: install → lint → test → build (GitHub Actions, on push to main and PRs).
+Pre-commit hooks run Prettier + ESLint via Husky + lint-staged.
 
 ## Architecture
 
@@ -21,16 +23,21 @@ Next.js 16 App Router with React 19, TypeScript strict mode, Tailwind CSS 4, sha
 
 ### Data flow
 
-**Steam API → Cache (optional Redis) → SQLite → API routes → Client hooks → UI**
+**Steam API → SQLite → API routes → Client hooks → UI**
 
-- `lib/server/steam-store.ts` — core data logic: fetches from Steam API, persists to SQLite, manages staleness thresholds
+- `lib/server/steam-games-sync.ts` — game ownership sync and persistence
+- `lib/server/steam-achievements-sync.ts` — achievement data sync, schema management
+- `lib/server/steam-stats-compute.ts` — stats aggregation and sync orchestration
+- `lib/server/steam-store-utils.ts` — shared utilities (staleness checks, timestamps, profile management)
+- `lib/server/steam-store.ts` — barrel re-export of the above modules
 - `lib/server/sqlite.ts` — database schema (auto-initialized via Node.js built-in `DatabaseSync`); tables: `steam_profile`, `games`, `user_games`, `recent_games_snapshot`, `stats_snapshot`, `tracked_games`
-- `lib/steam-api.ts` — direct Steam Web API calls
+- `lib/steam-api.ts` — direct Steam Web API calls (shared between server and client for types/utilities)
 
 ### API routes (`app/api/`)
 
-- `auth/steam/` — Steam OpenID 2.0 login flow with whitelist enforcement (`STEAM_WHITELIST_IDS`)
+- `auth/steam/` — Steam OpenID 2.0 login flow with CSRF nonce, whitelist enforcement, rate limiting
 - `steam/games`, `steam/achievements`, `steam/stats`, `steam/sync`, `steam/game/[id]` — data endpoints; all require authenticated session via `steam_user` httpOnly cookie
+- `health/` — infrastructure health check (no auth)
 
 ### Client state (`hooks/`)
 
@@ -39,7 +46,7 @@ Next.js 16 App Router with React 19, TypeScript strict mode, Tailwind CSS 4, sha
 
 ### Auth model
 
-Single-user/whitelist-based. `STEAM_WHITELIST_IDS` (comma-separated Steam64 IDs) controls access. Empty/missing = access denied. Session stored in httpOnly cookie, re-validated on every server auth check.
+Whitelist-based, multi-user ready. `STEAM_WHITELIST_IDS` (comma-separated Steam64 IDs) controls access. Empty/missing = access denied. Session stored in httpOnly cookie, re-validated on every server auth check. All user data isolated by `steam_id`.
 
 ### Pages
 
@@ -52,6 +59,9 @@ Single-user/whitelist-based. `STEAM_WHITELIST_IDS` (comma-separated Steam64 IDs)
 
 - Path alias: `@/*` maps to project root
 - SQLite path resolution: `SQLITE_PATH` env → `/data/` → `.data/` fallback
+- Environment variables validated with Zod at startup (`lib/env.ts`)
+- Structured logging via Pino (`lib/server/logger.ts`)
 - `@next/next/no-img-element` ESLint rule is disabled
-- `typescript.ignoreBuildErrors: true` in next.config.mjs
+- `lib/steam-api.ts` must NOT import `server-only` modules (used by client components for types)
 - Tests live in `test/` directory (Vitest + @testing-library/react + jsdom)
+- All API routes and public functions have JSDoc documentation

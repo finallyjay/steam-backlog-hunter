@@ -21,6 +21,9 @@ Thumbs.db
 .vscode/
 .idea/
 
+# Claude Code memory
+memory/
+
 # Coverage
 coverage/
 
