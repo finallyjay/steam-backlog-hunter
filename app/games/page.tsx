@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 
 import { useCurrentUser } from "@/hooks/use-current-user"
 import { LibraryOverview } from "@/components/dashboard/library-overview"
@@ -11,6 +11,7 @@ import { LoadingMessage } from "@/components/ui/loading-message"
 export default function GamesPage() {
   const { user, loading } = useCurrentUser()
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   useEffect(() => {
     window.scrollTo(0, 0)
@@ -32,7 +33,7 @@ export default function GamesPage() {
   return (
     <PageContainer>
       <h1 className="sr-only">Games Library</h1>
-      <LibraryOverview />
+      <LibraryOverview initialFilter={searchParams.get("filter")} initialOrder={searchParams.get("order")} />
     </PageContainer>
   )
 }

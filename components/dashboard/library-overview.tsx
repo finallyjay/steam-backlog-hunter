@@ -13,8 +13,17 @@ import { getAllowedGameIdsClient } from "@/lib/allowed-games"
 import type { SteamGameCardModel } from "@/lib/types/steam"
 
 type GamesOrder = "completed" | "alphabetical" | "achievementsAsc" | "achievementsDesc"
+type GamesFilter = "all" | "started" | "perfect" | "untouched"
 
-export function LibraryOverview() {
+const VALID_ORDERS: GamesOrder[] = ["completed", "alphabetical", "achievementsAsc", "achievementsDesc"]
+const VALID_FILTERS: GamesFilter[] = ["all", "started", "perfect", "untouched"]
+
+interface LibraryOverviewProps {
+  initialFilter?: string | null
+  initialOrder?: string | null
+}
+
+export function LibraryOverview({ initialFilter, initialOrder }: LibraryOverviewProps = {}) {
   const {
     games: ownedGames,
     loading,
@@ -24,9 +33,13 @@ export function LibraryOverview() {
     refetch: refetchGames,
   } = useSteamGames("all")
 
-  const [showCompleted, setShowCompleted] = useState(false)
-  const [onlyWithAchievements, setOnlyWithAchievements] = useState(true)
-  const [order, setOrder] = useState<GamesOrder>("completed")
+  const parsedFilter = VALID_FILTERS.includes(initialFilter as GamesFilter) ? (initialFilter as GamesFilter) : "all"
+  const parsedOrder = VALID_ORDERS.includes(initialOrder as GamesOrder) ? (initialOrder as GamesOrder) : "completed"
+
+  const [activeFilter] = useState<GamesFilter>(parsedFilter)
+  const [showCompleted, setShowCompleted] = useState(parsedFilter === "perfect")
+  const [onlyWithAchievements, setOnlyWithAchievements] = useState(parsedFilter !== "untouched")
+  const [order, setOrder] = useState<GamesOrder>(parsedOrder)
   const [trackedIds, setTrackedIds] = useState<Set<string>>(new Set())
   const [trackedIdsLoading, setTrackedIdsLoading] = useState(true)
   const [scope, setScope] = useState<"all" | "tracked">("all")
@@ -90,8 +103,16 @@ export function LibraryOverview() {
       filtered = filtered.filter((game) => trackedIds.has(String(game.id)))
     }
 
+    if (activeFilter === "started") {
+      filtered = filtered.filter((game) => game.totalAchievements > 0 && game.percent > 0 && !game.completed)
+    } else if (activeFilter === "perfect") {
+      filtered = filtered.filter((game) => game.completed)
+    } else if (activeFilter === "untouched") {
+      filtered = filtered.filter((game) => game.totalAchievements === 0 || game.percent === 0)
+    }
+
     return filtered
-  }, [gamesWithStats, onlyWithAchievements, scope, showCompleted, trackedIds])
+  }, [gamesWithStats, onlyWithAchievements, scope, showCompleted, trackedIds, activeFilter])
 
   const filterDataLoading = scope === "tracked" && trackedIdsLoading
   const listLoading = loading || achievementsLoading || filterDataLoading
