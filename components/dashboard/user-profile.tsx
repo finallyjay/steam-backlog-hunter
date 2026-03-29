@@ -149,17 +149,17 @@ export function UserProfile({ user, stats, statsLoading = false, syncLabel }: Us
     {
       label: "Started Games",
       value: stats?.startedGames ?? 0,
-      href: "/games?filter=started",
+      href: "/games?played=played&filter=started&achievements=with",
     },
     {
       label: "Perfect Games",
       value: stats?.perfectGames ?? 0,
-      href: "/games?filter=perfect",
+      href: "/games?played=played&filter=perfect&achievements=with",
     },
     {
       label: "Unlocked Achievements",
       value: stats?.totalAchievements ?? 0,
-      href: "/games?order=achievementsDesc",
+      href: "/games?played=played&order=achievementsDesc&achievements=with",
     },
   ]
 

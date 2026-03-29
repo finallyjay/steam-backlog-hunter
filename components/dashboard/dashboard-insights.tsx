@@ -174,7 +174,7 @@ export function DashboardInsights({ stats, loading = false }: DashboardInsightsP
     return {
       title: "Completion State",
       data: [
-        { name: "Untouched", value: untouched },
+        { name: "Not Started", value: untouched },
         { name: "Started", value: started },
         { name: "Perfect", value: perfect },
       ],
@@ -248,9 +248,9 @@ export function DashboardInsights({ stats, loading = false }: DashboardInsightsP
               loading={loading}
               chartKind="donut"
               links={{
-                Perfect: "/games?filter=perfect",
-                Started: "/games?filter=started",
-                Untouched: "/games?filter=untouched",
+                Perfect: "/games?played=played&filter=perfect&achievements=with",
+                Started: "/games?played=played&filter=started&achievements=with",
+                "Not Started": "/games?played=played&filter=notstarted&achievements=with",
               }}
             />
           </CardContent>
@@ -299,8 +299,8 @@ export function DashboardInsights({ stats, loading = false }: DashboardInsightsP
               links={
                 libraryMetric === "state"
                   ? {
-                      Played: "/games?filter=started",
-                      Unplayed: "/games?filter=untouched",
+                      Played: "/games?played=played",
+                      Unplayed: "/games?played=notplayed",
                     }
                   : undefined
               }

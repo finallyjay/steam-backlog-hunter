@@ -33,7 +33,12 @@ export default function GamesPage() {
   return (
     <PageContainer>
       <h1 className="sr-only">Games Library</h1>
-      <LibraryOverview initialFilter={searchParams.get("filter")} initialOrder={searchParams.get("order")} />
+      <LibraryOverview
+        initialFilter={searchParams.get("filter")}
+        initialOrder={searchParams.get("order")}
+        initialAchievements={searchParams.get("achievements")}
+        initialPlayed={searchParams.get("played")}
+      />
     </PageContainer>
   )
 }
