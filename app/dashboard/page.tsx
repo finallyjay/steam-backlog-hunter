@@ -17,7 +17,7 @@ import { useSyncStatus } from "@/components/dashboard/sync-status-button"
 
 export default function DashboardPage() {
   const { user, loading } = useCurrentUser()
-  const { stats, loading: statsLoading, lastUpdated: statsLastUpdated } = useSteamStats()
+  const { stats, loading: statsLoading } = useSteamStats()
   const { label: syncLabel } = useSyncStatus()
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<DashboardTab>("overview")
@@ -51,9 +51,6 @@ export default function DashboardPage() {
             stats={stats}
             statsLoading={statsLoading}
             syncLabel={syncLabel ?? "Not synced yet"}
-            statsUpdatedLabel={
-              statsLastUpdated ? `Stats refreshed at ${statsLastUpdated.toLocaleTimeString()}` : undefined
-            }
           />
         ) : null}
 

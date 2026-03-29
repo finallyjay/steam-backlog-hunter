@@ -106,12 +106,46 @@ export async function GET(request: NextRequest) {
     userInfoUrl.searchParams.set("key", steamApiKey)
     userInfoUrl.searchParams.set("steamids", steamId)
 
-    const userInfoResponse = await fetch(userInfoUrl)
+    const levelUrl = new URL("https://api.steampowered.com/IPlayerService/GetSteamLevel/v1/")
+    levelUrl.searchParams.set("key", steamApiKey)
+    levelUrl.searchParams.set("steamid", steamId)
+
+    const badgesUrl = new URL("https://api.steampowered.com/IPlayerService/GetBadges/v1/")
+    badgesUrl.searchParams.set("key", steamApiKey)
+    badgesUrl.searchParams.set("steamid", steamId)
+
+    const [userInfoResponse, levelResponse, badgesResponse] = await Promise.all([
+      fetch(userInfoUrl),
+      fetch(levelUrl),
+      fetch(badgesUrl),
+    ])
     const userInfo = await userInfoResponse.json()
     const player = userInfo.response.players[0]
 
     if (!player) {
       return NextResponse.redirect(getAppUrl("/?error=auth_failed", request))
+    }
+
+    let steamLevel: number | null = null
+    try {
+      const levelData = await levelResponse.json()
+      steamLevel = levelData.response?.player_level ?? null
+    } catch {
+      // Level fetch is non-critical
+    }
+
+    let badges: Array<{ badgeid: number; level: number }> | null = null
+    try {
+      const badgesData = await badgesResponse.json()
+      const allBadges = badgesData.response?.badges as
+        | Array<{ badgeid: number; level: number; appid?: number }>
+        | undefined
+      if (allBadges) {
+        // Keep only community badges (no appid) that are visually interesting
+        badges = allBadges.filter((b) => !b.appid).map((b) => ({ badgeid: b.badgeid, level: b.level }))
+      }
+    } catch {
+      // Badges fetch is non-critical
     }
 
     cookieStore.set(
@@ -123,6 +157,8 @@ export async function GET(request: NextRequest) {
         profileUrl: player.profileurl,
         timecreated: player.timecreated || null,
         personaState: player.personastate ?? null,
+        steamLevel,
+        badges,
       }),
       {
         httpOnly: true,

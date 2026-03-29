@@ -109,7 +109,7 @@ function InsightCard({
           <p className="text-foreground text-sm font-semibold">{title}</p>
           <p className="text-muted-foreground text-sm">{description}</p>
         </div>
-        <div className="h-56">
+        <div className="h-56 min-h-0 min-w-0">
           {!loading ? (
             <ResponsiveContainer width="100%" height="100%">
               {chartKind === "bars" ? (

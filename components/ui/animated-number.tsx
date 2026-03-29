@@ -69,7 +69,7 @@ function DigitColumn({
 export function AnimatedNumber({ value, className, durationMs = 1400 }: AnimatedNumberProps) {
   const [previousValue, setPreviousValue] = useState(0)
 
-  const formatter = useMemo(() => new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }), [])
+  const formatter = useMemo(() => new Intl.NumberFormat("en-US", { maximumFractionDigits: 0, useGrouping: false }), [])
 
   const formattedCurrent = formatter.format(value)
   const formattedPrevious = formatter.format(previousValue)
