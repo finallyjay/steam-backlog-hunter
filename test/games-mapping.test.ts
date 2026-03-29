@@ -37,8 +37,8 @@ describe("games mapping", () => {
   it("builds stats and sorts by completion", () => {
     const gamesWithStats = buildGamesWithStats(
       [
-        { id: 1, name: "A", image: "a", playtime: 1 },
-        { id: 2, name: "B", image: "b", playtime: 1 },
+        { id: 1, name: "A", image: "a", playtime: 1, unlocked_count: 0, total_count: 0, perfect_game: false },
+        { id: 2, name: "B", image: "b", playtime: 1, unlocked_count: 0, total_count: 0, perfect_game: false },
       ],
       {
         1: [{ apiname: "x", achieved: 1, unlocktime: 1, displayName: "x", description: "", icon: "", icongray: "" }],
@@ -56,8 +56,8 @@ describe("games mapping", () => {
   it("filterVisibleGames with showCompleted=true returns all games", () => {
     const games = buildGamesWithStats(
       [
-        { id: 1, name: "A", image: "a", playtime: 1 },
-        { id: 2, name: "B", image: "b", playtime: 1 },
+        { id: 1, name: "A", image: "a", playtime: 1, unlocked_count: 0, total_count: 0, perfect_game: false },
+        { id: 2, name: "B", image: "b", playtime: 1, unlocked_count: 0, total_count: 0, perfect_game: false },
       ],
       {
         1: [{ apiname: "x", achieved: 1, unlocktime: 1, displayName: "x", description: "", icon: "", icongray: "" }],
@@ -72,9 +72,9 @@ describe("games mapping", () => {
   it("sortGames with alphabetical sorts by name", () => {
     const games = buildGamesWithStats(
       [
-        { id: 1, name: "Zelda", image: "z", playtime: 1 },
-        { id: 2, name: "Alpha", image: "a", playtime: 1 },
-        { id: 3, name: "Mario", image: "m", playtime: 1 },
+        { id: 1, name: "Zelda", image: "z", playtime: 1, unlocked_count: 0, total_count: 0, perfect_game: false },
+        { id: 2, name: "Alpha", image: "a", playtime: 1, unlocked_count: 0, total_count: 0, perfect_game: false },
+        { id: 3, name: "Mario", image: "m", playtime: 1, unlocked_count: 0, total_count: 0, perfect_game: false },
       ],
       {},
     )
@@ -86,9 +86,9 @@ describe("games mapping", () => {
   it("sortGames with achievementsDesc sorts by achievement count", () => {
     const games = buildGamesWithStats(
       [
-        { id: 1, name: "A", image: "a", playtime: 1 },
-        { id: 2, name: "B", image: "b", playtime: 1 },
-        { id: 3, name: "C", image: "c", playtime: 1 },
+        { id: 1, name: "A", image: "a", playtime: 1, unlocked_count: 0, total_count: 0, perfect_game: false },
+        { id: 2, name: "B", image: "b", playtime: 1, unlocked_count: 0, total_count: 0, perfect_game: false },
+        { id: 3, name: "C", image: "c", playtime: 1, unlocked_count: 0, total_count: 0, perfect_game: false },
       ],
       {
         1: [{ apiname: "x", achieved: 0, unlocktime: 0, displayName: "x", description: "", icon: "", icongray: "" }],

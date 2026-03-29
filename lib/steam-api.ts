@@ -10,6 +10,9 @@ export interface SteamGame {
   image_portrait_url?: string
   rtime_last_played?: number
   has_community_visible_stats?: boolean
+  unlocked_count?: number
+  total_count?: number
+  perfect_game?: boolean
 }
 
 export interface SteamAchievement {
