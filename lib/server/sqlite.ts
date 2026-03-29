@@ -190,6 +190,20 @@ const migrations: Array<(db: DatabaseSync) => void> = [
       CREATE INDEX IF NOT EXISTS idx_tracked_games_steam_id ON tracked_games(steam_id);
     `)
   },
+
+  // Migration 3: Reset achievements_synced_at for games with total_count=0
+  // so they get re-discovered after removing the tracked games system.
+  // Games that truly have no achievements will be marked again with empty
+  // achievements (total_count stays 0, achievements_synced_at gets set).
+  (db) => {
+    db.prepare(
+      `
+      UPDATE user_games
+      SET achievements_synced_at = NULL
+      WHERE total_count = 0 AND achievements_synced_at IS NOT NULL
+    `,
+    ).run()
+  },
 ]
 
 function runMigrations(db: DatabaseSync) {
