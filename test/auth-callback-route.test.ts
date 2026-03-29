@@ -67,6 +67,48 @@ describe("GET /api/auth/steam/callback", () => {
     expect(response.headers.get("location")).toBe("https://example.com/?error=not_whitelisted")
   })
 
+  it("redirects to auth_failed when nonce does not match cookie", async () => {
+    process.env.NEXTAUTH_URL = "https://example.com"
+    process.env.STEAM_WHITELIST_IDS = "76561198000000001"
+
+    // Cookie has a different nonce than the query param
+    const wrongNonce = "b".repeat(64)
+    mockCookieStore.get.mockReturnValue({ value: wrongNonce })
+
+    const request = new NextRequest(
+      `https://example.com/api/auth/steam/callback?nonce=${TEST_NONCE}&openid.claimed_id=https://steamcommunity.com/openid/id/76561198000000001&openid.return_to=https://example.com/api/auth/steam/callback?nonce=${TEST_NONCE}`,
+    )
+
+    const response = await GET(request)
+
+    expect(response.status).toBe(307)
+    expect(response.headers.get("location")).toBe("https://example.com/?error=auth_failed")
+  })
+
+  it("redirects to auth_failed when Steam ID format is invalid", async () => {
+    process.env.NEXTAUTH_URL = "https://example.com"
+    process.env.STEAM_WHITELIST_IDS = "76561198000000001"
+
+    mockCookieStore.get.mockReturnValue({ value: TEST_NONCE })
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        text: async () => "is_valid:true",
+      }),
+    )
+
+    // Steam ID is too short (not 17 digits)
+    const request = new NextRequest(
+      `https://example.com/api/auth/steam/callback?nonce=${TEST_NONCE}&openid.claimed_id=https://steamcommunity.com/openid/id/12345&openid.return_to=https://example.com/api/auth/steam/callback?nonce=${TEST_NONCE}`,
+    )
+
+    const response = await GET(request)
+
+    expect(response.status).toBe(307)
+    expect(response.headers.get("location")).toBe("https://example.com/?error=auth_failed")
+  })
+
   it("redirects whitelisted user to dashboard with session cookie", async () => {
     const steamId = "76561198000000001"
     process.env.NEXTAUTH_URL = "https://example.com"

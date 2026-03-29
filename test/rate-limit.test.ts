@@ -65,4 +65,58 @@ describe("rateLimit", () => {
     expect(r3.success).toBe(true)
     expect(r3.remaining).toBe(0)
   })
+
+  it("cleans up expired entries after cleanup interval", () => {
+    const key = "test-cleanup"
+    const limit = 5
+    const windowMs = 60_000
+
+    // Create an entry
+    rateLimit(key, limit, windowMs)
+
+    // Advance past the max window (10 minutes) AND past the cleanup interval (60s)
+    vi.advanceTimersByTime(10 * 60_000 + 1)
+
+    // Trigger cleanup by making another request with a different key
+    const freshKey = "test-cleanup-fresh"
+    const result = rateLimit(freshKey, limit, windowMs)
+    expect(result.success).toBe(true)
+    expect(result.remaining).toBe(4)
+
+    // The old key should have been cleaned up, so it should behave like a fresh key
+    const oldResult = rateLimit(key, limit, windowMs)
+    expect(oldResult.success).toBe(true)
+    expect(oldResult.remaining).toBe(4)
+  })
+
+  it("evicts oldest entries when store exceeds MAX_STORE_SIZE", () => {
+    const limit = 5
+    const windowMs = 60_000
+
+    // Fill the store beyond MAX_STORE_SIZE (10,000)
+    for (let i = 0; i < 10_001; i++) {
+      rateLimit(`evict-key-${i}`, limit, windowMs)
+    }
+
+    // Adding a new key should still work (eviction makes room)
+    const result = rateLimit("evict-new-key", limit, windowMs)
+    expect(result.success).toBe(true)
+  })
+
+  it("different keys don't interfere with each other", () => {
+    const limit = 1
+    const windowMs = 60_000
+
+    const r1 = rateLimit("key-a", limit, windowMs)
+    expect(r1.success).toBe(true)
+
+    // key-a is now exhausted
+    const r2 = rateLimit("key-a", limit, windowMs)
+    expect(r2.success).toBe(false)
+
+    // key-b should still be allowed
+    const r3 = rateLimit("key-b", limit, windowMs)
+    expect(r3.success).toBe(true)
+    expect(r3.remaining).toBe(0)
+  })
 })

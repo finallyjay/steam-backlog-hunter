@@ -106,4 +106,35 @@ describe("GameCard", () => {
     expect(screen.getByText("TF2")).toBeInTheDocument()
     expect(screen.queryByText(/hours/)).not.toBeInTheDocument()
   })
+
+  it("renders with serverTotal/serverUnlocked when no achievements array", () => {
+    render(
+      <GameCard id={570} name="Dota 2" image="/steam-icon.png" playtime={200} serverTotal={10} serverUnlocked={7} />,
+    )
+
+    expect(screen.getByText("Dota 2")).toBeInTheDocument()
+    expect(screen.getByText("7/10 (70%)")).toBeInTheDocument()
+  })
+
+  it("shows formatPlaytime output for playtime", () => {
+    render(<GameCard id={570} name="Dota 2" image="/steam-icon.png" playtime={14.5} achievements={[]} />)
+
+    expect(screen.getByText("14h 30m")).toBeInTheDocument()
+  })
+
+  it("shows completed state when serverPerfect is true", () => {
+    const { container } = render(
+      <GameCard
+        id={570}
+        name="Dota 2"
+        image="/steam-icon.png"
+        playtime={50}
+        serverTotal={5}
+        serverUnlocked={3}
+        serverPerfect={true}
+      />,
+    )
+
+    expect(container.querySelector(".bg-success\\/10")).toBeInTheDocument()
+  })
 })
