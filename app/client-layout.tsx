@@ -40,6 +40,22 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       <main id="main-content" className="min-h-screen">
         {children}
       </main>
+      <footer className="border-surface-4 border-t py-6">
+        <div className="text-muted-foreground container mx-auto flex items-center justify-center gap-4 px-4 text-xs">
+          <span>Steam Backlog Hunter v0.7.0</span>
+          <span>·</span>
+          <a
+            href="https://github.com/finallyjay/steam-achievements-tracker"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-foreground transition-colors"
+          >
+            GitHub
+          </a>
+          <span>·</span>
+          <span>Not affiliated with Valve Corporation</span>
+        </div>
+      </footer>
       <Toaster />
       <Analytics />
     </>
