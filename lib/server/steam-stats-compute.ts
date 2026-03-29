@@ -33,8 +33,9 @@ function computeStatsFromDatabase(steamId: string): SteamStatsResponse {
     SELECT
       COUNT(*) AS total_games,
       COALESCE(SUM(playtime_forever), 0) AS total_playtime_minutes
-    FROM user_games
-    WHERE steam_id = ? AND owned = 1
+    FROM user_games ug
+    WHERE ug.steam_id = ? AND ug.owned = 1
+      AND NOT EXISTS (SELECT 1 FROM hidden_games hg WHERE hg.steam_id = ug.steam_id AND hg.appid = ug.appid)
   `,
     )
     .get(steamId) as { total_games: number; total_playtime_minutes: number }
@@ -48,8 +49,9 @@ function computeStatsFromDatabase(steamId: string): SteamStatsResponse {
       COALESCE(SUM(CASE WHEN total_count > unlocked_count THEN total_count - unlocked_count ELSE 0 END), 0) AS pending_achievements,
       COALESCE(SUM(CASE WHEN unlocked_count > 0 THEN 1 ELSE 0 END), 0) AS started_games,
       COALESCE(SUM(perfect_game), 0) AS perfect_games
-    FROM user_games
-    WHERE steam_id = ? AND owned = 1 AND total_count > 0
+    FROM user_games ug
+    WHERE ug.steam_id = ? AND ug.owned = 1 AND ug.total_count > 0
+      AND NOT EXISTS (SELECT 1 FROM hidden_games hg WHERE hg.steam_id = ug.steam_id AND hg.appid = ug.appid)
   `,
     )
     .get(steamId) as {
@@ -64,8 +66,9 @@ function computeStatsFromDatabase(steamId: string): SteamStatsResponse {
     .prepare(
       `
     SELECT AVG(CAST(unlocked_count AS REAL) / total_count) * 100 AS average_completion
-    FROM user_games
-    WHERE steam_id = ? AND owned = 1 AND total_count > 0 AND unlocked_count > 0
+    FROM user_games ug
+    WHERE ug.steam_id = ? AND ug.owned = 1 AND ug.total_count > 0 AND ug.unlocked_count > 0
+      AND NOT EXISTS (SELECT 1 FROM hidden_games hg WHERE hg.steam_id = ug.steam_id AND hg.appid = ug.appid)
   `,
     )
     .get(steamId) as { average_completion: number | null }
@@ -182,7 +185,9 @@ export async function getStatsForUser(steamId: string, options?: { forceRefresh?
   if (!forceRefresh && snapshot && !isStale(snapshot.computed_at, STATS_STALE_MS)) {
     const db = getSqliteDatabase()
     const achCount = db
-      .prepare("SELECT COUNT(*) as c FROM user_games WHERE steam_id = ? AND owned = 1 AND total_count > 0")
+      .prepare(
+        "SELECT COUNT(*) as c FROM user_games ug WHERE ug.steam_id = ? AND ug.owned = 1 AND ug.total_count > 0 AND NOT EXISTS (SELECT 1 FROM hidden_games hg WHERE hg.steam_id = ug.steam_id AND hg.appid = ug.appid)",
+      )
       .get(steamId) as { c: number }
     return {
       totalGames: snapshot.total_games,

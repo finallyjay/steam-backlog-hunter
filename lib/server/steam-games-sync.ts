@@ -77,6 +77,7 @@ export function getStoredOwnedGames(steamId: string): SteamGame[] {
     FROM user_games ug
     INNER JOIN games g ON g.appid = ug.appid
     WHERE ug.steam_id = ? AND ug.owned = 1
+      AND NOT EXISTS (SELECT 1 FROM hidden_games hg WHERE hg.steam_id = ug.steam_id AND hg.appid = ug.appid)
     ORDER BY LOWER(g.name) ASC
   `,
     )
@@ -106,6 +107,7 @@ export function getStoredGame(steamId: string, appId: number): SteamGame | null 
     FROM user_games ug
     INNER JOIN games g ON g.appid = ug.appid
     WHERE ug.steam_id = ? AND ug.appid = ? AND ug.owned = 1
+      AND NOT EXISTS (SELECT 1 FROM hidden_games hg WHERE hg.steam_id = ug.steam_id AND hg.appid = ug.appid)
   `,
     )
     .get(steamId, appId) as GameRow | undefined
