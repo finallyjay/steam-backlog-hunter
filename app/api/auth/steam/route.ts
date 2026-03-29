@@ -2,9 +2,17 @@ import { type NextRequest, NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import crypto from "node:crypto"
 
+import { rateLimit } from "@/lib/server/rate-limit"
+
 const STEAM_OPENID_URL = "https://steamcommunity.com/openid/login"
 
 export async function GET(request: NextRequest) {
+  const ip = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown"
+  const { success } = rateLimit(`auth:${ip}`, 10, 60_000)
+  if (!success) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 })
+  }
+
   const realm = process.env.NEXTAUTH_URL || new URL("/", request.url).origin
   const returnUrl = `${realm}/api/auth/steam/callback`
 

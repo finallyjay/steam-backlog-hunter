@@ -24,7 +24,7 @@ function isStale(value: string | null | undefined, maxAgeMs: number) {
 async function probeImageUrl(urls: string[]): Promise<string | null> {
   for (const url of urls) {
     try {
-      const response = await fetch(url, { method: "HEAD" })
+      const response = await fetch(url, { method: "HEAD", signal: AbortSignal.timeout(5000) })
       if (response.ok) {
         return url
       }
@@ -110,22 +110,34 @@ function getGamesMissingImages(appIds: number[]): GameImageRow[] {
   if (appIds.length === 0) return []
 
   const db = getSqliteDatabase()
-  const rows = db.prepare(`
+  const rows = db
+    .prepare(
+      `
     SELECT appid, icon_hash, image_icon_url, image_landscape_url, image_portrait_url, images_synced_at
     FROM games
     WHERE appid IN (${appIds.map(() => "?").join(",")})
-  `).all(...appIds) as GameImageRow[]
+  `,
+    )
+    .all(...appIds) as GameImageRow[]
 
-  return rows.filter((row) =>
-    !row.image_landscape_url || !row.image_portrait_url || !row.image_icon_url || isStale(row.images_synced_at, IMAGES_STALE_MS),
+  return rows.filter(
+    (row) =>
+      !row.image_landscape_url ||
+      !row.image_portrait_url ||
+      !row.image_icon_url ||
+      isStale(row.images_synced_at, IMAGES_STALE_MS),
   )
 }
 
-function persistGameImages(appId: number, images: { landscape: string | null; portrait: string | null; icon: string | null }) {
+function persistGameImages(
+  appId: number,
+  images: { landscape: string | null; portrait: string | null; icon: string | null },
+) {
   const db = getSqliteDatabase()
   const now = new Date().toISOString()
 
-  db.prepare(`
+  db.prepare(
+    `
     UPDATE games
     SET
       image_landscape_url = COALESCE(?, image_landscape_url),
@@ -134,7 +146,8 @@ function persistGameImages(appId: number, images: { landscape: string | null; po
       images_synced_at = ?,
       updated_at = ?
     WHERE appid = ?
-  `).run(images.landscape, images.portrait, images.icon, now, now, appId)
+  `,
+  ).run(images.landscape, images.portrait, images.icon, now, now, appId)
 }
 
 export async function ensureGameImages(appIds: number[]) {
@@ -144,9 +157,11 @@ export async function ensureGameImages(appIds: number[]) {
   for (let i = 0; i < missing.length; i += IMAGES_BATCH_SIZE) {
     const batch = missing.slice(i, i + IMAGES_BATCH_SIZE)
 
-    for (const row of batch) {
-      const images = await probeGameImages(row.appid, row.icon_hash)
-      persistGameImages(row.appid, images)
-    }
+    await Promise.all(
+      batch.map(async (row) => {
+        const images = await probeGameImages(row.appid, row.icon_hash)
+        persistGameImages(row.appid, images)
+      }),
+    )
   }
 }

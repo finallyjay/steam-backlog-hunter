@@ -107,14 +107,20 @@ function initializeSchema(db: DatabaseSync) {
 
     CREATE INDEX IF NOT EXISTS idx_user_games_steam_id ON user_games(steam_id);
     CREATE INDEX IF NOT EXISTS idx_user_games_steam_id_owned ON user_games(steam_id, owned);
+    CREATE INDEX IF NOT EXISTS idx_stats_snapshot_steam_id ON stats_snapshot(steam_id);
+    CREATE INDEX IF NOT EXISTS idx_tracked_games_steam_id ON tracked_games(steam_id);
   `)
 
   const statsSnapshotColumns = db.prepare("PRAGMA table_info(stats_snapshot)").all() as Array<{ name: string }>
   const gamesColumns = db.prepare("PRAGMA table_info(games)").all() as Array<{ name: string }>
   const hasPendingAchievementsColumn = statsSnapshotColumns.some((column) => column.name === "pending_achievements")
   const hasStartedGamesColumn = statsSnapshotColumns.some((column) => column.name === "started_games")
-  const hasSteamAverageCompletionColumn = statsSnapshotColumns.some((column) => column.name === "steam_average_completion")
-  const hasLibraryAverageCompletionColumn = statsSnapshotColumns.some((column) => column.name === "library_average_completion")
+  const hasSteamAverageCompletionColumn = statsSnapshotColumns.some(
+    (column) => column.name === "steam_average_completion",
+  )
+  const hasLibraryAverageCompletionColumn = statsSnapshotColumns.some(
+    (column) => column.name === "library_average_completion",
+  )
   const hasHeaderImageUrlColumn = gamesColumns.some((column) => column.name === "header_image_url")
   const hasHeaderImageSyncedAtColumn = gamesColumns.some((column) => column.name === "header_image_synced_at")
   const hasImageIconUrlColumn = gamesColumns.some((column) => column.name === "image_icon_url")
