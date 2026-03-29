@@ -150,6 +150,7 @@ function persistGameImages(
   ).run(images.landscape, images.portrait, images.icon, now, now, appId)
 }
 
+/** Probes and persists missing game images (icon, landscape, portrait) for the given app IDs. */
 export async function ensureGameImages(appIds: number[]) {
   const missing = getGamesMissingImages(appIds)
   if (missing.length === 0) return

@@ -6,6 +6,16 @@ import { reseedTrackedGamesServer } from "@/lib/server/tracked-games"
 import { getUserSyncStatus, synchronizeUserData } from "@/lib/server/steam-store"
 import { logger } from "@/lib/server/logger"
 
+/**
+ * GET /api/steam/sync
+ *
+ * Returns the current sync status timestamps for the authenticated user.
+ * Includes last sync time for games, achievements, and profile data.
+ *
+ * @returns {{ lastSync: string, ... }} Sync status timestamps
+ * @throws 401 - Unauthorized
+ * @throws 500 - Server error
+ */
 export async function GET() {
   try {
     const user = await getCurrentUser()
@@ -20,6 +30,19 @@ export async function GET() {
   }
 }
 
+/**
+ * POST /api/steam/sync
+ *
+ * Triggers a full data synchronization for the authenticated user.
+ * Re-seeds tracked games from the seed file, then fetches and persists
+ * all owned games, achievements, and profile data from the Steam API.
+ *
+ * @ratelimit 5 requests per minute per user
+ * @returns {{ synced: boolean, ... }} Sync result details
+ * @throws 401 - Unauthorized
+ * @throws 429 - Too many requests
+ * @throws 500 - Server error
+ */
 export async function POST() {
   try {
     const user = await getCurrentUser()

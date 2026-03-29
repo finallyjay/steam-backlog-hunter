@@ -6,6 +6,17 @@ import { rateLimit } from "@/lib/server/rate-limit"
 
 const STEAM_OPENID_URL = "https://steamcommunity.com/openid/login"
 
+/**
+ * GET /api/auth/steam
+ *
+ * Initiates the Steam OpenID 2.0 login flow. Generates a CSRF nonce,
+ * stores it in an httpOnly cookie, and redirects the user to Steam's
+ * OpenID authentication page.
+ *
+ * @ratelimit 10 requests per minute per IP
+ * @returns Redirect to Steam OpenID login page
+ * @throws 429 - Too many requests
+ */
 export async function GET(request: NextRequest) {
   const ip = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown"
   const { success } = rateLimit(`auth:${ip}`, 10, 60_000)

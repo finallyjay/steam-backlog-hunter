@@ -82,6 +82,7 @@ async function steamAPIRequest(endpoint: string, params: Record<string, string>)
   }
 }
 
+/** Fetches all owned games (including free-to-play) for a Steam user. */
 export async function getOwnedGames(steamId: string): Promise<SteamGame[]> {
   try {
     const data = await steamAPIRequest("/IPlayerService/GetOwnedGames/v1/", {
@@ -98,6 +99,7 @@ export async function getOwnedGames(steamId: string): Promise<SteamGame[]> {
   }
 }
 
+/** Fetches the 25 most recently played games for a Steam user. */
 export async function getRecentlyPlayedGames(steamId: string): Promise<SteamGame[]> {
   try {
     const data = await steamAPIRequest("/IPlayerService/GetRecentlyPlayedGames/v1/", {
@@ -113,6 +115,7 @@ export async function getRecentlyPlayedGames(steamId: string): Promise<SteamGame
   }
 }
 
+/** Fetches a player's achievements for a specific game, or null if unavailable. */
 export async function getPlayerAchievements(steamId: string, appId: number): Promise<GameAchievements | null> {
   try {
     const data = await steamAPIRequest("/ISteamUserStats/GetPlayerAchievements/v1/", {
@@ -137,6 +140,7 @@ export async function getPlayerAchievements(steamId: string, appId: number): Pro
   }
 }
 
+/** Fetches the game schema (achievement and stat definitions) from the Steam API. */
 export async function getGameSchema(appId: number): Promise<unknown> {
   try {
     const data = await steamAPIRequest("/ISteamUserStats/GetSchemaForGame/v2/", {
@@ -150,12 +154,14 @@ export async function getGameSchema(appId: number): Promise<unknown> {
   }
 }
 
+/** Builds a Steam community image URL from an app ID and image hash. */
 export function getSteamImageUrl(appId: number, imageHash: string): string {
   if (!imageHash) return "/placeholder-icon.svg"
 
   return `https://media.steampowered.com/steamcommunity/public/images/apps/${appId}/${imageHash}.jpg`
 }
 
+/** Builds a Steam store header image URL for a game. */
 export function getSteamHeaderImageUrl(appId: number): string {
   return `https://shared.steamstatic.com/store_item_assets/steam/apps/${appId}/header.jpg`
 }

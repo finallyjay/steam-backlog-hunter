@@ -3,6 +3,19 @@ import { getCurrentUser } from "@/app/lib/server-auth"
 import { getOwnedGamesForUser, getRecentlyPlayedGamesForUser } from "@/lib/server/steam-store"
 import { logger } from "@/lib/server/logger"
 
+/**
+ * GET /api/steam/games
+ *
+ * Returns owned or recently played games for the authenticated user.
+ * Supports forced refresh to bypass cache staleness thresholds.
+ *
+ * @query type - Game list type: "all" for full library, "recent" for recently played (string, default "recent")
+ * @query refresh - Force refresh from Steam API: "1" to enable (string, optional)
+ * @query force - Alias for refresh (string, optional)
+ * @returns {{ games: Game[] }} List of games
+ * @throws 401 - Unauthorized
+ * @throws 500 - Server error
+ */
 export async function GET(request: NextRequest) {
   try {
     const user = await getCurrentUser()

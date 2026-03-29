@@ -5,6 +5,18 @@ import { logger } from "@/lib/server/logger"
 
 const MAX_BATCH_SIZE = 200
 
+/**
+ * GET /api/steam/achievements/batch
+ *
+ * Returns stored achievements for multiple games in a single request.
+ * App IDs are capped at 200 per request. Only returns previously cached data.
+ *
+ * @query appIds - Comma-separated list of Steam application IDs (string, required, max 200)
+ * @returns {{ achievementsMap: Record<number, Achievement[]> }} Map of app ID to achievements
+ * @throws 400 - appIds parameter required or no valid app IDs provided
+ * @throws 401 - Unauthorized
+ * @throws 500 - Server error
+ */
 export async function GET(request: NextRequest) {
   try {
     const user = await getCurrentUser()

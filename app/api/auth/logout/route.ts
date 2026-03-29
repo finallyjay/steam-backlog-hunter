@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 
+/**
+ * POST /api/auth/logout
+ *
+ * Clears the steam_user session cookie, ending the current user session.
+ *
+ * @returns {{ success: boolean }} Logout confirmation
+ */
 export async function POST() {
   const cookieStore = await cookies()
 

@@ -4,6 +4,7 @@ import { getStatsForUser } from "@/lib/server/steam-store"
 import { logger } from "@/lib/server/logger"
 import type { SteamStatsResponse } from "@/lib/types/steam"
 
+/** Fetches aggregate user stats, returning zeroed defaults on failure. */
 export async function getUserStats(steamId: string, options?: { forceRefresh?: boolean }): Promise<SteamStatsResponse> {
   try {
     return await getStatsForUser(steamId, options)

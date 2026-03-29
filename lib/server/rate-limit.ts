@@ -25,6 +25,14 @@ function cleanup(now: number) {
   }
 }
 
+/**
+ * Sliding-window in-memory rate limiter.
+ *
+ * @param key - Identifier for the rate limit bucket (e.g. IP or user ID)
+ * @param limit - Maximum number of requests allowed in the window
+ * @param windowMs - Window duration in milliseconds
+ * @returns Whether the request is allowed and how many requests remain
+ */
 export function rateLimit(key: string, limit: number, windowMs: number): { success: boolean; remaining: number } {
   const now = Date.now()
   cleanup(now)

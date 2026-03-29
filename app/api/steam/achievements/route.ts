@@ -3,6 +3,21 @@ import { getCurrentUser } from "@/app/lib/server-auth"
 import { getAchievementsForGame } from "@/lib/server/steam-store"
 import { logger } from "@/lib/server/logger"
 
+/**
+ * GET /api/steam/achievements
+ *
+ * Returns achievements for a specific game for the authenticated user.
+ * Includes achievement names, descriptions, unlock status, and unlock times.
+ *
+ * @query appId - Steam application ID (number, required)
+ * @query refresh - Force refresh from Steam API: "1" to enable (string, optional)
+ * @query force - Alias for refresh (string, optional)
+ * @returns {{ achievements: Achievement[] }} List of achievements for the game
+ * @throws 400 - Valid App ID required
+ * @throws 401 - Unauthorized
+ * @throws 404 - Failed to fetch achievements
+ * @throws 500 - Server error
+ */
 export async function GET(request: NextRequest) {
   try {
     const user = await getCurrentUser()

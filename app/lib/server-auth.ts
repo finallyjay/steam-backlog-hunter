@@ -3,6 +3,7 @@ import type { SteamUser } from "@/lib/auth"
 import { isSteamIdWhitelisted } from "@/lib/whitelist"
 import { logger } from "@/lib/server/logger"
 
+/** Reads the authenticated user from the steam_user cookie, validating against the whitelist. */
 export async function getCurrentUser(): Promise<SteamUser | null> {
   try {
     const cookieStore = await cookies()
@@ -26,6 +27,7 @@ export async function getCurrentUser(): Promise<SteamUser | null> {
   }
 }
 
+/** Returns the authenticated user or throws if not logged in. */
 export async function requireAuth(): Promise<SteamUser> {
   const user = await getCurrentUser()
 

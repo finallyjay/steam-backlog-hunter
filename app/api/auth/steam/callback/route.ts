@@ -16,6 +16,19 @@ function getAppUrl(path: string, request: NextRequest): string {
   return new URL(path, request.url).toString()
 }
 
+/**
+ * GET /api/auth/steam/callback
+ *
+ * Handles the Steam OpenID callback after the user authenticates with Steam.
+ * Validates the CSRF nonce, verifies the OpenID response with Steam's servers,
+ * checks the Steam ID against the whitelist, fetches user profile info, and
+ * creates an httpOnly session cookie.
+ *
+ * @query nonce - CSRF nonce for validation (string, required)
+ * @query openid.claimed_id - Steam OpenID claimed identity URL (string, required)
+ * @query openid.return_to - Return URL for realm validation (string, required)
+ * @returns Redirect to /dashboard on success, or /?error=auth_failed|not_whitelisted|auth_error on failure
+ */
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
   const cookieStore = await cookies()

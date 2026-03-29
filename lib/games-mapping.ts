@@ -10,6 +10,11 @@ type GameBase = {
   playtime: number
 }
 
+/**
+ * Maps raw SteamGame objects to simplified game card models.
+ *
+ * @param allowedIds - Optional set of app IDs to filter by (shows all if omitted)
+ */
 export function mapOwnedGamesToGameCards(
   games: SteamGame[],
   getImageUrl: (appId: number, imageHash: string) => string,
@@ -25,6 +30,7 @@ export function mapOwnedGamesToGameCards(
     }))
 }
 
+/** Attaches achievement stats (percent, completed, total) to game card models. */
 export function buildGamesWithStats(
   games: GameBase[],
   achievementsMap: Record<number, SteamAchievementView[]>,
@@ -46,6 +52,7 @@ export function buildGamesWithStats(
   })
 }
 
+/** Sorts game cards by the given ordering (completed, alphabetical, achievements asc/desc). */
 export function sortGames(games: SteamGameCardModel[], order: GamesOrder): SteamGameCardModel[] {
   const sortedGames = [...games]
 
@@ -65,6 +72,7 @@ export function sortGames(games: SteamGameCardModel[], order: GamesOrder): Steam
   }
 }
 
+/** Filters out completed games unless showCompleted is true. */
 export function filterVisibleGames(games: SteamGameCardModel[], showCompleted: boolean): SteamGameCardModel[] {
   if (showCompleted) {
     return games

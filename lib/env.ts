@@ -22,4 +22,5 @@ function validateEnv() {
   return result.data
 }
 
+/** Validated environment variables, parsed via Zod schema on first access. */
 export const env = validateEnv()

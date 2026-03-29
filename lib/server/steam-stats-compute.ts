@@ -131,6 +131,7 @@ function persistStatsSnapshot(steamId: string, stats: SteamStatsResponse) {
   )
 }
 
+/** Retrieves the most recent stats snapshot from the database. */
 export function getStoredStatsSnapshot(steamId: string) {
   const db = getSqliteDatabase()
   return db
@@ -170,6 +171,10 @@ async function syncAchievementsForStats(steamId: string, forceRefresh: boolean) 
   return allowedIds
 }
 
+/**
+ * Computes aggregate stats for a user (games, achievements, playtime, completion).
+ * Returns a cached snapshot if fresh, otherwise syncs achievements and recomputes.
+ */
 export async function getStatsForUser(steamId: string, options?: { forceRefresh?: boolean }) {
   const forceRefresh = options?.forceRefresh ?? false
   await ensureOwnedGamesSynced(steamId, { forceRefresh })
@@ -194,6 +199,7 @@ export async function getStatsForUser(steamId: string, options?: { forceRefresh?
   return stats
 }
 
+/** Returns timestamps of the last sync operations for games, recent games, and stats. */
 export function getUserSyncStatus(steamId: string) {
   upsertProfile(steamId)
   const profileSync = getProfileSync(steamId)
@@ -206,6 +212,7 @@ export function getUserSyncStatus(steamId: string) {
   }
 }
 
+/** Force-refreshes all user data: owned games, recent games, and stats. */
 export async function synchronizeUserData(steamId: string) {
   const ownedGames = await ensureOwnedGamesSynced(steamId, { forceRefresh: true })
   const recentGames = await getRecentlyPlayedGamesForUser(steamId, { forceRefresh: true })

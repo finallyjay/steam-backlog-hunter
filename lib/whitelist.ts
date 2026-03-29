@@ -2,6 +2,7 @@ import { env } from "@/lib/env"
 
 const STEAM_ID_REGEX = /^\d{17}$/
 
+/** Parses STEAM_WHITELIST_IDS into a Set of valid Steam64 IDs. */
 export function getSteamWhitelist(): Set<string> {
   const rawWhitelist = env.STEAM_WHITELIST_IDS
 
@@ -17,6 +18,7 @@ export function getSteamWhitelist(): Set<string> {
   return new Set(ids)
 }
 
+/** Checks whether a Steam64 ID is in the configured whitelist. */
 export function isSteamIdWhitelisted(steamId: string): boolean {
   const whitelist = getSteamWhitelist()
   return whitelist.has(steamId)

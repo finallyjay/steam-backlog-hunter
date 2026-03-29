@@ -4,6 +4,17 @@ import { getCurrentUser } from "@/app/lib/server-auth"
 import { getTrackedGameIdsServer, reseedTrackedGamesServer } from "@/lib/server/tracked-games"
 import { logger } from "@/lib/server/logger"
 
+/**
+ * GET /api/steam/tracked-games
+ *
+ * Returns the list of tracked game IDs for the authenticated user.
+ * Tracked games are the subset of owned games that are actively monitored
+ * for achievement progress during sync operations.
+ *
+ * @returns {{ appIds: number[] }} Sorted list of tracked Steam application IDs
+ * @throws 401 - Unauthorized
+ * @throws 500 - Server error
+ */
 export async function GET() {
   try {
     const user = await getCurrentUser()
@@ -21,6 +32,16 @@ export async function GET() {
   }
 }
 
+/**
+ * POST /api/steam/tracked-games
+ *
+ * Re-seeds the tracked games list from the seed file for the authenticated user.
+ * Replaces the current tracked games set with entries from the configured seed source.
+ *
+ * @returns {{ added: number, removed: number, ... }} Reseed result details
+ * @throws 401 - Unauthorized
+ * @throws 500 - Server error
+ */
 export async function POST() {
   try {
     const user = await getCurrentUser()

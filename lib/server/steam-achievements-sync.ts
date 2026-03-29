@@ -38,6 +38,7 @@ type GameSchema = {
   }
 }
 
+/** Inserts or updates a game in the tracked_games table for achievement monitoring. */
 export function markGameAsTracked(
   steamId: string,
   appId: number,
@@ -56,6 +57,7 @@ export function markGameAsTracked(
   ).run(steamId, appId, source, now, now)
 }
 
+/** Retrieves stored achievement data for a single game from SQLite. */
 export function getStoredAchievements(steamId: string, appId: number) {
   const db = getSqliteDatabase()
   return db
@@ -69,6 +71,11 @@ export function getStoredAchievements(steamId: string, appId: number) {
     .get(steamId, appId) as UserAchievementRow | undefined
 }
 
+/**
+ * Retrieves stored achievements for multiple games in a single query.
+ *
+ * @returns A map of app ID to achievement views
+ */
 export function getBatchStoredAchievements(steamId: string, appIds: number[]): Record<number, SteamAchievementView[]> {
   if (appIds.length === 0) return {}
 
@@ -94,6 +101,7 @@ export function getBatchStoredAchievements(steamId: string, appIds: number[]): R
   return result
 }
 
+/** Saves achievement data to SQLite, computing unlocked/total counts and perfect game status. */
 export function persistAchievements(steamId: string, appId: number, achievements: SteamAchievementView[]) {
   const db = getSqliteDatabase()
   const now = nowIso()
@@ -132,6 +140,7 @@ function persistSchema(steamId: string, appId: number, schema: GameSchema | null
   }
 }
 
+/** Retrieves the stored game schema (achievement definitions) from SQLite. */
 export function getStoredSchema(appId: number) {
   const db = getSqliteDatabase()
   return db
@@ -145,6 +154,7 @@ export function getStoredSchema(appId: number) {
     .get(appId) as SchemaRow | undefined
 }
 
+/** Ensures the game schema is synced, fetching from Steam API if stale or missing. */
 export async function ensureSchema(steamId: string, appId: number, options?: { forceRefresh?: boolean }) {
   const forceRefresh = options?.forceRefresh ?? false
   const storedSchema = getStoredSchema(appId)
@@ -158,6 +168,7 @@ export async function ensureSchema(steamId: string, appId: number, options?: { f
   return schema
 }
 
+/** Enriches raw player achievements with display names, descriptions, and icons from the game schema. */
 export function buildAchievementsView(
   rawAchievements: NonNullable<Awaited<ReturnType<typeof getPlayerAchievements>>>["achievements"],
   schema: GameSchema | null,
@@ -177,6 +188,11 @@ export function buildAchievementsView(
   })
 }
 
+/**
+ * Returns enriched achievements for a game, fetching from Steam API if stale.
+ *
+ * @returns Achievement data with schema-enriched views, or null if the game is not owned or has no achievements
+ */
 export async function getAchievementsForGame(steamId: string, appId: number, options?: { forceRefresh?: boolean }) {
   await ensureOwnedGamesSynced(steamId)
 
