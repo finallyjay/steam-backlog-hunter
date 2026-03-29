@@ -30,7 +30,7 @@ Next.js 16 App Router with React 19, TypeScript strict mode, Tailwind CSS 4, sha
 - `lib/server/steam-stats-compute.ts` — stats aggregation and sync orchestration
 - `lib/server/steam-store-utils.ts` — shared utilities (staleness checks, timestamps, profile management)
 - `lib/server/steam-store.ts` — barrel re-export of the above modules
-- `lib/server/sqlite.ts` — database schema (auto-initialized via Node.js built-in `DatabaseSync`); tables: `steam_profile`, `games`, `user_games`, `recent_games_snapshot`, `stats_snapshot`, `tracked_games`
+- `lib/server/sqlite.ts` — database schema and versioned migrations (Node.js built-in `DatabaseSync`); tables: `steam_profile`, `games`, `user_games`, `recent_games_snapshot`, `stats_snapshot`, `tracked_games`, `schema_migrations`
 - `lib/steam-api.ts` — direct Steam Web API calls (shared between server and client for types/utilities)
 
 ### API routes (`app/api/`)
@@ -51,8 +51,8 @@ Whitelist-based, multi-user ready. `STEAM_WHITELIST_IDS` (comma-separated Steam6
 ### Pages
 
 - `/` — landing/login
-- `/dashboard` — stats overview with tabs (Overview, Recent, Library, Completion)
-- `/games` — full library with filter bar (scope, bucket, state query params)
+- `/dashboard` — stats overview with tabs (Overview, Recent, Completion)
+- `/games` — full library with filter bar (scope, sort, achievements filter)
 - `/game/[id]` — individual game achievement breakdown
 
 ### Key conventions
@@ -65,3 +65,4 @@ Whitelist-based, multi-user ready. `STEAM_WHITELIST_IDS` (comma-separated Steam6
 - `lib/steam-api.ts` must NOT import `server-only` modules (used by client components for types)
 - Tests live in `test/` directory (Vitest + @testing-library/react + jsdom)
 - All API routes and public functions have JSDoc documentation
+- Database migrations are versioned in `sqlite.ts` — add new migrations to the `migrations` array, never modify existing ones

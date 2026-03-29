@@ -192,7 +192,13 @@ Steam OpenID 2.0 with CSRF nonce protection and timing-safe validation.
 
 ## Database
 
-SQLite is the primary store. The schema auto-initializes on first run and auto-migrates on version changes.
+SQLite is the primary store. The schema auto-initializes on first run.
+
+### Migrations
+
+Schema changes are managed through a **versioned migration system** (`lib/server/sqlite.ts`). A `schema_migrations` table tracks which migrations have run. Each migration executes exactly once, in order, inside a transaction.
+
+To add a new migration, append a function to the `migrations` array in `sqlite.ts`. Never modify existing migrations.
 
 ### Path Resolution
 
@@ -202,7 +208,7 @@ SQLite is the primary store. The schema auto-initializes on first run and auto-m
 
 ### Tables
 
-`steam_profile` · `games` · `user_games` · `recent_games_snapshot` · `stats_snapshot` · `tracked_games`
+`steam_profile` · `games` · `user_games` · `recent_games_snapshot` · `stats_snapshot` · `tracked_games` · `schema_migrations`
 
 All user-specific tables are keyed by `steam_id` for multi-user isolation.
 
