@@ -1,6 +1,7 @@
 import "server-only"
 
 import { getSqliteDatabase, reseedTrackedGamesFromFile } from "@/lib/server/sqlite"
+import { upsertProfile } from "@/lib/server/steam-store-utils"
 
 /** Returns the set of tracked game app IDs (as strings) for a user from SQLite. */
 export async function getTrackedGameIdsServer(steamId: string): Promise<Set<string>> {
@@ -11,6 +12,7 @@ export async function getTrackedGameIdsServer(steamId: string): Promise<Set<stri
 
 /** Re-seeds the tracked games table from the seed file for the given user. */
 export async function reseedTrackedGamesServer(steamId: string) {
+  upsertProfile(steamId)
   const count = reseedTrackedGamesFromFile(steamId)
   return { count }
 }
