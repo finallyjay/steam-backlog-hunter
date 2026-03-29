@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Gamepad2, LogOut, Menu, X } from "lucide-react"
+import { Gamepad2, LayoutDashboard, Library, LogOut, Menu, X } from "lucide-react"
 import type { SteamUser } from "@/lib/auth"
 import { useRouter, usePathname } from "next/navigation"
 import Link from "next/link"
@@ -13,7 +13,17 @@ interface DashboardHeaderProps {
   user: SteamUser
 }
 
-function NavLink({ href, children, onClick }: { href: string; children: React.ReactNode; onClick?: () => void }) {
+function NavLink({
+  href,
+  icon: Icon,
+  children,
+  onClick,
+}: {
+  href: string
+  icon: React.ComponentType<{ className?: string }>
+  children: React.ReactNode
+  onClick?: () => void
+}) {
   const pathname = usePathname()
   const isActive = pathname === href
 
@@ -21,10 +31,11 @@ function NavLink({ href, children, onClick }: { href: string; children: React.Re
     <Link
       href={href}
       onClick={onClick}
-      className={`text-sm transition-colors ${
+      className={`flex items-center gap-1.5 text-sm transition-colors ${
         isActive ? "text-foreground font-medium" : "text-muted-foreground hover:text-foreground"
       }`}
     >
+      <Icon className="h-3.5 w-3.5" />
       {children}
     </Link>
   )
@@ -70,8 +81,12 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
               </Link>
 
               <nav aria-label="Main navigation" className="hidden items-center gap-4 sm:flex">
-                <NavLink href="/dashboard">Dashboard</NavLink>
-                <NavLink href="/games">Library</NavLink>
+                <NavLink href="/dashboard" icon={LayoutDashboard}>
+                  Dashboard
+                </NavLink>
+                <NavLink href="/games" icon={Library}>
+                  Library
+                </NavLink>
               </nav>
             </div>
 
@@ -101,10 +116,10 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
       {mobileMenuOpen && (
         <div className="border-surface-4 bg-background/95 sticky top-[57px] z-50 border-b backdrop-blur-xl sm:hidden">
           <div className="container mx-auto flex flex-col gap-2 px-4 py-3">
-            <NavLink href="/dashboard" onClick={() => setMobileMenuOpen(false)}>
+            <NavLink href="/dashboard" icon={LayoutDashboard} onClick={() => setMobileMenuOpen(false)}>
               Dashboard
             </NavLink>
-            <NavLink href="/games" onClick={() => setMobileMenuOpen(false)}>
+            <NavLink href="/games" icon={Library} onClick={() => setMobileMenuOpen(false)}>
               Library
             </NavLink>
           </div>
