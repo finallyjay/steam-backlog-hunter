@@ -8,7 +8,7 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, icon, children }: PageHeaderProps) {
   return (
-    <header className="sticky top-0 z-40 mb-8 border-b border-white/10 bg-slate-950/70 backdrop-blur-xl">
+    <header className="border-surface-4 bg-background/70 sticky top-0 z-40 mb-8 border-b backdrop-blur-xl">
       <div className="container mx-auto flex items-center justify-between px-4 py-4 md:px-6 lg:px-8">
         <div className="flex items-center gap-3">
           {icon}

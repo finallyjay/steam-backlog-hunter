@@ -30,7 +30,7 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
   }
 
   return (
-    <header className="border-surface-4 sticky top-0 z-50 border-b bg-slate-950/70 backdrop-blur-xl">
+    <header className="border-surface-4 bg-background/70 sticky top-0 z-50 border-b backdrop-blur-xl">
       <div className="container mx-auto px-4 py-4 md:px-6 lg:px-8">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
