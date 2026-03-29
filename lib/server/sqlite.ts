@@ -205,6 +205,13 @@ function runMigrations(db: DatabaseSync) {
     version: number
   }>
   const appliedSet = new Set(applied.map((r) => r.version))
+  const pending = migrations.length - appliedSet.size
+
+  if (pending <= 0) {
+    return
+  }
+
+  console.info(`[sqlite] ${pending} pending migration(s) to apply`)
 
   for (let i = 0; i < migrations.length; i++) {
     const version = i + 1
@@ -212,6 +219,7 @@ function runMigrations(db: DatabaseSync) {
       continue
     }
 
+    console.info(`[sqlite] Applying migration ${version}...`)
     db.exec("BEGIN")
     try {
       migrations[i](db)
@@ -220,9 +228,12 @@ function runMigrations(db: DatabaseSync) {
         new Date().toISOString(),
       )
       db.exec("COMMIT")
+      console.info(`[sqlite] Migration ${version} applied successfully`)
     } catch (error) {
       db.exec("ROLLBACK")
-      throw new Error(`Migration ${version} failed: ${error instanceof Error ? error.message : error}`)
+      const msg = `Migration ${version} failed: ${error instanceof Error ? error.message : error}`
+      console.error(`[sqlite] ${msg}`)
+      throw new Error(msg)
     }
   }
 }
