@@ -9,6 +9,16 @@ import "./globals.css"
 export const metadata: Metadata = {
   title: "Steam Backlog Hunter",
   description: "Track your Steam backlog, monitor achievement progress, and hunt down completions.",
+  openGraph: {
+    title: "Steam Backlog Hunter",
+    description: "Track your Steam backlog, monitor achievement progress, and hunt down completions.",
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: "Steam Backlog Hunter",
+    description: "Track your Steam backlog, monitor achievement progress, and hunt down completions.",
+  },
 }
 
 export default function RootLayout({
