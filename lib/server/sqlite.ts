@@ -20,11 +20,20 @@ function getDatabasePath() {
   }
 }
 
-function initializeSchema(db: DatabaseSync) {
+/**
+ * Base schema — only runs on fresh databases (no tables exist yet).
+ * For existing databases, numbered migrations handle all changes.
+ */
+function createBaseSchema(db: DatabaseSync) {
   db.exec(`
     PRAGMA journal_mode = WAL;
     PRAGMA synchronous = NORMAL;
     PRAGMA foreign_keys = ON;
+
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+      version INTEGER PRIMARY KEY,
+      applied_at TEXT NOT NULL
+    );
 
     CREATE TABLE IF NOT EXISTS steam_profile (
       steam_id TEXT PRIMARY KEY,
@@ -110,76 +119,42 @@ function initializeSchema(db: DatabaseSync) {
     CREATE INDEX IF NOT EXISTS idx_stats_snapshot_steam_id ON stats_snapshot(steam_id);
     CREATE INDEX IF NOT EXISTS idx_tracked_games_steam_id ON tracked_games(steam_id);
   `)
+}
 
-  const statsSnapshotColumns = db.prepare("PRAGMA table_info(stats_snapshot)").all() as Array<{ name: string }>
-  const gamesColumns = db.prepare("PRAGMA table_info(games)").all() as Array<{ name: string }>
-  const hasPendingAchievementsColumn = statsSnapshotColumns.some((column) => column.name === "pending_achievements")
-  const hasStartedGamesColumn = statsSnapshotColumns.some((column) => column.name === "started_games")
-  const hasSteamAverageCompletionColumn = statsSnapshotColumns.some(
-    (column) => column.name === "steam_average_completion",
-  )
-  const hasLibraryAverageCompletionColumn = statsSnapshotColumns.some(
-    (column) => column.name === "library_average_completion",
-  )
-  const hasHeaderImageUrlColumn = gamesColumns.some((column) => column.name === "header_image_url")
-  const hasHeaderImageSyncedAtColumn = gamesColumns.some((column) => column.name === "header_image_synced_at")
-  const hasImageIconUrlColumn = gamesColumns.some((column) => column.name === "image_icon_url")
-  const hasImageLandscapeUrlColumn = gamesColumns.some((column) => column.name === "image_landscape_url")
-  const hasImagePortraitUrlColumn = gamesColumns.some((column) => column.name === "image_portrait_url")
-  const hasImagesSyncedAtColumn = gamesColumns.some((column) => column.name === "images_synced_at")
+/**
+ * Each migration is a function that receives the db and runs exactly once.
+ * Add new migrations at the end of the array. Never modify existing ones.
+ */
+const migrations: Array<(db: DatabaseSync) => void> = [
+  // Migration 1: Add columns that may be missing on legacy databases
+  (db) => {
+    const addColumnIfMissing = (table: string, column: string, definition: string) => {
+      const cols = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>
+      if (!cols.some((c) => c.name === column)) {
+        db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition};`)
+      }
+    }
 
-  if (!hasPendingAchievementsColumn) {
-    db.exec("ALTER TABLE stats_snapshot ADD COLUMN pending_achievements INTEGER NOT NULL DEFAULT 0;")
-  }
+    addColumnIfMissing("stats_snapshot", "pending_achievements", "INTEGER NOT NULL DEFAULT 0")
+    addColumnIfMissing("stats_snapshot", "started_games", "INTEGER NOT NULL DEFAULT 0")
+    addColumnIfMissing("stats_snapshot", "steam_average_completion", "REAL NOT NULL DEFAULT 0")
+    addColumnIfMissing("stats_snapshot", "library_average_completion", "REAL NOT NULL DEFAULT 0")
+    addColumnIfMissing("games", "header_image_url", "TEXT")
+    addColumnIfMissing("games", "header_image_synced_at", "TEXT")
+    addColumnIfMissing("games", "image_icon_url", "TEXT")
+    addColumnIfMissing("games", "image_landscape_url", "TEXT")
+    addColumnIfMissing("games", "image_portrait_url", "TEXT")
+    addColumnIfMissing("games", "images_synced_at", "TEXT")
+    addColumnIfMissing("user_games", "rtime_last_played", "INTEGER")
+  },
 
-  if (!hasStartedGamesColumn) {
-    db.exec("ALTER TABLE stats_snapshot ADD COLUMN started_games INTEGER NOT NULL DEFAULT 0;")
-  }
+  // Migration 2: Migrate tracked_games to per-user schema (add steam_id to PK)
+  (db) => {
+    const cols = db.prepare("PRAGMA table_info(tracked_games)").all() as Array<{ name: string }>
+    if (cols.some((c) => c.name === "steam_id")) {
+      return // Already has steam_id — nothing to do
+    }
 
-  if (!hasSteamAverageCompletionColumn) {
-    db.exec("ALTER TABLE stats_snapshot ADD COLUMN steam_average_completion REAL NOT NULL DEFAULT 0;")
-  }
-
-  if (!hasLibraryAverageCompletionColumn) {
-    db.exec("ALTER TABLE stats_snapshot ADD COLUMN library_average_completion REAL NOT NULL DEFAULT 0;")
-  }
-
-  if (!hasHeaderImageUrlColumn) {
-    db.exec("ALTER TABLE games ADD COLUMN header_image_url TEXT;")
-  }
-
-  if (!hasHeaderImageSyncedAtColumn) {
-    db.exec("ALTER TABLE games ADD COLUMN header_image_synced_at TEXT;")
-  }
-
-  if (!hasImageIconUrlColumn) {
-    db.exec("ALTER TABLE games ADD COLUMN image_icon_url TEXT;")
-  }
-
-  if (!hasImageLandscapeUrlColumn) {
-    db.exec("ALTER TABLE games ADD COLUMN image_landscape_url TEXT;")
-  }
-
-  if (!hasImagePortraitUrlColumn) {
-    db.exec("ALTER TABLE games ADD COLUMN image_portrait_url TEXT;")
-  }
-
-  if (!hasImagesSyncedAtColumn) {
-    db.exec("ALTER TABLE games ADD COLUMN images_synced_at TEXT;")
-  }
-
-  const userGamesColumns = db.prepare("PRAGMA table_info(user_games)").all() as Array<{ name: string }>
-  const hasRtimeLastPlayedColumn = userGamesColumns.some((column) => column.name === "rtime_last_played")
-
-  if (!hasRtimeLastPlayedColumn) {
-    db.exec("ALTER TABLE user_games ADD COLUMN rtime_last_played INTEGER;")
-  }
-
-  // Migrate tracked_games to per-user schema (add steam_id to PK)
-  const trackedGamesColumns = db.prepare("PRAGMA table_info(tracked_games)").all() as Array<{ name: string }>
-  const hasSteamIdColumn = trackedGamesColumns.some((column) => column.name === "steam_id")
-
-  if (!hasSteamIdColumn) {
     db.exec(`
       CREATE TABLE tracked_games_new (
         steam_id TEXT NOT NULL,
@@ -193,16 +168,18 @@ function initializeSchema(db: DatabaseSync) {
       );
     `)
 
-    // Migrate existing data: assign all rows to the first known user
     const profile = db.prepare("SELECT steam_id FROM steam_profile LIMIT 1").get() as { steam_id: string } | undefined
     if (profile) {
-      const existingRows = db
-        .prepare("SELECT appid, source, created_at, updated_at FROM tracked_games")
-        .all() as Array<{ appid: number; source: string; created_at: string; updated_at: string }>
+      const rows = db.prepare("SELECT appid, source, created_at, updated_at FROM tracked_games").all() as Array<{
+        appid: number
+        source: string
+        created_at: string
+        updated_at: string
+      }>
       const insert = db.prepare(
         "INSERT INTO tracked_games_new (steam_id, appid, source, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
       )
-      for (const row of existingRows) {
+      for (const row of rows) {
         insert.run(profile.steam_id, row.appid, row.source, row.created_at, row.updated_at)
       }
     }
@@ -210,11 +187,44 @@ function initializeSchema(db: DatabaseSync) {
     db.exec(`
       DROP TABLE tracked_games;
       ALTER TABLE tracked_games_new RENAME TO tracked_games;
+      CREATE INDEX IF NOT EXISTS idx_tracked_games_steam_id ON tracked_games(steam_id);
     `)
-  }
+  },
+]
 
-  // Note: reseedTrackedGames is no longer called at init because it requires a steamId.
-  // It runs per-user when sync is triggered.
+function runMigrations(db: DatabaseSync) {
+  // Ensure schema_migrations table exists (for databases created before this system)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+      version INTEGER PRIMARY KEY,
+      applied_at TEXT NOT NULL
+    );
+  `)
+
+  const applied = db.prepare("SELECT version FROM schema_migrations ORDER BY version").all() as Array<{
+    version: number
+  }>
+  const appliedSet = new Set(applied.map((r) => r.version))
+
+  for (let i = 0; i < migrations.length; i++) {
+    const version = i + 1
+    if (appliedSet.has(version)) {
+      continue
+    }
+
+    db.exec("BEGIN")
+    try {
+      migrations[i](db)
+      db.prepare("INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)").run(
+        version,
+        new Date().toISOString(),
+      )
+      db.exec("COMMIT")
+    } catch (error) {
+      db.exec("ROLLBACK")
+      throw new Error(`Migration ${version} failed: ${error instanceof Error ? error.message : error}`)
+    }
+  }
 }
 
 function parseTrackedGamesSeed(rawJson: string): number[] {
@@ -294,7 +304,8 @@ export function getSqliteDatabase() {
   mkdirSync(dirname(dbPath), { recursive: true })
 
   database = new DatabaseSync(dbPath)
-  initializeSchema(database)
+  createBaseSchema(database)
+  runMigrations(database)
 
   return database
 }
