@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useState } from "react"
 import { Clock, Trophy } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
+import { formatPlaytime } from "@/lib/utils"
 import type { SteamAchievementView } from "@/lib/types/steam"
 
 interface GameCardProps {
@@ -80,7 +81,7 @@ export function GameCard({
             {playtime !== undefined ? (
               <div className="flex items-center gap-2">
                 <Clock className="h-3 w-3" />
-                <span>{playtime.toFixed(1)} hours</span>
+                <span>{formatPlaytime(playtime)}</span>
               </div>
             ) : null}
 
