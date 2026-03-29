@@ -116,6 +116,7 @@ export function SyncStatusButton() {
       size="sm"
       onClick={() => void handleSync()}
       disabled={syncing}
+      aria-label="Sync Steam data"
       className="text-muted-foreground hover:text-foreground hover:bg-surface-3 gap-1.5"
     >
       <RefreshCw className={`h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`} />
