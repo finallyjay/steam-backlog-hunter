@@ -43,8 +43,8 @@ export default function DashboardPage() {
       <h1 className="sr-only">Dashboard</h1>
       <div className="grid gap-8">
         <UserProfile user={user} stats={stats} statsLoading={statsLoading} syncLabel={syncLabel ?? "Not synced yet"} />
-        <RecentGames />
         <DashboardInsights stats={stats} loading={statsLoading} />
+        <RecentGames />
       </div>
     </PageContainer>
   )
