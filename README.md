@@ -52,8 +52,8 @@ A self-hosted dashboard for tracking your Steam library, monitoring achievement 
 
 ```bash
 # Clone and install
-git clone https://github.com/finallyjay/steam-achievements-tracker.git
-cd steam-achievements-tracker
+git clone https://github.com/finallyjay/steam-backlog-hunter.git
+cd steam-backlog-hunter
 nvm use
 pnpm install
 
@@ -204,8 +204,8 @@ To add a new migration, append a function to the `migrations` array in `sqlite.t
 ### Path Resolution
 
 1. `SQLITE_PATH` environment variable
-2. `/data/steam-achievements-tracker.sqlite` (if `/data` is writable — containerized deployments)
-3. `.data/steam-achievements-tracker.sqlite` (project directory fallback)
+2. `/data/steam-backlog-hunter.sqlite` (if `/data` is writable — containerized deployments)
+3. `.data/steam-backlog-hunter.sqlite` (project directory fallback)
 
 ### Tables
 

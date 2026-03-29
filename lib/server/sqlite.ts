@@ -14,9 +14,9 @@ function getDatabasePath() {
   const dokployDataDir = "/data"
   try {
     accessSync(dokployDataDir, constants.W_OK)
-    return join(dokployDataDir, "steam-achievements-tracker.sqlite")
+    return join(dokployDataDir, "steam-backlog-hunter.sqlite")
   } catch {
-    return join(process.cwd(), ".data", "steam-achievements-tracker.sqlite")
+    return join(process.cwd(), ".data", "steam-backlog-hunter.sqlite")
   }
 }
 
