@@ -72,10 +72,10 @@ The app will be available at `http://localhost:3000`.
 | Variable              | Required   | Description                                                               |
 | --------------------- | ---------- | ------------------------------------------------------------------------- |
 | `STEAM_API_KEY`       | Yes        | Steam Web API key ([get one here](https://steamcommunity.com/dev/apikey)) |
-| `STEAM_WHITELIST_IDS` | Yes        | Comma-separated Steam64 IDs allowed to sign in                            |
+| `ADMIN_STEAM_ID`      | Yes        | Steam64 ID with admin access (always allowed to sign in + `/admin`)       |
 | `NEXTAUTH_URL`        | Production | Your app's public URL (e.g. `https://steam.example.com`)                  |
 | `SQLITE_PATH`         | No         | Custom SQLite database path (see [Database](#database))                   |
-| `ADMIN_STEAM_ID`      | No         | Steam64 ID with admin access (`/admin` user management)                   |
+| `STEAM_WHITELIST_IDS` | No         | Comma-separated Steam64 IDs for initial seed (managed via `/admin` after) |
 | `LOG_LEVEL`           | No         | Pino log level (default: `info`)                                          |
 
 ## Scripts

@@ -25,8 +25,12 @@ export function getSteamWhitelist(): Set<string> {
   return dbIds
 }
 
-/** Checks whether a Steam64 ID is in the allowed users list. */
+/** Checks whether a Steam64 ID is in the allowed users list or is the admin. */
 export function isSteamIdWhitelisted(steamId: string): boolean {
+  // Admin always has access
+  if (env.ADMIN_STEAM_ID && env.ADMIN_STEAM_ID === steamId) {
+    return true
+  }
   const whitelist = getSteamWhitelist()
   return whitelist.has(steamId)
 }

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo, useCallback } from "react"
-import { Trophy, PieChart, ArrowUpDown, Play } from "lucide-react"
+import { Trophy, PieChart, ArrowUpDown, Play, Search } from "lucide-react"
 import Select from "react-select"
 
 import { GameCard } from "@/components/ui/game-card"
@@ -136,6 +136,7 @@ export function LibraryOverview({
   const [playedFilter, setPlayedFilter] = useState<PlayedFilter>(parsedPlayed)
   const [achievementScope, setAchievementScope] = useState<AchievementScope>(parsedAchievements)
   const [order, setOrder] = useState<GamesOrder>(parsedOrder)
+  const [search, setSearch] = useState("")
   const [locallyHidden, setLocallyHidden] = useState<Set<number>>(new Set())
 
   const handleHideGame = useCallback(async (appId: number) => {
@@ -194,8 +195,14 @@ export function LibraryOverview({
     // Hide locally hidden games
     filtered = filtered.filter((game) => !locallyHidden.has(game.id))
 
+    // Search by name
+    if (search.trim()) {
+      const q = search.trim().toLowerCase()
+      filtered = filtered.filter((game) => game.name.toLowerCase().includes(q))
+    }
+
     return filtered
-  }, [gamesWithStats, state, achievementScope, playedFilter, locallyHidden])
+  }, [gamesWithStats, state, achievementScope, playedFilter, locallyHidden, search])
 
   const listLoading = loading || achievementsLoading
   const totalCount = gamesWithStats.length
@@ -226,9 +233,9 @@ export function LibraryOverview({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
-        <div className="grid grid-cols-2 gap-4 sm:flex sm:flex-wrap sm:items-end">
-          <div className="w-full space-y-1.5 sm:w-36">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div className="flex flex-wrap items-end gap-4">
+          <div className="w-36 space-y-1.5">
             <label className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium">
               <Play className="h-3 w-3" />
               Played
@@ -284,7 +291,7 @@ export function LibraryOverview({
           )}
         </div>
 
-        <div className="w-full space-y-1.5 sm:w-48">
+        <div className="w-48 space-y-1.5">
           <label className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium">
             <ArrowUpDown className="h-3 w-3" />
             Sort by
@@ -300,9 +307,27 @@ export function LibraryOverview({
         </div>
       </div>
 
-      <p className="text-muted-foreground text-sm">
-        {listLoading ? "Loading..." : `${filteredCount} of ${totalCount} games`}
-      </p>
+      <div className="flex items-center justify-between gap-4">
+        <div className="border-surface-4 bg-surface-1 focus-within:border-accent flex h-9 min-w-0 flex-1 items-center gap-2 rounded-lg border px-3">
+          <Search className="text-muted-foreground h-4 w-4 shrink-0" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search games..."
+            className="text-foreground placeholder:text-muted-foreground h-full w-full bg-transparent text-sm focus:outline-none"
+          />
+        </div>
+        <p className="text-muted-foreground shrink-0 text-sm">
+          {listLoading
+            ? "Loading..."
+            : filteredCount === totalCount
+              ? `${totalCount} games`
+              : `${filteredCount} of ${totalCount} games`}
+        </p>
+      </div>
+
+      <hr className="border-surface-4" />
 
       {listLoading ? (
         <p className="text-muted-foreground py-8 text-center">Loading games...</p>

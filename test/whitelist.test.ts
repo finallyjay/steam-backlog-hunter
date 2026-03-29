@@ -8,6 +8,12 @@ vi.mock("@/lib/env", () => ({
   },
 }))
 
+vi.mock("@/lib/server/sqlite", () => ({
+  getSqliteDatabase: () => ({
+    prepare: () => ({ all: () => [] }),
+  }),
+}))
+
 import { getSteamWhitelist, isSteamIdWhitelisted } from "@/lib/whitelist"
 
 const ORIGINAL_ENV = process.env.STEAM_WHITELIST_IDS
