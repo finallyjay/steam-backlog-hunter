@@ -17,6 +17,9 @@ export function RecentGames() {
         playtime: Number((game.playtime_forever / 60).toFixed(1)),
         image: getSteamHeaderImageUrl(game.appid),
         appid: game.appid,
+        total_count: game.total_count ?? 0,
+        unlocked_count: game.unlocked_count ?? 0,
+        perfect_game: game.perfect_game ?? false,
       })),
     [games],
   )
@@ -95,6 +98,9 @@ export function RecentGames() {
                     href={`/game/${game.id}`}
                     achievements={achievements}
                     achievementsLoading={achievementsLoading}
+                    serverTotal={game.total_count}
+                    serverUnlocked={game.unlocked_count}
+                    serverPerfect={game.perfect_game}
                   />
                 </div>
               )

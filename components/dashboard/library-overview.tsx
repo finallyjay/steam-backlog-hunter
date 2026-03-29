@@ -178,6 +178,9 @@ export function LibraryOverview({ initialFilter, initialOrder }: LibraryOverview
               achievements={game.achievements}
               achievementsLoading={achievementsLoading}
               href={`/game/${game.id}`}
+              serverTotal={game.totalAchievements}
+              serverUnlocked={game.unlockedAchievements}
+              serverPerfect={game.completed}
             />
           ))}
         </div>
