@@ -1,12 +1,22 @@
 "use client"
 
+import { useEffect } from "react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Gamepad2, AlertCircle, Trophy, BarChart3, Target } from "lucide-react"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
+import { useCurrentUser } from "@/hooks/use-current-user"
 
 export default function HomePage() {
   const searchParams = useSearchParams()
   const error = searchParams.get("error")
+  const { user, loading } = useCurrentUser()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (!loading && user && !error) {
+      router.push("/dashboard")
+    }
+  }, [loading, user, error, router])
 
   const handleSteamSignIn = () => {
     window.location.href = "/api/auth/steam"
