@@ -82,6 +82,11 @@ async function revalidateCurrentUser(): Promise<void> {
   return ensureCurrentUserLoaded()
 }
 
+export function clearCurrentUser() {
+  inFlightRequest = null
+  emitState({ user: null, loading: false })
+}
+
 export function useCurrentUser() {
   const state = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
 
