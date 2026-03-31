@@ -268,9 +268,11 @@ export function UserProfile({ user, stats, statsLoading = false, syncLabel }: Us
         <div className="border-warning/30 bg-warning/10 mx-6 mb-2 flex items-start gap-3 rounded-lg border px-4 py-3">
           <AlertTriangle className="text-warning mt-0.5 h-4 w-4 shrink-0" />
           <div className="text-sm">
-            <p className="text-warning font-medium">Your Steam profile is private</p>
+            <p role="alert" className="text-warning font-medium">
+              Your Steam profile is not public
+            </p>
             <p className="text-muted-foreground mt-0.5">
-              Game and achievement data cannot be loaded with a private profile. Change your{" "}
+              Game and achievement data cannot be loaded unless your profile is public. Change your{" "}
               <a
                 href="https://steamcommunity.com/my/edit/settings"
                 target="_blank"
