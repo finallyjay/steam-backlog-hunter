@@ -120,8 +120,9 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
         </div>
       </header>
       {mobileMenuOpen && (
-        <div
+        <nav
           id="mobile-nav-menu"
+          aria-label="Mobile navigation"
           className="border-surface-4 bg-background/95 sticky top-[57px] z-50 border-b backdrop-blur-xl sm:hidden"
         >
           <div className="container mx-auto flex flex-col gap-2 px-4 py-3">
@@ -132,7 +133,7 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
               Library
             </NavLink>
           </div>
-        </div>
+        </nav>
       )}
     </>
   )

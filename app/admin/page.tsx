@@ -67,10 +67,11 @@ export default function AdminPage() {
       setNewSteamId("")
       // Reload users
       const res2 = await fetch("/api/admin/users")
-      if (res2.ok) {
-        const data = await res2.json()
-        setUsers(data.users)
+      if (!res2.ok) {
+        throw new Error("User added, but failed to reload users list")
       }
+      const data = await res2.json()
+      setUsers(data.users)
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to add user")
     }

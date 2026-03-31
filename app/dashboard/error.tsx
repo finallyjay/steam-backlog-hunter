@@ -8,8 +8,8 @@ export default function DashboardError({ error, reset }: { error: Error & { dige
   }, [error])
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 text-center">
-      <h2 role="alert" className="text-foreground text-2xl font-semibold">
-        Something went wrong
+      <h2 className="text-foreground text-2xl font-semibold">
+        <span role="alert">Something went wrong</span>
       </h2>
       <p className="text-muted-foreground max-w-md text-sm">
         An error occurred while loading the dashboard. This may be a temporary issue — please try again.
