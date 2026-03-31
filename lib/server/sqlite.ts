@@ -38,6 +38,9 @@ function createBaseSchema(db: DatabaseSync) {
     CREATE TABLE IF NOT EXISTS steam_profile (
       steam_id TEXT PRIMARY KEY,
       persona_name TEXT,
+      avatar_url TEXT,
+      profile_url TEXT,
+      last_login_at TEXT,
       last_owned_games_sync_at TEXT,
       last_recent_games_sync_at TEXT,
       created_at TEXT NOT NULL,
@@ -249,6 +252,20 @@ const migrations: Array<(db: DatabaseSync) => void> = [
   // Migration 6: Drop legacy tracked_games table (concept removed)
   (db) => {
     db.exec("DROP TABLE IF EXISTS tracked_games;")
+  },
+
+  // Migration 7: Add avatar, profile URL, and last login to steam_profile
+  (db) => {
+    const addColumnIfMissing = (table: string, column: string, definition: string) => {
+      const cols = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>
+      if (!cols.some((c) => c.name === column)) {
+        db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition};`)
+      }
+    }
+
+    addColumnIfMissing("steam_profile", "avatar_url", "TEXT")
+    addColumnIfMissing("steam_profile", "profile_url", "TEXT")
+    addColumnIfMissing("steam_profile", "last_login_at", "TEXT")
   },
 ]
 

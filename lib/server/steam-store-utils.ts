@@ -42,7 +42,14 @@ export function parseJson<T>(value: string | null | undefined): T | null {
   }
 }
 
-export function upsertProfile(steamId: string) {
+interface UpsertProfileOptions {
+  personaName?: string
+  avatarUrl?: string
+  profileUrl?: string
+  lastLoginAt?: string
+}
+
+export function upsertProfile(steamId: string, options?: UpsertProfileOptions) {
   const db = getSqliteDatabase()
   const now = nowIso()
 
@@ -50,13 +57,29 @@ export function upsertProfile(steamId: string) {
     `
     INSERT INTO steam_profile (
       steam_id,
+      persona_name,
+      avatar_url,
+      profile_url,
+      last_login_at,
       created_at,
       updated_at
-    ) VALUES (?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(steam_id) DO UPDATE SET
+      persona_name = COALESCE(excluded.persona_name, steam_profile.persona_name),
+      avatar_url = COALESCE(excluded.avatar_url, steam_profile.avatar_url),
+      profile_url = COALESCE(excluded.profile_url, steam_profile.profile_url),
+      last_login_at = COALESCE(excluded.last_login_at, steam_profile.last_login_at),
       updated_at = excluded.updated_at
   `,
-  ).run(steamId, now, now)
+  ).run(
+    steamId,
+    options?.personaName ?? null,
+    options?.avatarUrl ?? null,
+    options?.profileUrl ?? null,
+    options?.lastLoginAt ?? null,
+    now,
+    now,
+  )
 }
 
 export function markProfileSync(

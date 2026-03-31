@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import crypto from "node:crypto"
 import { cookies } from "next/headers"
 import { isSteamIdWhitelisted } from "@/lib/whitelist"
+import { upsertProfile } from "@/lib/server/steam-store-utils"
 import { logger } from "@/lib/server/logger"
 
 const STEAM_OPENID_URL = "https://steamcommunity.com/openid/login"
@@ -169,6 +170,13 @@ export async function GET(request: NextRequest) {
         maxAge: 60 * 60 * 24 * 7, // 7 days
       },
     )
+
+    upsertProfile(player.steamid, {
+      personaName: player.personaname,
+      avatarUrl: player.avatarfull,
+      profileUrl: player.profileurl,
+      lastLoginAt: new Date().toISOString(),
+    })
 
     logger.info({ steamId: player.steamid }, "Successful Steam login")
 
