@@ -3,7 +3,6 @@
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { useCurrentUser } from "@/hooks/use-current-user"
 import { usePathname } from "next/navigation"
-import { Analytics } from "@vercel/analytics/next"
 import { Skeleton } from "@/components/ui/skeleton"
 import { usePageTitle } from "@/components/ui/page-title-context"
 import { Toaster } from "@/components/ui/toaster"
@@ -66,7 +65,6 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         </div>
       </footer>
       <Toaster />
-      <Analytics />
     </>
   )
 }

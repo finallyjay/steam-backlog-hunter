@@ -55,8 +55,6 @@ async function ensureCurrentUserLoaded(options?: { force?: boolean }): Promise<v
       if (res.ok) {
         const data = (await res.json()) as AuthMeResponse
         emitState({ user: data.user, loading: false })
-      } else if (res.status === 401) {
-        emitState({ user: null, loading: false })
       } else if (res.status >= 500) {
         toast({
           title: "Authentication error",

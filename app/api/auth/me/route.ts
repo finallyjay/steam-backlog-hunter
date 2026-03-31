@@ -15,7 +15,7 @@ export async function GET() {
   const user = await getCurrentUser()
   if (!user) {
     const response: AuthMeResponse = { user: null }
-    return NextResponse.json(response, { status: 401 })
+    return NextResponse.json(response)
   }
   const response: AuthMeResponse = { user }
   return NextResponse.json(response, { status: 200 })
