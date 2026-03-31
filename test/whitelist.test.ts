@@ -10,7 +10,7 @@ vi.mock("@/lib/env", () => ({
 
 vi.mock("@/lib/server/sqlite", () => ({
   getSqliteDatabase: () => ({
-    prepare: () => ({ all: () => [] }),
+    prepare: () => ({ all: () => [], get: () => undefined }),
   }),
 }))
 

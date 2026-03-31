@@ -1,3 +1,5 @@
+import "server-only"
+
 import { env } from "@/lib/env"
 import { getSqliteDatabase } from "@/lib/server/sqlite"
 
@@ -31,6 +33,20 @@ export function isSteamIdWhitelisted(steamId: string): boolean {
   if (env.ADMIN_STEAM_ID && env.ADMIN_STEAM_ID === steamId) {
     return true
   }
-  const whitelist = getSteamWhitelist()
-  return whitelist.has(steamId)
+
+  // Direct membership query — avoids loading the full whitelist
+  const db = getSqliteDatabase()
+  const row = db.prepare("SELECT 1 FROM allowed_users WHERE steam_id = ?").get(steamId)
+  if (row) return true
+
+  // Fall back to env var
+  const rawWhitelist = env.STEAM_WHITELIST_IDS
+  if (rawWhitelist) {
+    return rawWhitelist
+      .split(",")
+      .map((id) => id.trim())
+      .includes(steamId)
+  }
+
+  return false
 }
