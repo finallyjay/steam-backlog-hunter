@@ -131,6 +131,12 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Valid Steam ID required (17 digits)" }, { status: 400 })
     }
 
+    const db = getSqliteDatabase()
+    const exists = db.prepare("SELECT 1 FROM allowed_users WHERE steam_id = ?").get(steamId)
+    if (!exists) {
+      return NextResponse.json({ error: "User not found in allowed list" }, { status: 404 })
+    }
+
     const profile = await refreshSteamProfile(steamId)
     if (!profile) {
       return NextResponse.json({ error: "Could not fetch Steam profile" }, { status: 502 })

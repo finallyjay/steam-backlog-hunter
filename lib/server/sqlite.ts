@@ -38,6 +38,9 @@ function createBaseSchema(db: DatabaseSync) {
     CREATE TABLE IF NOT EXISTS steam_profile (
       steam_id TEXT PRIMARY KEY,
       persona_name TEXT,
+      avatar_url TEXT,
+      profile_url TEXT,
+      last_login_at TEXT,
       last_owned_games_sync_at TEXT,
       last_recent_games_sync_at TEXT,
       created_at TEXT NOT NULL,

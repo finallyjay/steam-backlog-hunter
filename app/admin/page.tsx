@@ -101,9 +101,11 @@ export default function AdminPage() {
       })
       if (res.ok) {
         await loadUsers()
+      } else {
+        setError("Failed to refresh profile")
       }
     } catch {
-      // ignore
+      setError("Failed to refresh profile")
     } finally {
       setRefreshingId(null)
     }
