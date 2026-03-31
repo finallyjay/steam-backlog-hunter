@@ -43,7 +43,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   const result = await getAchievementsForGame(user.steamId, appId, { forceRefresh: true })
 
   if (!result) {
-    return NextResponse.json({ error: "Failed to fetch achievements from Steam" }, { status: 502 })
+    return NextResponse.json({ achievements: [], gameName: game.name })
   }
 
   return NextResponse.json({

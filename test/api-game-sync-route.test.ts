@@ -129,15 +129,16 @@ describe("POST /api/steam/game/:id/sync", () => {
     expect(getAchievementsForGame).toHaveBeenCalledWith(mockUser.steamId, 730, { forceRefresh: true })
   })
 
-  it("returns 502 when Steam API fails to return achievements", async () => {
+  it("returns empty achievements when game has none", async () => {
     vi.mocked(getCurrentUser).mockResolvedValue(mockUser)
     vi.mocked(getStoredGameForUser).mockResolvedValue({ appid: 440, name: "TF2" } as never)
     vi.mocked(getAchievementsForGame).mockResolvedValue(null)
 
     const response = await POST(makeRequest("440"), { params: Promise.resolve({ id: "440" }) })
-    const body = (await response.json()) as { error: string }
+    const body = (await response.json()) as { achievements: unknown[]; gameName: string }
 
-    expect(response.status).toBe(502)
-    expect(body.error).toBe("Failed to fetch achievements from Steam")
+    expect(response.status).toBe(200)
+    expect(body.achievements).toEqual([])
+    expect(body.gameName).toBe("TF2")
   })
 })
