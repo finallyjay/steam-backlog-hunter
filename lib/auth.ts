@@ -10,6 +10,7 @@ export interface SteamUser {
   profileUrl: string
   timecreated?: number | null
   personaState?: number | null
+  communityVisibilityState?: number | null
   steamLevel?: number | null
   badges?: SteamBadge[] | null
 }

@@ -157,6 +157,7 @@ export async function GET(request: NextRequest) {
         profileUrl: player.profileurl,
         timecreated: player.timecreated || null,
         personaState: player.personastate ?? null,
+        communityVisibilityState: player.communityvisibilitystate ?? null,
         steamLevel,
         badges,
       }),
