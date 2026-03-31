@@ -1,5 +1,13 @@
 [phases.setup]
 nixPkgs = ["nodejs_24"]
 
+[phases.build]
+cmds = [
+  "pnpm install --frozen-lockfile",
+  "pnpm build",
+  "cp -r .next/static .next/standalone/.next/static",
+  "cp -r public .next/standalone/public",
+]
+
 [start]
 cmd = "node .next/standalone/server.js"
