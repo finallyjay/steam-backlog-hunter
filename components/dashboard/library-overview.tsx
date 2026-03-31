@@ -137,7 +137,9 @@ export function LibraryOverview({
   const [playedFilter, setPlayedFilter] = useState<PlayedFilter>(parsedPlayed)
   const [achievementScope, setAchievementScope] = useState<AchievementScope>(parsedAchievements)
   const [order, setOrder] = useState<GamesOrder>(parsedOrder)
+  const [searchInput, setSearchInput] = useState("")
   const [search, setSearch] = useState("")
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout>>(null)
   const [locallyHidden, setLocallyHidden] = useState<Set<number>>(new Set())
 
   const handleHideGame = useCallback(async (appId: number) => {
@@ -348,10 +350,15 @@ export function LibraryOverview({
           <Search className="text-muted-foreground h-4 w-4 shrink-0" />
           <input
             type="text"
-            value={search}
+            value={searchInput}
             onChange={(e) => {
-              setSearch(e.target.value)
-              resetPage()
+              const value = e.target.value
+              setSearchInput(value)
+              if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
+              searchTimerRef.current = setTimeout(() => {
+                setSearch(value)
+                resetPage()
+              }, 300)
             }}
             placeholder="Search games..."
             className="text-foreground placeholder:text-muted-foreground h-full w-full bg-transparent text-sm focus:outline-none"
@@ -411,7 +418,11 @@ export function LibraryOverview({
               onHide={handleHideGame}
             />
           ))}
-          {hasMore && <div ref={sentinelRef} className="h-1" />}
+          {hasMore ? (
+            <div ref={sentinelRef} className="h-1" />
+          ) : filteredCount > PAGE_SIZE ? (
+            <p className="text-muted-foreground py-4 text-center text-sm">Showing all {filteredCount} games</p>
+          ) : null}
         </div>
       )}
     </div>
