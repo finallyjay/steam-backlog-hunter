@@ -34,6 +34,9 @@ export function isSteamIdWhitelisted(steamId: string): boolean {
     return true
   }
 
+  // Reject obviously invalid IDs early
+  if (!STEAM_ID_REGEX.test(steamId)) return false
+
   // Direct membership query — avoids loading the full whitelist
   const db = getSqliteDatabase()
   const row = db.prepare("SELECT 1 FROM allowed_users WHERE steam_id = ?").get(steamId)
@@ -45,6 +48,7 @@ export function isSteamIdWhitelisted(steamId: string): boolean {
     return rawWhitelist
       .split(",")
       .map((id) => id.trim())
+      .filter((id) => STEAM_ID_REGEX.test(id))
       .includes(steamId)
   }
 

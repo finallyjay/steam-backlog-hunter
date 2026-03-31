@@ -24,14 +24,18 @@ export async function POST(request: Request) {
     const admin = await requireAdmin()
     if (!admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
-    let body: { steamId?: string }
+    let body: unknown
     try {
       body = await request.json()
     } catch {
       return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
     }
 
-    const { steamId } = body
+    if (!body || typeof body !== "object") {
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
+    }
+
+    const { steamId } = body as { steamId?: string }
     if (!steamId || !/^\d{17}$/.test(steamId)) {
       return NextResponse.json({ error: "Valid Steam ID required (17 digits)" }, { status: 400 })
     }
@@ -55,14 +59,18 @@ export async function DELETE(request: Request) {
     const admin = await requireAdmin()
     if (!admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
-    let body: { steamId?: string }
+    let body: unknown
     try {
       body = await request.json()
     } catch {
       return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
     }
 
-    const { steamId } = body
+    if (!body || typeof body !== "object") {
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
+    }
+
+    const { steamId } = body as { steamId?: string }
     if (!steamId || !/^\d{17}$/.test(steamId)) {
       return NextResponse.json({ error: "Valid Steam ID required (17 digits)" }, { status: 400 })
     }
