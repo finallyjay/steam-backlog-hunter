@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useCallback } from "react"
+import { useState, useMemo, useCallback, useEffect, useRef } from "react"
 import { Trophy, PieChart, ArrowUpDown, Play, Search } from "lucide-react"
 import Select from "react-select"
 
@@ -205,6 +205,33 @@ export function LibraryOverview({
     return filtered
   }, [gamesWithStats, state, achievementScope, playedFilter, locallyHidden, search])
 
+  const PAGE_SIZE = 30
+  const [page, setPage] = useState(0)
+  const sentinelRef = useRef<HTMLDivElement>(null)
+  const resetPage = useCallback(() => setPage(0), [])
+
+  // Infinite scroll via IntersectionObserver
+  useEffect(() => {
+    const sentinel = sentinelRef.current
+    if (!sentinel) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setPage((prev) => prev + 1)
+        }
+      },
+      { rootMargin: "400px" },
+    )
+
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [visibleGames.length])
+
+  const displayCount = (page + 1) * PAGE_SIZE
+  const displayedGames = useMemo(() => visibleGames.slice(0, displayCount), [visibleGames, displayCount])
+  const hasMore = displayCount < visibleGames.length
+
   const listLoading = loading || achievementsLoading
   const totalCount = gamesWithStats.length
   const filteredCount = visibleGames.length
@@ -222,6 +249,7 @@ export function LibraryOverview({
     if (newPlayed === "notplayed") {
       setState("all")
     }
+    resetPage()
   }
 
   const handleStateChange = (opt: Option | null) => {
@@ -230,6 +258,7 @@ export function LibraryOverview({
     if (newState !== "all") {
       setAchievementScope("all")
     }
+    resetPage()
   }
 
   return (
@@ -280,7 +309,10 @@ export function LibraryOverview({
               </label>
               <Select
                 value={achievementScope === "all" ? null : selectedAchievement}
-                onChange={(opt) => setAchievementScope(opt ? (opt.value as AchievementScope) : "all")}
+                onChange={(opt) => {
+                  setAchievementScope(opt ? (opt.value as AchievementScope) : "all")
+                  resetPage()
+                }}
                 options={ACHIEVEMENT_OPTIONS}
                 isClearable
                 isSearchable={false}
@@ -299,7 +331,10 @@ export function LibraryOverview({
           </label>
           <Select
             value={selectedOrder}
-            onChange={(opt) => setOrder(opt ? (opt.value as GamesOrder) : "completed")}
+            onChange={(opt) => {
+              setOrder(opt ? (opt.value as GamesOrder) : "completed")
+              resetPage()
+            }}
             options={ORDER_OPTIONS}
             isSearchable={false}
             styles={selectStyles}
@@ -314,7 +349,10 @@ export function LibraryOverview({
           <input
             type="text"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value)
+              resetPage()
+            }}
             placeholder="Search games..."
             className="text-foreground placeholder:text-muted-foreground h-full w-full bg-transparent text-sm focus:outline-none"
           />
@@ -357,7 +395,7 @@ export function LibraryOverview({
         </div>
       ) : (
         <div className="space-y-4">
-          {visibleGames.map((game: SteamGameCardModel) => (
+          {displayedGames.map((game: SteamGameCardModel) => (
             <GameCard
               key={game.id}
               id={game.id}
@@ -373,6 +411,7 @@ export function LibraryOverview({
               onHide={handleHideGame}
             />
           ))}
+          {hasMore && <div ref={sentinelRef} className="h-1" />}
         </div>
       )}
     </div>
