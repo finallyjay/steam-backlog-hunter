@@ -2,7 +2,7 @@ import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { AnimatedNumber } from "@/components/ui/animated-number"
-import { ExternalLink } from "lucide-react"
+import { AlertTriangle, ExternalLink } from "lucide-react"
 import type { SteamUser } from "@/lib/auth"
 import type { SteamStatsResponse } from "@/lib/types/steam"
 
@@ -263,6 +263,29 @@ export function UserProfile({ user, stats, statsLoading = false, syncLabel }: Us
           )}
         </div>
       </CardHeader>
+
+      {user.communityVisibilityState != null && user.communityVisibilityState !== 3 && (
+        <div className="border-warning/30 bg-warning/10 mx-6 mb-2 flex items-start gap-3 rounded-lg border px-4 py-3">
+          <AlertTriangle className="text-warning mt-0.5 h-4 w-4 shrink-0" />
+          <div className="text-sm">
+            <p role="alert" className="text-warning font-medium">
+              Your Steam profile is not public
+            </p>
+            <p className="text-muted-foreground mt-0.5">
+              Game and achievement data cannot be loaded unless your profile is public. Change your{" "}
+              <a
+                href="https://steamcommunity.com/my/edit/settings"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-foreground underline underline-offset-2"
+              >
+                Steam privacy settings
+              </a>{" "}
+              to public, then sync again.
+            </p>
+          </div>
+        </div>
+      )}
 
       <CardContent>
         <div className="space-y-5">
