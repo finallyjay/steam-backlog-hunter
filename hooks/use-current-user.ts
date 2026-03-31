@@ -44,6 +44,11 @@ async function ensureCurrentUserLoaded(): Promise<void> {
     return inFlightRequest
   }
 
+  // Already loaded — skip redundant fetches on navigation
+  if (!currentUserState.loading) {
+    return
+  }
+
   inFlightRequest = (async () => {
     try {
       const res = await fetch("/api/auth/me")

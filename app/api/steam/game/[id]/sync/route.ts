@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { getCurrentUser } from "@/app/lib/server-auth"
+import { rateLimit } from "@/lib/server/rate-limit"
 import { getAchievementsForGame } from "@/lib/server/steam-achievements-sync"
 import { getStoredGame } from "@/lib/server/steam-games-sync"
 
@@ -25,6 +26,11 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   const appId = Number(id)
   if (!id || !Number.isFinite(appId) || appId <= 0) {
     return NextResponse.json({ error: "Valid App ID required" }, { status: 400 })
+  }
+
+  const { success } = rateLimit(`game-sync:${user.steamId}`, 10, 60_000)
+  if (!success) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 })
   }
 
   const game = getStoredGame(user.steamId, appId)
