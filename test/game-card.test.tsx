@@ -1,5 +1,5 @@
-import { render, screen, cleanup } from "@testing-library/react"
-import { afterEach, describe, expect, it } from "vitest"
+import { render, screen, cleanup, fireEvent } from "@testing-library/react"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { GameCard } from "@/components/ui/game-card"
 
@@ -136,5 +136,70 @@ describe("GameCard", () => {
     )
 
     expect(container.querySelector(".bg-success\\/10")).toBeInTheDocument()
+  })
+
+  it("shows loading state when achievementsLoading is true", () => {
+    render(<GameCard id={730} name="CS2" image="/steam-icon.png" playtime={10} achievementsLoading={true} />)
+
+    expect(screen.getByText("Loading achievements...")).toBeInTheDocument()
+  })
+
+  it("renders as a link when href is provided", () => {
+    const { container } = render(
+      <GameCard id={730} name="CS2" image="/steam-icon.png" playtime={10} href="/game/730" achievements={[]} />,
+    )
+
+    const link = container.querySelector("a")
+    expect(link).toBeInTheDocument()
+    expect(link?.getAttribute("href")).toBe("/game/730")
+  })
+
+  it("renders without link when href is not provided", () => {
+    const { container } = render(
+      <GameCard id={730} name="CS2" image="/steam-icon.png" playtime={10} achievements={[]} />,
+    )
+
+    expect(container.querySelector("a")).not.toBeInTheDocument()
+  })
+
+  it("calls onHide when hide button is clicked", () => {
+    const onHide = vi.fn()
+    const { container } = render(
+      <GameCard id={730} name="CS2" image="/steam-icon.png" playtime={10} achievements={[]} onHide={onHide} />,
+    )
+
+    const hideButton = container.querySelector("button[aria-label='Hide CS2']")
+    expect(hideButton).toBeInTheDocument()
+    fireEvent.click(hideButton!)
+
+    expect(onHide).toHaveBeenCalledWith(730)
+  })
+
+  it("uses fallback image on error", () => {
+    render(<GameCard id={730} name="CS2" image="/nonexistent.png" playtime={10} achievements={[]} />)
+
+    const img = screen.getByAltText("Cover art for CS2")
+    fireEvent.error(img)
+
+    // After first error, should switch to header fallback
+    expect((img as HTMLImageElement).src).toContain("header.jpg")
+  })
+
+  it("shows warning color for mid-range completion", () => {
+    const { container } = render(
+      <GameCard id={730} name="CS2" image="/steam-icon.png" playtime={10} serverTotal={10} serverUnlocked={5} />,
+    )
+
+    expect(screen.getByText("5/10 (50%)")).toBeInTheDocument()
+    expect(container.querySelector(".bg-warning")).toBeInTheDocument()
+  })
+
+  it("shows success color for high completion", () => {
+    const { container } = render(
+      <GameCard id={730} name="CS2" image="/steam-icon.png" playtime={10} serverTotal={10} serverUnlocked={9} />,
+    )
+
+    expect(screen.getByText("9/10 (90%)")).toBeInTheDocument()
+    expect(container.querySelector(".bg-success")).toBeInTheDocument()
   })
 })
