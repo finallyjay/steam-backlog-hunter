@@ -1,17 +1,21 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { useCurrentUser } from "@/hooks/use-current-user"
 import { PageContainer } from "@/components/ui/page-container"
 import { LoadingMessage } from "@/components/ui/loading-message"
 import { Button } from "@/components/ui/button"
-import { Trash2, UserPlus } from "lucide-react"
+import { ExternalLink, RefreshCw, Trash2, UserPlus } from "lucide-react"
 
 interface AllowedUser {
   steam_id: string
   added_by: string | null
   added_at: string
+  persona_name: string | null
+  avatar_url: string | null
+  profile_url: string | null
+  last_login_at: string | null
 }
 
 export default function AdminPage() {
@@ -21,6 +25,7 @@ export default function AdminPage() {
   const [loadingUsers, setLoadingUsers] = useState(true)
   const [newSteamId, setNewSteamId] = useState("")
   const [error, setError] = useState<string | null>(null)
+  const [refreshingId, setRefreshingId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!loading && !user) {
@@ -28,25 +33,23 @@ export default function AdminPage() {
     }
   }, [loading, user, router])
 
-  useEffect(() => {
-    async function loadUsers() {
-      try {
-        const res = await fetch("/api/admin/users")
-        if (res.status === 403) {
-          router.push("/dashboard")
-          return
-        }
-        if (!res.ok) throw new Error("Failed to load users")
-        const data = await res.json()
-        setUsers(data.users)
-      } catch {
-        setError("Failed to load users")
-      } finally {
-        setLoadingUsers(false)
-      }
+  const loadUsers = useCallback(async () => {
+    const res = await fetch("/api/admin/users")
+    if (res.status === 403) {
+      router.push("/dashboard")
+      return
     }
-    if (user) void loadUsers()
-  }, [user, router])
+    if (!res.ok) throw new Error("Failed to load users")
+    const data = await res.json()
+    setUsers(data.users)
+  }, [router])
+
+  useEffect(() => {
+    if (!user) return
+    loadUsers()
+      .catch(() => setError("Failed to load users"))
+      .finally(() => setLoadingUsers(false))
+  }, [user, loadUsers])
 
   const handleAdd = async () => {
     if (!/^\d{17}$/.test(newSteamId.trim())) {
@@ -65,13 +68,7 @@ export default function AdminPage() {
         throw new Error(data.error || "Failed to add user")
       }
       setNewSteamId("")
-      // Reload users
-      const res2 = await fetch("/api/admin/users")
-      if (!res2.ok) {
-        throw new Error("User added, but failed to reload users list")
-      }
-      const data = await res2.json()
-      setUsers(data.users)
+      await loadUsers()
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to add user")
     }
@@ -91,6 +88,24 @@ export default function AdminPage() {
       setUsers((prev) => prev.filter((u) => u.steam_id !== steamId))
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to remove user")
+    }
+  }
+
+  const handleRefresh = async (steamId: string) => {
+    setRefreshingId(steamId)
+    try {
+      const res = await fetch("/api/admin/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ steamId }),
+      })
+      if (res.ok) {
+        await loadUsers()
+      }
+    } catch {
+      // ignore
+    } finally {
+      setRefreshingId(null)
     }
   }
 
@@ -129,26 +144,68 @@ export default function AdminPage() {
           {users.map((u) => (
             <div
               key={u.steam_id}
-              className="border-surface-4 bg-surface-1 flex items-center justify-between rounded-lg border px-4 py-3"
+              className="border-surface-4 bg-surface-1 flex items-center gap-4 rounded-lg border px-4 py-3"
             >
-              <div>
-                <p className="text-sm font-medium">{u.steam_id}</p>
-                <p className="text-muted-foreground text-xs">
-                  Added {u.added_by === "env_seed" ? "from env var" : u.added_by ? `by ${u.added_by}` : "manually"} ·{" "}
-                  {new Date(u.added_at).toLocaleDateString()}
-                </p>
+              {u.avatar_url ? (
+                <img
+                  src={u.avatar_url}
+                  alt={`${u.persona_name || u.steam_id}'s avatar`}
+                  className="border-surface-4 h-10 w-10 rounded-full border"
+                />
+              ) : (
+                <div className="border-surface-4 bg-surface-2 h-10 w-10 rounded-full border" />
+              )}
+
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <p className="truncate text-sm font-medium">{u.persona_name || u.steam_id}</p>
+                  {u.profile_url && (
+                    <a href={u.profile_url} target="_blank" rel="noopener noreferrer" aria-label="Steam profile">
+                      <ExternalLink className="text-muted-foreground hover:text-foreground h-3.5 w-3.5" />
+                    </a>
+                  )}
+                </div>
+                <div className="text-muted-foreground flex flex-wrap gap-x-3 text-xs">
+                  <span>{u.steam_id}</span>
+                  <span>
+                    Added {u.added_by === "env_seed" ? "from env" : u.added_by ? `by ${u.added_by}` : "manually"}
+                  </span>
+                  {u.last_login_at && (
+                    <span>
+                      Last login{" "}
+                      {new Date(u.last_login_at).toLocaleDateString(undefined, {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </span>
+                  )}
+                </div>
               </div>
-              {u.steam_id !== user.steamId && (
+
+              <div className="flex items-center gap-1">
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => handleRemove(u.steam_id)}
-                  className="text-muted-foreground hover:text-destructive"
-                  aria-label={`Remove ${u.steam_id}`}
+                  onClick={() => handleRefresh(u.steam_id)}
+                  disabled={refreshingId === u.steam_id}
+                  className="text-muted-foreground hover:text-foreground"
+                  aria-label={`Refresh ${u.persona_name || u.steam_id}`}
                 >
-                  <Trash2 className="h-3.5 w-3.5" />
+                  <RefreshCw className={`h-3.5 w-3.5 ${refreshingId === u.steam_id ? "animate-spin" : ""}`} />
                 </Button>
-              )}
+                {u.steam_id !== user.steamId && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleRemove(u.steam_id)}
+                    className="text-muted-foreground hover:text-destructive"
+                    aria-label={`Remove ${u.persona_name || u.steam_id}`}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+              </div>
             </div>
           ))}
         </div>

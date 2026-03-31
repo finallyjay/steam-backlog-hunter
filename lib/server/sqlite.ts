@@ -250,6 +250,20 @@ const migrations: Array<(db: DatabaseSync) => void> = [
   (db) => {
     db.exec("DROP TABLE IF EXISTS tracked_games;")
   },
+
+  // Migration 7: Add avatar, profile URL, and last login to steam_profile
+  (db) => {
+    const addColumnIfMissing = (table: string, column: string, definition: string) => {
+      const cols = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>
+      if (!cols.some((c) => c.name === column)) {
+        db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition};`)
+      }
+    }
+
+    addColumnIfMissing("steam_profile", "avatar_url", "TEXT")
+    addColumnIfMissing("steam_profile", "profile_url", "TEXT")
+    addColumnIfMissing("steam_profile", "last_login_at", "TEXT")
+  },
 ]
 
 function runMigrations(db: DatabaseSync) {
