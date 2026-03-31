@@ -147,15 +147,18 @@ function InsightCard({
         </div>
       </div>
 
-      <div className="space-y-3">
-        {chartData.map((entry) => (
-          <MetricLegend
+      <div
+        className="grid gap-3 transition-[grid-template-rows] duration-300 ease-in-out"
+        style={{ gridTemplateRows: `repeat(${chartData.length}, 1fr)` }}
+      >
+        {chartData.map((entry, i) => (
+          <div
             key={entry.name}
-            label={entry.name}
-            value={entry.value}
-            color={entry.color}
-            href={links?.[entry.name]}
-          />
+            className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both"
+            style={{ animationDelay: `${i * 50}ms`, animationDuration: "300ms" }}
+          >
+            <MetricLegend label={entry.name} value={entry.value} color={entry.color} href={links?.[entry.name]} />
+          </div>
         ))}
       </div>
     </div>
@@ -233,7 +236,7 @@ export function DashboardInsights({ stats, loading = false }: DashboardInsightsP
     <div className="grid gap-6">
       <div className="grid gap-6 xl:grid-cols-2">
         <Card className="border-surface-4">
-          <CardHeader className="space-y-4">
+          <CardHeader>
             <div className="flex items-center gap-2 text-lg">
               <PieChartIcon className="text-accent h-5 w-5" />
               <CardTitle>Completion</CardTitle>
@@ -256,36 +259,38 @@ export function DashboardInsights({ stats, loading = false }: DashboardInsightsP
         </Card>
 
         <Card className="border-surface-4">
-          <CardHeader className="space-y-4">
-            <div className="flex items-center gap-2 text-lg">
-              <Trophy className="text-accent h-5 w-5" />
-              <CardTitle>All Library</CardTitle>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant={libraryMetric === "state" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setLibraryMetric("state")}
-                className={
-                  libraryMetric === "state"
-                    ? "bg-accent text-accent-foreground hover:bg-accent/90"
-                    : "text-muted-foreground hover:text-foreground border-surface-3 bg-surface-1 hover:bg-surface-3 border"
-                }
-              >
-                State
-              </Button>
-              <Button
-                variant={libraryMetric === "playtime" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setLibraryMetric("playtime")}
-                className={
-                  libraryMetric === "playtime"
-                    ? "bg-accent text-accent-foreground hover:bg-accent/90"
-                    : "text-muted-foreground hover:text-foreground border-surface-3 bg-surface-1 hover:bg-surface-3 border"
-                }
-              >
-                Playtime
-              </Button>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-lg">
+                <Trophy className="text-accent h-5 w-5" />
+                <CardTitle>All Library</CardTitle>
+              </div>
+              <div className="flex gap-1">
+                <Button
+                  variant={libraryMetric === "state" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setLibraryMetric("state")}
+                  className={
+                    libraryMetric === "state"
+                      ? "bg-accent text-accent-foreground hover:bg-accent/90 h-7 px-2.5 text-xs"
+                      : "text-muted-foreground hover:text-foreground border-surface-3 bg-surface-1 hover:bg-surface-3 h-7 border px-2.5 text-xs"
+                  }
+                >
+                  State
+                </Button>
+                <Button
+                  variant={libraryMetric === "playtime" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setLibraryMetric("playtime")}
+                  className={
+                    libraryMetric === "playtime"
+                      ? "bg-accent text-accent-foreground hover:bg-accent/90 h-7 px-2.5 text-xs"
+                      : "text-muted-foreground hover:text-foreground border-surface-3 bg-surface-1 hover:bg-surface-3 h-7 border px-2.5 text-xs"
+                  }
+                >
+                  Playtime
+                </Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
