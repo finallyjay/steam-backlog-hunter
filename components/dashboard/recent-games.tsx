@@ -13,12 +13,14 @@ export function RecentGames() {
 
   const handleHideGame = useCallback(async (appId: number) => {
     try {
-      await fetch("/api/steam/games/hide", {
+      const res = await fetch("/api/steam/games/hide", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ appId }),
       })
-      setLocallyHidden((prev) => new Set([...prev, appId]))
+      if (res.ok) {
+        setLocallyHidden((prev) => new Set([...prev, appId]))
+      }
     } catch {
       // ignore
     }

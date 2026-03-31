@@ -39,13 +39,13 @@ function getServerSnapshot() {
   return SERVER_SNAPSHOT
 }
 
-async function ensureCurrentUserLoaded(): Promise<void> {
+async function ensureCurrentUserLoaded(options?: { force?: boolean }): Promise<void> {
   if (inFlightRequest) {
     return inFlightRequest
   }
 
-  // Already loaded — skip redundant fetches on navigation
-  if (!currentUserState.loading) {
+  // Already loaded — skip redundant fetches on navigation (but allow forced revalidation)
+  if (!options?.force && !currentUserState.loading) {
     return
   }
 
@@ -84,7 +84,7 @@ async function ensureCurrentUserLoaded(): Promise<void> {
 
 async function revalidateCurrentUser(): Promise<void> {
   inFlightRequest = null
-  return ensureCurrentUserLoaded()
+  return ensureCurrentUserLoaded({ force: true })
 }
 
 export function clearCurrentUser() {
