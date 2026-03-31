@@ -8,6 +8,7 @@ import { useRouter, usePathname } from "next/navigation"
 import Link from "next/link"
 import React from "react"
 import { SyncStatusButton } from "@/components/dashboard/sync-status-button"
+import { clearCurrentUser } from "@/hooks/use-current-user"
 
 interface DashboardHeaderProps {
   user: SteamUser
@@ -50,6 +51,7 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
   const handleLogout = async () => {
     try {
       await fetch("/api/auth/logout", { method: "POST" })
+      clearCurrentUser()
       router.push("/")
     } catch (error) {
       console.error("Logout error:", error)
