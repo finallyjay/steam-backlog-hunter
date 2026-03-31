@@ -102,6 +102,17 @@ describe("DELETE /api/steam/games/hide", () => {
     expect(res.status).toBe(401)
   })
 
+  it("returns 400 for invalid JSON", async () => {
+    vi.mocked(getCurrentUser).mockResolvedValue(mockUser)
+    const res = await DELETE(
+      new Request("http://localhost/api/steam/games/hide", {
+        method: "DELETE",
+        body: "not json",
+      }),
+    )
+    expect(res.status).toBe(400)
+  })
+
   it("returns 400 for invalid appId", async () => {
     vi.mocked(getCurrentUser).mockResolvedValue(mockUser)
     const res = await DELETE(

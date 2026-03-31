@@ -5,7 +5,7 @@ import { logger } from "@/lib/server/logger"
 
 function parseAppId(body: unknown): number | null {
   const appId = Number((body as { appId?: unknown })?.appId)
-  if (!Number.isInteger(appId) || appId <= 0) return null
+  if (!Number.isSafeInteger(appId) || appId <= 0) return null
   return appId
 }
 

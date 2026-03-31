@@ -14,7 +14,7 @@ vi.mock("@/lib/server/sqlite", () => ({
   }),
 }))
 
-import { getSteamWhitelist, isSteamIdWhitelisted } from "@/lib/whitelist"
+import { getSteamWhitelist, isSteamIdWhitelisted, _resetEnvWhitelistCache } from "@/lib/whitelist"
 
 const ORIGINAL_ENV = process.env.STEAM_WHITELIST_IDS
 
@@ -25,6 +25,7 @@ describe("whitelist", () => {
     } else {
       process.env.STEAM_WHITELIST_IDS = ORIGINAL_ENV
     }
+    _resetEnvWhitelistCache()
   })
 
   it("parses ids from comma-separated env value", () => {
