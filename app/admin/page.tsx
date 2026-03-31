@@ -67,8 +67,10 @@ export default function AdminPage() {
       setNewSteamId("")
       // Reload users
       const res2 = await fetch("/api/admin/users")
-      const data = await res2.json()
-      setUsers(data.users)
+      if (res2.ok) {
+        const data = await res2.json()
+        setUsers(data.users)
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to add user")
     }
@@ -110,6 +112,7 @@ export default function AdminPage() {
           value={newSteamId}
           onChange={(e) => setNewSteamId(e.target.value)}
           placeholder="Steam64 ID (17 digits)"
+          aria-label="Steam64 ID"
           className="border-surface-4 bg-surface-1 text-foreground placeholder:text-muted-foreground focus:border-accent rounded-md border px-3 py-2 text-sm focus:outline-none"
         />
         <Button size="sm" onClick={handleAdd} className="gap-1.5">
@@ -130,7 +133,7 @@ export default function AdminPage() {
               <div>
                 <p className="text-sm font-medium">{u.steam_id}</p>
                 <p className="text-muted-foreground text-xs">
-                  Added {u.added_by === "env_seed" ? "from env var" : `by ${u.added_by}`} ·{" "}
+                  Added {u.added_by === "env_seed" ? "from env var" : u.added_by ? `by ${u.added_by}` : "manually"} ·{" "}
                   {new Date(u.added_at).toLocaleDateString()}
                 </p>
               </div>
@@ -140,6 +143,7 @@ export default function AdminPage() {
                   size="sm"
                   onClick={() => handleRemove(u.steam_id)}
                   className="text-muted-foreground hover:text-destructive"
+                  aria-label={`Remove ${u.steam_id}`}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
