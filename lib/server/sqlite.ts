@@ -257,6 +257,11 @@ const migrations: Array<(db: DatabaseSync) => void> = [
       }
     }
   },
+
+  // Migration 6: Drop legacy tracked_games table (concept removed)
+  (db) => {
+    db.exec("DROP TABLE IF EXISTS tracked_games;")
+  },
 ]
 
 function runMigrations(db: DatabaseSync) {
