@@ -12,7 +12,7 @@ import { usePageTitle } from "@/components/ui/page-title-context"
 import type { SteamAchievementView } from "@/lib/types/steam"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
-import { ExternalLink, Lock, Trophy } from "lucide-react"
+import { ExternalLink, Lock, RefreshCw, Trophy } from "lucide-react"
 import { formatPlaytime } from "@/lib/utils"
 
 type AchievementTab = "pending" | "unlocked"
@@ -33,6 +33,8 @@ export default function GameDetailPage() {
   const router = useRouter()
   const { setTitle } = usePageTitle()
   const [activeTab, setActiveTab] = useState<AchievementTab>("pending")
+  const [syncing, setSyncing] = useState(false)
+  const [syncedAchievements, setSyncedAchievements] = useState<SteamAchievementView[] | null>(null)
 
   const game = games.find((g) => g.appid === appId)
 
@@ -53,7 +55,26 @@ export default function GameDetailPage() {
     }
   }, [loadingUser, router, user])
 
-  const allAchievements = useMemo(() => (Array.isArray(achievements) ? achievements : []), [achievements])
+  const handleSync = async () => {
+    setSyncing(true)
+    try {
+      const res = await fetch(`/api/steam/game/${appId}/sync`, { method: "POST" })
+      if (res.ok) {
+        const data = await res.json()
+        setSyncedAchievements(data.achievements ?? [])
+      }
+    } catch {
+      // ignore
+    } finally {
+      setSyncing(false)
+    }
+  }
+
+  const effectiveAchievements = syncedAchievements ?? achievements
+  const allAchievements = useMemo(
+    () => (Array.isArray(effectiveAchievements) ? effectiveAchievements : []),
+    [effectiveAchievements],
+  )
   const pending = useMemo(
     () => allAchievements.filter((a) => !a.achieved).sort(sortByUnlockDateDesc),
     [allAchievements],
@@ -124,6 +145,10 @@ export default function GameDetailPage() {
                     Steam Store
                   </Button>
                 </a>
+                <Button variant="outline" size="sm" className="gap-2" onClick={handleSync} disabled={syncing}>
+                  <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
+                  {syncing ? "Syncing..." : "Update achievements"}
+                </Button>
               </div>
             </div>
           </div>
