@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useCurrentUser } from "@/hooks/use-current-user"
 import { LibraryOverview } from "@/components/dashboard/library-overview"
 import { PageContainer } from "@/components/ui/page-container"
-import { LoadingMessage } from "@/components/ui/loading-message"
+import { LibrarySkeleton } from "@/components/skeletons/library-skeleton"
 
 export default function GamesPage() {
   const { user, loading } = useCurrentUser()
@@ -24,7 +24,7 @@ export default function GamesPage() {
   }, [loading, router, user])
 
   if (loading) {
-    return <LoadingMessage />
+    return <LibrarySkeleton />
   }
   if (!user) {
     return null
