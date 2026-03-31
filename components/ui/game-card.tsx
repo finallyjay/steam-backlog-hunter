@@ -80,7 +80,7 @@ export function GameCard({
             e.stopPropagation()
             onHide(Number(id))
           }}
-          className="bg-background/80 text-muted-foreground hover:text-foreground absolute top-2 right-2 z-10 rounded-md p-1.5 opacity-0 transition-opacity group-hover:opacity-100"
+          className="bg-background/80 text-muted-foreground hover:text-foreground pointer-events-none absolute top-2 right-2 z-10 rounded-md p-1.5 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100"
           aria-label={`Hide ${name}`}
         >
           <EyeOff className="h-3.5 w-3.5" />

@@ -170,6 +170,9 @@ describe("GameCard", () => {
 
     const hideButton = container.querySelector("button[aria-label='Hide CS2']")
     expect(hideButton).toBeInTheDocument()
+    expect(hideButton?.className).toContain("focus-visible:opacity-100")
+    expect(hideButton?.className).toContain("pointer-events-none")
+    expect(hideButton?.className).toContain("group-hover:pointer-events-auto")
     fireEvent.click(hideButton!)
 
     expect(onHide).toHaveBeenCalledWith(730)

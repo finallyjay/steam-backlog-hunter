@@ -43,7 +43,11 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       <footer className="border-surface-4 border-t py-8">
         <div className="container mx-auto flex flex-col items-center gap-3 px-4 text-center">
           <p className="text-muted-foreground text-sm">
-            Made with <span className="text-accent">❤</span> by{" "}
+            Made with{" "}
+            <span className="text-accent" aria-hidden="true">
+              ❤
+            </span>
+            <span className="sr-only">love</span> by{" "}
             <a
               href="https://github.com/finallyjay"
               target="_blank"
