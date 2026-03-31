@@ -9,7 +9,7 @@ import { RecentGames } from "@/components/dashboard/recent-games"
 import { DashboardInsights } from "@/components/dashboard/dashboard-insights"
 import { PageContainer } from "@/components/ui/page-container"
 import { usePageTitle } from "@/components/ui/page-title-context"
-import { LoadingMessage } from "@/components/ui/loading-message"
+import { DashboardSkeleton } from "@/components/skeletons/dashboard-skeleton"
 import { useSteamStats } from "@/hooks/use-steam-data"
 import { useSyncStatus } from "@/components/dashboard/sync-status-button"
 
@@ -31,8 +31,8 @@ export default function DashboardPage() {
     }
   }, [loading, router, user])
 
-  if (loading) {
-    return <LoadingMessage />
+  if (loading || statsLoading) {
+    return <DashboardSkeleton />
   }
   if (!user) {
     return null
