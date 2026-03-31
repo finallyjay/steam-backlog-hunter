@@ -21,17 +21,22 @@ vi.mock("@/app/lib/server-auth", () => ({
 }))
 
 vi.mock("@/lib/server/steam-games-sync", () => ({
-  getStoredGame: vi.fn(),
+  getStoredGameForUser: vi.fn(),
 }))
 
 vi.mock("@/lib/server/steam-achievements-sync", () => ({
   getAchievementsForGame: vi.fn(),
 }))
 
+vi.mock("@/lib/server/rate-limit", () => ({
+  rateLimit: vi.fn().mockReturnValue({ success: true, remaining: 9 }),
+}))
+
 import { POST } from "@/app/api/steam/game/[id]/sync/route"
 import { getCurrentUser } from "@/app/lib/server-auth"
-import { getStoredGame } from "@/lib/server/steam-games-sync"
+import { getStoredGameForUser } from "@/lib/server/steam-games-sync"
 import { getAchievementsForGame } from "@/lib/server/steam-achievements-sync"
+import { rateLimit } from "@/lib/server/rate-limit"
 
 const mockUser = {
   steamId: "76561198000000001",
@@ -73,9 +78,20 @@ describe("POST /api/steam/game/:id/sync", () => {
     expect(response.status).toBe(400)
   })
 
+  it("returns 429 when rate limited", async () => {
+    vi.mocked(getCurrentUser).mockResolvedValue(mockUser)
+    vi.mocked(rateLimit).mockReturnValueOnce({ success: false, remaining: 0 })
+
+    const response = await POST(makeRequest("730"), { params: Promise.resolve({ id: "730" }) })
+    const body = (await response.json()) as { error: string }
+
+    expect(response.status).toBe(429)
+    expect(body.error).toBe("Too many requests")
+  })
+
   it("returns 404 when game is not found", async () => {
     vi.mocked(getCurrentUser).mockResolvedValue(mockUser)
-    vi.mocked(getStoredGame).mockReturnValue(null)
+    vi.mocked(getStoredGameForUser).mockResolvedValue(null)
 
     const response = await POST(makeRequest("99999"), { params: Promise.resolve({ id: "99999" }) })
     const body = (await response.json()) as { error: string }
@@ -86,7 +102,7 @@ describe("POST /api/steam/game/:id/sync", () => {
 
   it("returns updated achievements on successful sync", async () => {
     vi.mocked(getCurrentUser).mockResolvedValue(mockUser)
-    vi.mocked(getStoredGame).mockReturnValue({ appid: 730, name: "CS2" } as never)
+    vi.mocked(getStoredGameForUser).mockResolvedValue({ appid: 730, name: "CS2" } as never)
     vi.mocked(getAchievementsForGame).mockResolvedValue({
       steamID: mockUser.steamId,
       gameName: "CS2",
@@ -113,16 +129,15 @@ describe("POST /api/steam/game/:id/sync", () => {
     expect(getAchievementsForGame).toHaveBeenCalledWith(mockUser.steamId, 730, { forceRefresh: true })
   })
 
-  it("returns empty achievements when game has no achievements", async () => {
+  it("returns 502 when Steam API fails to return achievements", async () => {
     vi.mocked(getCurrentUser).mockResolvedValue(mockUser)
-    vi.mocked(getStoredGame).mockReturnValue({ appid: 440, name: "TF2" } as never)
+    vi.mocked(getStoredGameForUser).mockResolvedValue({ appid: 440, name: "TF2" } as never)
     vi.mocked(getAchievementsForGame).mockResolvedValue(null)
 
     const response = await POST(makeRequest("440"), { params: Promise.resolve({ id: "440" }) })
-    const body = (await response.json()) as { achievements: unknown[]; gameName: string }
+    const body = (await response.json()) as { error: string }
 
-    expect(response.status).toBe(200)
-    expect(body.gameName).toBe("TF2")
-    expect(body.achievements).toEqual([])
+    expect(response.status).toBe(502)
+    expect(body.error).toBe("Failed to fetch achievements from Steam")
   })
 })

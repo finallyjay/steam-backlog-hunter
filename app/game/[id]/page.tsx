@@ -35,6 +35,7 @@ export default function GameDetailPage() {
   const [activeTab, setActiveTab] = useState<AchievementTab>("pending")
   const [syncing, setSyncing] = useState(false)
   const [syncedAchievements, setSyncedAchievements] = useState<SteamAchievementView[] | null>(null)
+  const [syncError, setSyncError] = useState<string | null>(null)
 
   const game = games.find((g) => g.appid === appId)
 
@@ -57,14 +58,18 @@ export default function GameDetailPage() {
 
   const handleSync = async () => {
     setSyncing(true)
+    setSyncError(null)
     try {
       const res = await fetch(`/api/steam/game/${appId}/sync`, { method: "POST" })
       if (res.ok) {
         const data = await res.json()
         setSyncedAchievements(data.achievements ?? [])
+      } else {
+        const data = await res.json().catch(() => null)
+        setSyncError(data?.error ?? "Sync failed")
       }
     } catch {
-      // ignore
+      setSyncError("Network error")
     } finally {
       setSyncing(false)
     }
@@ -149,6 +154,7 @@ export default function GameDetailPage() {
                   <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
                   {syncing ? "Syncing..." : "Update achievements"}
                 </Button>
+                {syncError && <span className="text-destructive text-sm">{syncError}</span>}
               </div>
             </div>
           </div>
@@ -199,7 +205,7 @@ export default function GameDetailPage() {
                   </div>
                 ))}
               </div>
-            ) : errorAchievements ? (
+            ) : errorAchievements && !syncedAchievements ? (
               <EmptyState message="Could not load achievements." />
             ) : displayList.length === 0 ? (
               <EmptyState

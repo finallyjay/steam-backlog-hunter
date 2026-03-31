@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { getCurrentUser } from "@/app/lib/server-auth"
 import { rateLimit } from "@/lib/server/rate-limit"
 import { getAchievementsForGame } from "@/lib/server/steam-achievements-sync"
-import { getStoredGame } from "@/lib/server/steam-games-sync"
+import { getStoredGameForUser } from "@/lib/server/steam-games-sync"
 
 /**
  * POST /api/steam/game/:id/sync
@@ -15,6 +15,8 @@ import { getStoredGame } from "@/lib/server/steam-games-sync"
  * @throws 400 - Valid App ID required
  * @throws 401 - Unauthorized
  * @throws 404 - Game not found
+ * @throws 429 - Too many requests
+ * @throws 502 - Failed to fetch achievements from Steam
  */
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser()
@@ -33,7 +35,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "Too many requests" }, { status: 429 })
   }
 
-  const game = getStoredGame(user.steamId, appId)
+  const game = await getStoredGameForUser(user.steamId, appId)
   if (!game) {
     return NextResponse.json({ error: "Game not found" }, { status: 404 })
   }
@@ -41,7 +43,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   const result = await getAchievementsForGame(user.steamId, appId, { forceRefresh: true })
 
   if (!result) {
-    return NextResponse.json({ achievements: [], gameName: game.name })
+    return NextResponse.json({ error: "Failed to fetch achievements from Steam" }, { status: 502 })
   }
 
   return NextResponse.json({

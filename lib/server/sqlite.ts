@@ -103,17 +103,6 @@ function createBaseSchema(db: DatabaseSync) {
       FOREIGN KEY (steam_id) REFERENCES steam_profile(steam_id)
     );
 
-    CREATE TABLE IF NOT EXISTS tracked_games (
-      steam_id TEXT NOT NULL,
-      appid INTEGER NOT NULL,
-      source TEXT NOT NULL DEFAULT 'seed',
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL,
-      PRIMARY KEY (steam_id, appid),
-      FOREIGN KEY (appid) REFERENCES games(appid),
-      FOREIGN KEY (steam_id) REFERENCES steam_profile(steam_id)
-    );
-
     CREATE TABLE IF NOT EXISTS hidden_games (
       steam_id TEXT NOT NULL,
       appid INTEGER NOT NULL,
@@ -131,7 +120,6 @@ function createBaseSchema(db: DatabaseSync) {
     CREATE INDEX IF NOT EXISTS idx_user_games_steam_id ON user_games(steam_id);
     CREATE INDEX IF NOT EXISTS idx_user_games_steam_id_owned ON user_games(steam_id, owned);
     CREATE INDEX IF NOT EXISTS idx_stats_snapshot_steam_id ON stats_snapshot(steam_id);
-    CREATE INDEX IF NOT EXISTS idx_tracked_games_steam_id ON tracked_games(steam_id);
   `)
 }
 
@@ -165,8 +153,8 @@ const migrations: Array<(db: DatabaseSync) => void> = [
   // Migration 2: Migrate tracked_games to per-user schema (add steam_id to PK)
   (db) => {
     const cols = db.prepare("PRAGMA table_info(tracked_games)").all() as Array<{ name: string }>
-    if (cols.some((c) => c.name === "steam_id")) {
-      return // Already has steam_id — nothing to do
+    if (cols.length === 0 || cols.some((c) => c.name === "steam_id")) {
+      return // Table doesn't exist or already has steam_id — nothing to do
     }
 
     db.exec(`

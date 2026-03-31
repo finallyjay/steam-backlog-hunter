@@ -259,6 +259,7 @@ export async function getRecentlyPlayedGamesForUser(steamId: string, options?: {
     FROM user_games ug
     INNER JOIN games g ON g.appid = ug.appid
     WHERE ug.steam_id = ? AND ug.owned = 1 AND ug.rtime_last_played > 0
+      AND NOT EXISTS (SELECT 1 FROM hidden_games hg WHERE hg.steam_id = ug.steam_id AND hg.appid = ug.appid)
     ORDER BY ug.rtime_last_played DESC
     LIMIT ${RECENT_GAMES_LIMIT}
   `,
