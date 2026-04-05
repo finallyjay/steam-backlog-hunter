@@ -190,17 +190,17 @@ export function DashboardInsights({ stats, loading = false }: DashboardInsightsP
   const libraryModel = useMemo(() => {
     if (libraryMetric === "playtime") {
       const bands = [
-        { name: "0h", value: 0 },
-        { name: "<10h", value: 0 },
-        { name: "10-50h", value: 0 },
-        { name: "50h+", value: 0 },
+        { name: "<1h", value: 0 },
+        { name: "1-5h", value: 0 },
+        { name: "5-25h", value: 0 },
+        { name: "25h+", value: 0 },
       ]
 
       for (const game of allGames) {
         const hours = game.playtime_forever / 60
-        if (hours === 0) bands[0].value += 1
-        else if (hours < 10) bands[1].value += 1
-        else if (hours < 50) bands[2].value += 1
+        if (hours < 1) bands[0].value += 1
+        else if (hours < 5) bands[1].value += 1
+        else if (hours < 25) bands[2].value += 1
         else bands[3].value += 1
       }
 
@@ -209,7 +209,7 @@ export function DashboardInsights({ stats, loading = false }: DashboardInsightsP
         data: bands,
         insight:
           allGames.length > 0
-            ? `${bands[0].value} games remain untouched, while ${bands[3].value} already have 50+ hours logged.`
+            ? `${bands[0].value} games under 1 hour, ${bands[3].value} with 25+ hours logged.`
             : "Load the full library to reveal playtime bands.",
         chartKind: "bars" as const,
       }
