@@ -14,7 +14,11 @@ export const metadata: Metadata = {
     title: "Steam Backlog Hunter",
     description: "Track your Steam backlog, monitor achievement progress, and hunt down completions.",
     type: "website",
+    url: "/",
     images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "Steam Backlog Hunter" }],
+  },
+  other: {
+    "og:logo": "/icon.svg",
   },
   twitter: {
     card: "summary_large_image",
