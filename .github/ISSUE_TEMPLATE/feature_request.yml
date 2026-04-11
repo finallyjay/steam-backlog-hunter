@@ -1,0 +1,42 @@
+name: Feature request
+description: Suggest a new capability, improvement, or refactor
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template for anything that isn't a bug — new features, UX improvements, refactors, or infrastructure changes. Focus on the *why* more than the *what*.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem is this solving?
+      description: The situation that makes this worth doing. "Users can't X" or "Every sync takes Y minutes because Z".
+      placeholder: "First-time sync on a 1000-game library takes ~5 minutes because we fetch achievements one game at a time."
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed approach
+      description: How you'd solve it. Sketch is fine — doesn't need to be a full design.
+      placeholder: "Use the undocumented GetTopAchievementsForGames endpoint to batch ~100 appids per request."
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other approaches you thought about and why they're worse. Helps avoid re-litigating dead ends.
+    validations:
+      required: false
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact / tradeoffs
+      description: What breaks, what migrates, what gets worse. Be honest about the tradeoffs.
+    validations:
+      required: false

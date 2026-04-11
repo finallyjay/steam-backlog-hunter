@@ -21,19 +21,19 @@ function getDatabasePath() {
 }
 
 /**
- * Base schema — only runs on fresh databases (no tables exist yet).
- * For existing databases, numbered migrations handle all changes.
+ * Creates every table the app needs.
+ *
+ * All statements use `CREATE TABLE IF NOT EXISTS`, so this runs on every
+ * startup as an idempotent no-op once the schema is in place. Since this
+ * project is not in production, legacy-column migrations have been dropped
+ * in favour of this single authoritative schema — existing sqlite files
+ * must be deleted before deploying changes that reshape the schema.
  */
 function createBaseSchema(db: DatabaseSync) {
   db.exec(`
     PRAGMA journal_mode = WAL;
     PRAGMA synchronous = NORMAL;
     PRAGMA foreign_keys = ON;
-
-    CREATE TABLE IF NOT EXISTS schema_migrations (
-      version INTEGER PRIMARY KEY,
-      applied_at TEXT NOT NULL
-    );
 
     CREATE TABLE IF NOT EXISTS steam_profile (
       steam_id TEXT PRIMARY KEY,
@@ -57,7 +57,6 @@ function createBaseSchema(db: DatabaseSync) {
       image_portrait_url TEXT,
       images_synced_at TEXT,
       has_community_visible_stats INTEGER,
-      schema_json TEXT,
       schema_synced_at TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
@@ -75,7 +74,6 @@ function createBaseSchema(db: DatabaseSync) {
       unlocked_count INTEGER,
       total_count INTEGER,
       perfect_game INTEGER NOT NULL DEFAULT 0,
-      achievements_json TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
       PRIMARY KEY (steam_id, appid),
@@ -120,6 +118,34 @@ function createBaseSchema(db: DatabaseSync) {
       added_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS game_achievements (
+      appid INTEGER NOT NULL,
+      apiname TEXT NOT NULL,
+      display_name TEXT,
+      description TEXT,
+      icon TEXT,
+      icon_gray TEXT,
+      hidden INTEGER NOT NULL DEFAULT 0,
+      global_percent REAL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (appid, apiname),
+      FOREIGN KEY (appid) REFERENCES games(appid)
+    );
+
+    CREATE TABLE IF NOT EXISTS user_achievements (
+      steam_id TEXT NOT NULL,
+      appid INTEGER NOT NULL,
+      apiname TEXT NOT NULL,
+      achieved INTEGER NOT NULL DEFAULT 0,
+      unlock_time INTEGER,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (steam_id, appid, apiname),
+      FOREIGN KEY (steam_id) REFERENCES steam_profile(steam_id),
+      FOREIGN KEY (appid) REFERENCES games(appid)
+    );
+
     CREATE INDEX IF NOT EXISTS idx_user_games_steam_id ON user_games(steam_id);
     CREATE INDEX IF NOT EXISTS idx_user_games_steam_id_owned ON user_games(steam_id, owned);
     CREATE INDEX IF NOT EXISTS idx_stats_snapshot_steam_id ON stats_snapshot(steam_id);
@@ -127,191 +153,27 @@ function createBaseSchema(db: DatabaseSync) {
 }
 
 /**
- * Each migration is a function that receives the db and runs exactly once.
- * Add new migrations at the end of the array. Never modify existing ones.
+ * Seeds `allowed_users` from the STEAM_WHITELIST_IDS environment variable.
+ *
+ * Idempotent (INSERT OR IGNORE) and runs on every database open — cheap
+ * enough to keep out of any migration machinery.
  */
-const migrations: Array<(db: DatabaseSync) => void> = [
-  // Migration 1: Add columns that may be missing on legacy databases
-  (db) => {
-    const addColumnIfMissing = (table: string, column: string, definition: string) => {
-      const cols = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>
-      if (!cols.some((c) => c.name === column)) {
-        db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition};`)
-      }
-    }
+function seedAllowedUsersFromEnv(db: DatabaseSync) {
+  const rawWhitelist = process.env.STEAM_WHITELIST_IDS
+  if (!rawWhitelist) return
 
-    addColumnIfMissing("stats_snapshot", "pending_achievements", "INTEGER NOT NULL DEFAULT 0")
-    addColumnIfMissing("stats_snapshot", "started_games", "INTEGER NOT NULL DEFAULT 0")
-    addColumnIfMissing("stats_snapshot", "steam_average_completion", "REAL NOT NULL DEFAULT 0")
-    addColumnIfMissing("stats_snapshot", "library_average_completion", "REAL NOT NULL DEFAULT 0")
-    addColumnIfMissing("games", "header_image_url", "TEXT")
-    addColumnIfMissing("games", "header_image_synced_at", "TEXT")
-    addColumnIfMissing("games", "image_icon_url", "TEXT")
-    addColumnIfMissing("games", "image_landscape_url", "TEXT")
-    addColumnIfMissing("games", "image_portrait_url", "TEXT")
-    addColumnIfMissing("games", "images_synced_at", "TEXT")
-    addColumnIfMissing("user_games", "rtime_last_played", "INTEGER")
-  },
+  const ids = rawWhitelist
+    .split(",")
+    .map((id) => id.trim())
+    .filter((id) => /^\d{17}$/.test(id))
+  if (ids.length === 0) return
 
-  // Migration 2: Migrate tracked_games to per-user schema (add steam_id to PK)
-  (db) => {
-    const cols = db.prepare("PRAGMA table_info(tracked_games)").all() as Array<{ name: string }>
-    if (cols.length === 0 || cols.some((c) => c.name === "steam_id")) {
-      return // Table doesn't exist or already has steam_id — nothing to do
-    }
-
-    db.exec(`
-      CREATE TABLE tracked_games_new (
-        steam_id TEXT NOT NULL,
-        appid INTEGER NOT NULL,
-        source TEXT NOT NULL DEFAULT 'seed',
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL,
-        PRIMARY KEY (steam_id, appid),
-        FOREIGN KEY (appid) REFERENCES games(appid),
-        FOREIGN KEY (steam_id) REFERENCES steam_profile(steam_id)
-      );
-    `)
-
-    const profile = db.prepare("SELECT steam_id FROM steam_profile LIMIT 1").get() as { steam_id: string } | undefined
-    if (profile) {
-      const rows = db.prepare("SELECT appid, source, created_at, updated_at FROM tracked_games").all() as Array<{
-        appid: number
-        source: string
-        created_at: string
-        updated_at: string
-      }>
-      const insert = db.prepare(
-        "INSERT INTO tracked_games_new (steam_id, appid, source, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
-      )
-      for (const row of rows) {
-        insert.run(profile.steam_id, row.appid, row.source, row.created_at, row.updated_at)
-      }
-    }
-
-    db.exec(`
-      DROP TABLE tracked_games;
-      ALTER TABLE tracked_games_new RENAME TO tracked_games;
-      CREATE INDEX IF NOT EXISTS idx_tracked_games_steam_id ON tracked_games(steam_id);
-    `)
-  },
-
-  // Migration 3: Reset achievements_synced_at for games with total_count=0
-  // so they get re-discovered after removing the tracked games system.
-  // Games that truly have no achievements will be marked again with empty
-  // achievements (total_count stays 0, achievements_synced_at gets set).
-  (db) => {
-    db.prepare(
-      `
-      UPDATE user_games
-      SET achievements_synced_at = NULL
-      WHERE total_count = 0 AND achievements_synced_at IS NOT NULL
-    `,
-    ).run()
-  },
-
-  // Migration 4: Create hidden_games table for game blacklist
-  (db) => {
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS hidden_games (
-        steam_id TEXT NOT NULL,
-        appid INTEGER NOT NULL,
-        hidden_at TEXT NOT NULL,
-        PRIMARY KEY (steam_id, appid),
-        FOREIGN KEY (steam_id) REFERENCES steam_profile(steam_id)
-      );
-    `)
-  },
-
-  // Migration 5: Create allowed_users table and seed from env var
-  (db) => {
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS allowed_users (
-        steam_id TEXT PRIMARY KEY,
-        added_by TEXT,
-        added_at TEXT NOT NULL
-      );
-    `)
-
-    const rawWhitelist = process.env.STEAM_WHITELIST_IDS
-    if (rawWhitelist) {
-      const now = new Date().toISOString()
-      const ids = rawWhitelist
-        .split(",")
-        .map((id) => id.trim())
-        .filter((id) => /^\d{17}$/.test(id))
-      const insert = db.prepare(
-        "INSERT OR IGNORE INTO allowed_users (steam_id, added_by, added_at) VALUES (?, 'env_seed', ?)",
-      )
-      for (const id of ids) {
-        insert.run(id, now)
-      }
-    }
-  },
-
-  // Migration 6: Drop legacy tracked_games table (concept removed)
-  (db) => {
-    db.exec("DROP TABLE IF EXISTS tracked_games;")
-  },
-
-  // Migration 7: Add avatar, profile URL, and last login to steam_profile
-  (db) => {
-    const addColumnIfMissing = (table: string, column: string, definition: string) => {
-      const cols = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>
-      if (!cols.some((c) => c.name === column)) {
-        db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition};`)
-      }
-    }
-
-    addColumnIfMissing("steam_profile", "avatar_url", "TEXT")
-    addColumnIfMissing("steam_profile", "profile_url", "TEXT")
-    addColumnIfMissing("steam_profile", "last_login_at", "TEXT")
-  },
-]
-
-function runMigrations(db: DatabaseSync) {
-  // Ensure schema_migrations table exists (for databases created before this system)
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS schema_migrations (
-      version INTEGER PRIMARY KEY,
-      applied_at TEXT NOT NULL
-    );
-  `)
-
-  const applied = db.prepare("SELECT version FROM schema_migrations ORDER BY version").all() as Array<{
-    version: number
-  }>
-  const appliedSet = new Set(applied.map((r) => r.version))
-  const pending = migrations.length - appliedSet.size
-
-  if (pending <= 0) {
-    return
-  }
-
-  console.info(`[sqlite] ${pending} pending migration(s) to apply`)
-
-  for (let i = 0; i < migrations.length; i++) {
-    const version = i + 1
-    if (appliedSet.has(version)) {
-      continue
-    }
-
-    console.info(`[sqlite] Applying migration ${version}...`)
-    db.exec("BEGIN")
-    try {
-      migrations[i](db)
-      db.prepare("INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)").run(
-        version,
-        new Date().toISOString(),
-      )
-      db.exec("COMMIT")
-      console.info(`[sqlite] Migration ${version} applied successfully`)
-    } catch (error) {
-      db.exec("ROLLBACK")
-      const msg = `Migration ${version} failed: ${error instanceof Error ? error.message : error}`
-      console.error(`[sqlite] ${msg}`)
-      throw new Error(msg)
-    }
+  const now = new Date().toISOString()
+  const insert = db.prepare(
+    "INSERT OR IGNORE INTO allowed_users (steam_id, added_by, added_at) VALUES (?, 'env_seed', ?)",
+  )
+  for (const id of ids) {
+    insert.run(id, now)
   }
 }
 
@@ -325,7 +187,7 @@ export function getSqliteDatabase() {
 
   database = new DatabaseSync(dbPath)
   createBaseSchema(database)
-  runMigrations(database)
+  seedAllowedUsersFromEnv(database)
 
   return database
 }
