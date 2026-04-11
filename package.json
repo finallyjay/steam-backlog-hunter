@@ -9,6 +9,7 @@
     "format:check": "prettier --check .",
     "lint": "pnpm exec eslint . && pnpm typecheck",
     "test": "pnpm exec vitest run",
+    "test:coverage": "pnpm exec vitest run --coverage",
     "typecheck": "pnpm exec next typegen && pnpm exec tsc --noEmit",
     "prepare": "husky",
     "start": "node .next/standalone/server.js"
