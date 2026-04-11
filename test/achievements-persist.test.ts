@@ -130,6 +130,27 @@ describe("persistAchievements (post-cleanup)", () => {
     expect(rows).toEqual([{ apiname: "A" }])
   })
 
+  it("dedupes duplicate apinames within a single persist call", async () => {
+    const db = await seedProfileAndGame()
+    const { persistAchievements } = await import("@/lib/server/steam-achievements-sync")
+
+    persistAchievements(STEAM_ID, APPID, [
+      { apiname: "ACH_ONE", achieved: 1, unlocktime: 1_700_000_000 },
+      { apiname: "ACH_ONE", achieved: 1, unlocktime: 1_700_000_500 },
+      { apiname: "ACH_TWO", achieved: 1, unlocktime: 1_700_000_600 },
+    ])
+
+    const rows = db
+      .prepare("SELECT apiname FROM user_achievements WHERE steam_id = ? AND appid = ? ORDER BY apiname")
+      .all(STEAM_ID, APPID) as Array<{ apiname: string }>
+    expect(rows).toEqual([{ apiname: "ACH_ONE" }, { apiname: "ACH_TWO" }])
+
+    const meta = db.prepare("SELECT unlocked_count FROM user_games WHERE appid = ?").get(APPID) as {
+      unlocked_count: number
+    }
+    expect(meta.unlocked_count).toBe(2)
+  })
+
   it("empty array marks game as broken/retired (total_count=0, synced_at set)", async () => {
     const db = await seedProfileAndGame()
     const { persistAchievements } = await import("@/lib/server/steam-achievements-sync")
