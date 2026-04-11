@@ -30,6 +30,7 @@ type SchemaAchievement = {
   description?: string
   icon?: string
   icongray?: string
+  hidden?: number
 }
 
 type GameSchema = {
@@ -82,7 +83,12 @@ export function getBatchStoredAchievements(steamId: string, appIds: number[]): R
   return result
 }
 
-/** Saves achievement data to SQLite, computing unlocked/total counts and perfect game status. */
+/**
+ * Saves achievement data to SQLite, computing unlocked/total counts and perfect game status.
+ *
+ * Dual-writes into both the legacy `user_games.achievements_json` blob and the
+ * normalized `user_achievements` table while the read path is being migrated.
+ */
 export function persistAchievements(steamId: string, appId: number, achievements: SteamAchievementView[]) {
   const db = getSqliteDatabase()
   const now = nowIso()
@@ -90,31 +96,102 @@ export function persistAchievements(steamId: string, appId: number, achievements
   const totalCount = achievements.length
   const perfectGame = totalCount > 0 && unlockedCount === totalCount ? 1 : 0
 
-  db.prepare(
-    `
-    UPDATE user_games
-    SET
-      achievements_json = ?,
-      achievements_synced_at = ?,
-      unlocked_count = ?,
-      total_count = ?,
-      perfect_game = ?,
-      updated_at = ?
-    WHERE steam_id = ? AND appid = ? AND owned = 1
-  `,
-  ).run(JSON.stringify(achievements), now, unlockedCount, totalCount, perfectGame, now, steamId, appId)
+  db.exec("BEGIN")
+  try {
+    db.prepare(
+      `
+      UPDATE user_games
+      SET
+        achievements_json = ?,
+        achievements_synced_at = ?,
+        unlocked_count = ?,
+        total_count = ?,
+        perfect_game = ?,
+        updated_at = ?
+      WHERE steam_id = ? AND appid = ? AND owned = 1
+    `,
+    ).run(JSON.stringify(achievements), now, unlockedCount, totalCount, perfectGame, now, steamId, appId)
+
+    db.prepare(`DELETE FROM user_achievements WHERE steam_id = ? AND appid = ?`).run(steamId, appId)
+
+    const insert = db.prepare(`
+      INSERT INTO user_achievements (
+        steam_id, appid, apiname, achieved, unlock_time, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+    `)
+
+    for (const achievement of achievements) {
+      if (!achievement.apiname) continue
+      insert.run(
+        steamId,
+        appId,
+        achievement.apiname,
+        achievement.achieved ? 1 : 0,
+        achievement.unlocktime ?? null,
+        now,
+        now,
+      )
+    }
+
+    db.exec("COMMIT")
+  } catch (error) {
+    db.exec("ROLLBACK")
+    throw error
+  }
 }
 
+/**
+ * Dual-writes the game schema into both the legacy `games.schema_json` blob
+ * and the normalized `game_achievements` table.
+ */
 function persistSchema(appId: number, schema: GameSchema | null) {
   const db = getSqliteDatabase()
   const now = nowIso()
-  db.prepare(
-    `
-    UPDATE games
-    SET schema_json = ?, schema_synced_at = ?, updated_at = ?
-    WHERE appid = ?
-  `,
-  ).run(schema ? JSON.stringify(schema) : null, now, now, appId)
+
+  db.exec("BEGIN")
+  try {
+    db.prepare(
+      `
+      UPDATE games
+      SET schema_json = ?, schema_synced_at = ?, updated_at = ?
+      WHERE appid = ?
+    `,
+    ).run(schema ? JSON.stringify(schema) : null, now, now, appId)
+
+    const achievements = schema?.availableGameStats?.achievements ?? []
+    const upsert = db.prepare(`
+      INSERT INTO game_achievements (
+        appid, apiname, display_name, description, icon, icon_gray, hidden, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(appid, apiname) DO UPDATE SET
+        display_name = excluded.display_name,
+        description = excluded.description,
+        icon = excluded.icon,
+        icon_gray = excluded.icon_gray,
+        hidden = excluded.hidden,
+        updated_at = excluded.updated_at
+    `)
+
+    for (const achievement of achievements) {
+      if (!achievement.name) continue
+      upsert.run(
+        appId,
+        achievement.name,
+        achievement.displayName ?? null,
+        achievement.description ?? null,
+        achievement.icon ?? null,
+        achievement.icongray ?? null,
+        achievement.hidden ? 1 : 0,
+        now,
+        now,
+      )
+    }
+
+    db.exec("COMMIT")
+  } catch (error) {
+    db.exec("ROLLBACK")
+    throw error
+  }
 }
 
 /** Retrieves the stored game schema (achievement definitions) from SQLite. */
