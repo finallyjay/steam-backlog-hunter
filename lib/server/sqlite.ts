@@ -175,6 +175,7 @@ const DEFAULT_PINNED_GAMES: ReadonlyArray<readonly [number, string]> = [
   [2158860, "JBMod"],
   [432150, "They Came From The Moon"],
   [344040, "Qubburo 2 (appid recycled to Voxelized in current schema)"],
+  [327680, "Grind Zones (delisted)"],
 ]
 
 function seedPinnedGames(db: DatabaseSync) {
