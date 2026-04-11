@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Gamepad2, LayoutDashboard, Library, LogOut, Menu, X } from "lucide-react"
+import { Gamepad2, LayoutDashboard, Library, LogOut, Menu, Sparkles, X } from "lucide-react"
 import type { SteamUser } from "@/lib/auth"
 import { useRouter, usePathname } from "next/navigation"
 import Link from "next/link"
@@ -92,6 +92,9 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
                 <NavLink href="/games" icon={Library}>
                   Library
                 </NavLink>
+                <NavLink href="/extras" icon={Sparkles}>
+                  Extras
+                </NavLink>
               </nav>
             </div>
 
@@ -129,6 +132,9 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
             </NavLink>
             <NavLink href="/games" icon={Library} onClick={() => setMobileMenuOpen(false)}>
               Library
+            </NavLink>
+            <NavLink href="/extras" icon={Sparkles} onClick={() => setMobileMenuOpen(false)}>
+              Extras
             </NavLink>
           </div>
         </nav>

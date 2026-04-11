@@ -265,6 +265,51 @@ export function useSteamStats() {
   return { stats, loading, isRefreshing, lastUpdated, error, refetch }
 }
 
+export type SteamExtraGame = {
+  appid: number
+  name: string | null
+  playtime_forever: number
+  rtime_first_played: number | null
+  rtime_last_played: number | null
+  synced_at: string
+}
+
+export function useSteamExtras() {
+  const [games, setGames] = useState<SteamExtraGame[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const response = await fetch("/api/steam/extras")
+      if (!response.ok) throw new Error("Failed to fetch extras")
+      const data = (await response.json()) as { games: SteamExtraGame[] }
+      setGames(data.games)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unknown error")
+      setGames([])
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  useEffect(() => {
+    function handleInvalidate() {
+      void load()
+    }
+    window.addEventListener(STEAM_DATA_INVALIDATED_EVENT, handleInvalidate)
+    return () => window.removeEventListener(STEAM_DATA_INVALIDATED_EVENT, handleInvalidate)
+  }, [load])
+
+  return { games, loading, error, refetch: load }
+}
+
 export function useSteamAchievements(appId: number | null) {
   const [achievements, setAchievements] = useState<SteamAchievementView[]>([])
   const [loading, setLoading] = useState(false)

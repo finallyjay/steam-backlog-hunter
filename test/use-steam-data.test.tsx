@@ -197,6 +197,55 @@ describe("useSteamStats", () => {
   })
 })
 
+describe("useSteamExtras", () => {
+  it("loads extras on mount", async () => {
+    mockFetchSequence(async () =>
+      ok({
+        games: [
+          {
+            appid: 111,
+            name: "Refunded Game",
+            playtime_forever: 100,
+            rtime_first_played: 1_000_000_000,
+            rtime_last_played: 1_100_000_000,
+            synced_at: "2026-04-11T10:00:00.000Z",
+          },
+        ],
+      }),
+    )
+    const { useSteamExtras } = await import("@/hooks/use-steam-data")
+    const { result } = renderHook(() => useSteamExtras())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.games).toHaveLength(1)
+    expect(result.current.error).toBeNull()
+  })
+
+  it("sets error on non-ok response", async () => {
+    mockFetchSequence(async () => err(500))
+    const { useSteamExtras } = await import("@/hooks/use-steam-data")
+    const { result } = renderHook(() => useSteamExtras())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.error).toBe("Failed to fetch extras")
+    expect(result.current.games).toEqual([])
+  })
+
+  it("re-fetches on invalidateSteamData event", async () => {
+    let calls = 0
+    mockFetchSequence(async () => {
+      calls++
+      return ok({ games: [] })
+    })
+    const { useSteamExtras } = await import("@/hooks/use-steam-data")
+    const { result } = renderHook(() => useSteamExtras())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    const initial = calls
+    act(() => {
+      window.dispatchEvent(new CustomEvent("steam-data-invalidated"))
+    })
+    await waitFor(() => expect(calls).toBeGreaterThan(initial))
+  })
+})
+
 describe("useSteamAchievements", () => {
   it("returns empty + loading=false when appId is null", async () => {
     const fetchSpy = vi.fn()

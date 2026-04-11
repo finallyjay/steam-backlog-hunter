@@ -153,9 +153,28 @@ function createBaseSchema(db: DatabaseSync) {
       added_at TEXT NOT NULL
     );
 
+    -- Games the user has played at some point but no longer owns in the
+    -- traditional sense: refunded, family-shared, delisted, removed from
+    -- library, etc. Sourced from ClientGetLastPlayedTimes minus the ids we
+    -- already treat as owned (user_games.owned = 1). Fully isolated from
+    -- user_games so nothing in here can contaminate library stats.
+    CREATE TABLE IF NOT EXISTS extra_games (
+      steam_id TEXT NOT NULL,
+      appid INTEGER NOT NULL,
+      playtime_forever INTEGER NOT NULL DEFAULT 0,
+      rtime_first_played INTEGER,
+      rtime_last_played INTEGER,
+      synced_at TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (steam_id, appid),
+      FOREIGN KEY (steam_id) REFERENCES steam_profile(steam_id)
+    );
+
     CREATE INDEX IF NOT EXISTS idx_user_games_steam_id ON user_games(steam_id);
     CREATE INDEX IF NOT EXISTS idx_user_games_steam_id_owned ON user_games(steam_id, owned);
     CREATE INDEX IF NOT EXISTS idx_stats_snapshot_steam_id ON stats_snapshot(steam_id);
+    CREATE INDEX IF NOT EXISTS idx_extra_games_steam_id ON extra_games(steam_id);
   `)
 }
 
