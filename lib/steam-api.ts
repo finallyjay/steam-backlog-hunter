@@ -138,6 +138,13 @@ export async function getPlayerAchievements(steamId: string, appId: number): Pro
       success: data.playerstats.success,
     }
   } catch (error) {
+    // Steam returns 400/403 for games that simply don't publish stats (very
+    // common for older titles, DLC-only entries, stats-only games, etc).
+    // That's the signal the caller expects — a null return value — so don't
+    // spam the console with "errors" for the normal case.
+    if (error instanceof SteamAPIError && (error.status === 400 || error.status === 403)) {
+      return null
+    }
     console.error("Error fetching achievements for app:", appId, error)
     return null
   }
@@ -152,6 +159,12 @@ export async function getGameSchema(appId: number): Promise<unknown> {
 
     return data.game || null
   } catch (error) {
+    // Same story as getPlayerAchievements: 400/403 just means the app has no
+    // publishable schema. Let the caller treat it as an empty schema without
+    // lighting up the console.
+    if (error instanceof SteamAPIError && (error.status === 400 || error.status === 403)) {
+      return null
+    }
     console.error("Error fetching game schema for app:", appId, error)
     return null
   }
