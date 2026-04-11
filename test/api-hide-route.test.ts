@@ -134,4 +134,36 @@ describe("DELETE /api/steam/games/hide", () => {
     )
     expect(res.status).toBe(200)
   })
+
+  it("returns 500 when the db throws on hide", async () => {
+    vi.mocked(getCurrentUser).mockResolvedValue(mockUser)
+    mockDb.prepare.mockReturnValueOnce({
+      run: vi.fn().mockImplementation(() => {
+        throw new Error("db down")
+      }),
+    } as unknown as ReturnType<typeof mockDb.prepare>)
+    const res = await POST(
+      new Request("http://localhost/api/steam/games/hide", {
+        method: "POST",
+        body: JSON.stringify({ appId: 730 }),
+      }),
+    )
+    expect(res.status).toBe(500)
+  })
+
+  it("returns 500 when the db throws on unhide", async () => {
+    vi.mocked(getCurrentUser).mockResolvedValue(mockUser)
+    mockDb.prepare.mockReturnValueOnce({
+      run: vi.fn().mockImplementation(() => {
+        throw new Error("db down")
+      }),
+    } as unknown as ReturnType<typeof mockDb.prepare>)
+    const res = await DELETE(
+      new Request("http://localhost/api/steam/games/hide", {
+        method: "DELETE",
+        body: JSON.stringify({ appId: 730 }),
+      }),
+    )
+    expect(res.status).toBe(500)
+  })
 })

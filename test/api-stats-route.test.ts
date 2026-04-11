@@ -74,4 +74,21 @@ describe("GET /api/steam/stats", () => {
     expect(response.status).toBe(200)
     expect(body).toEqual(expectedStats)
   })
+
+  it("returns 500 when getUserStats throws", async () => {
+    vi.mocked(getCurrentUser).mockResolvedValue({
+      steamId: "76561198000000001",
+      displayName: "test",
+      avatar: "",
+      profileUrl: "",
+    })
+    vi.mocked(getUserStats).mockRejectedValue(new Error("db down"))
+
+    vi.doMock("@/lib/server/logger", () => ({
+      logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+    }))
+
+    const response = await GET(new Request("http://localhost/api/steam/stats"))
+    expect(response.status).toBe(500)
+  })
 })

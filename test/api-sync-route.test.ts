@@ -32,7 +32,7 @@ vi.mock("@/lib/server/steam-store", () => ({
 import { GET, POST } from "@/app/api/steam/sync/route"
 import { getCurrentUser } from "@/app/lib/server-auth"
 import { rateLimit } from "@/lib/server/rate-limit"
-import { synchronizeUserData } from "@/lib/server/steam-store"
+import { getUserSyncStatus, synchronizeUserData } from "@/lib/server/steam-store"
 
 const mockUser = {
   steamId: "76561198000000001",
@@ -50,6 +50,28 @@ describe("GET /api/steam/sync", () => {
 
     expect(response.status).toBe(401)
     expect(body.error).toBe("Unauthorized")
+  })
+
+  it("returns the sync status when authenticated", async () => {
+    vi.mocked(getCurrentUser).mockResolvedValue(mockUser)
+    vi.mocked(getUserSyncStatus).mockReturnValue({
+      lastOwnedGamesSyncAt: "2026-04-11T10:00:00.000Z",
+      lastRecentGamesSyncAt: null,
+      lastStatsSyncAt: null,
+    })
+    const response = await GET()
+    expect(response.status).toBe(200)
+    const body = (await response.json()) as { lastOwnedGamesSyncAt: string }
+    expect(body.lastOwnedGamesSyncAt).toBe("2026-04-11T10:00:00.000Z")
+  })
+
+  it("returns 500 if getUserSyncStatus throws", async () => {
+    vi.mocked(getCurrentUser).mockResolvedValue(mockUser)
+    vi.mocked(getUserSyncStatus).mockImplementation(() => {
+      throw new Error("db closed")
+    })
+    const response = await GET()
+    expect(response.status).toBe(500)
   })
 })
 
@@ -87,5 +109,13 @@ describe("POST /api/steam/sync", () => {
     expect(response.status).toBe(200)
     expect(body).toEqual(syncResult)
     expect(synchronizeUserData).toHaveBeenCalledWith(mockUser.steamId)
+  })
+
+  it("returns 500 when synchronizeUserData throws", async () => {
+    vi.mocked(getCurrentUser).mockResolvedValue(mockUser)
+    vi.mocked(rateLimit).mockReturnValue({ success: true, remaining: 4 })
+    vi.mocked(synchronizeUserData).mockRejectedValue(new Error("upstream down"))
+    const response = await POST()
+    expect(response.status).toBe(500)
   })
 })
