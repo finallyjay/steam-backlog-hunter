@@ -4,6 +4,7 @@ import { getLastPlayedTimes, getOwnedGames, type LastPlayedGame, type SteamGame 
 import { ensureGameImages } from "@/lib/server/steam-images"
 import { getSqliteDatabase } from "@/lib/server/sqlite"
 import { ensurePinnedGamesSynced } from "@/lib/server/pinned-games"
+import { persistExtraGames } from "@/lib/server/extra-games"
 import {
   nowIso,
   nullIfUndefined,
@@ -277,6 +278,10 @@ export async function ensureOwnedGamesSynced(steamId: string, options?: { forceR
   // first_playtime value that GetOwnedGames never exposes.
   const lastPlayed = await getLastPlayedTimes(steamId)
   persistLastPlayedTimes(steamId, lastPlayed)
+  // Everything in lastPlayed that ISN'T already in user_games (owned + pinned)
+  // lands in extra_games — refunded, family-shared, delisted-but-not-pinned,
+  // etc. Fully isolated from library stats.
+  await persistExtraGames(steamId, lastPlayed)
   const finalGames = getStoredOwnedGames(steamId)
   await ensureGameImages(finalGames.map((game) => game.appid))
   return finalGames

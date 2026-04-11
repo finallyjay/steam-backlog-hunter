@@ -62,6 +62,7 @@ describe("DashboardHeader", () => {
     render(<DashboardHeader user={mockUser} />)
     expect(screen.getAllByText("Dashboard")[0]).toBeInTheDocument()
     expect(screen.getAllByText("Library")[0]).toBeInTheDocument()
+    expect(screen.getAllByText("Extras")[0]).toBeInTheDocument()
   })
 
   it("marks the current pathname's link as active", () => {
