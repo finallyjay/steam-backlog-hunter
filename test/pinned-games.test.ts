@@ -146,6 +146,6 @@ describe("pinned_games seed", () => {
     const db = getSqliteDatabase()
     const rows = db.prepare("SELECT appid FROM pinned_games ORDER BY appid").all() as Array<{ appid: number }>
     const ids = rows.map((r) => r.appid).sort((a, b) => a - b)
-    expect(ids).toEqual([245550, 274920, 432150, 2158860])
+    expect(ids).toEqual([245550, 274920, 344040, 432150, 2158860])
   })
 })
