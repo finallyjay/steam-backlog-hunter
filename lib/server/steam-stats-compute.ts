@@ -1,18 +1,20 @@
 import "server-only"
 
 import type { SteamStatsResponse } from "@/lib/types/steam"
+import { getTopAchievementsForGames } from "@/lib/steam-api"
 import { getSqliteDatabase } from "@/lib/server/sqlite"
 import { isStale, upsertProfile, getProfileSync, roundPercent } from "@/lib/server/steam-store-utils"
 import { ensureOwnedGamesSynced, getRecentlyPlayedGamesForUser } from "@/lib/server/steam-games-sync"
+import { logger } from "@/lib/server/logger"
 import {
   ACHIEVEMENTS_STALE_MS,
   getStoredAchievements,
-  getAchievementsForGame,
+  persistBulkGameStats,
 } from "@/lib/server/steam-achievements-sync"
 
 export const OWNED_GAMES_STALE_MS = 24 * 60 * 60 * 1000
 const STATS_STALE_MS = 15 * 60 * 1000
-const ACHIEVEMENTS_CONCURRENCY = 8
+const BULK_ACHIEVEMENTS_BATCH_SIZE = 100
 
 type StatsSnapshotRow = {
   total_games: number
@@ -144,32 +146,61 @@ export function getStoredStatsSnapshot(steamId: string) {
 async function syncAchievementsForStats(steamId: string, forceRefresh: boolean) {
   const ownedGames = await ensureOwnedGamesSynced(steamId, { forceRefresh })
 
-  // Only sync games that already have confirmed achievements (total_count > 0)
-  // or that have never been checked yet (no achievements_synced_at)
-  const candidateGames = ownedGames.filter((game) => {
+  // Candidate set: games with community stats that aren't already known-broken
+  // (synced once and confirmed to have 0 achievements), and whose stored
+  // unlock state is either missing or stale.
+  const stale = ownedGames.filter((game) => {
     if (!game.has_community_visible_stats) return false
     const stored = getStoredAchievements(steamId, game.appid)
-    // Already synced with 0 achievements — skip (broken/retired game)
     if (stored?.achievements_synced_at && (stored.total_count ?? 0) === 0) return false
+    if (!forceRefresh && stored && !isStale(stored.achievements_synced_at, ACHIEVEMENTS_STALE_MS)) {
+      return false
+    }
     return true
   })
 
-  for (let index = 0; index < candidateGames.length; index += ACHIEVEMENTS_CONCURRENCY) {
-    const chunk = candidateGames.slice(index, index + ACHIEVEMENTS_CONCURRENCY)
-    await Promise.allSettled(
-      chunk.map(async (game) => {
-        const storedAchievements = getStoredAchievements(steamId, game.appid)
-        if (
-          !forceRefresh &&
-          storedAchievements &&
-          !isStale(storedAchievements.achievements_synced_at, ACHIEVEMENTS_STALE_MS)
-        ) {
-          return
-        }
+  if (stale.length === 0) return
 
-        await getAchievementsForGame(steamId, game.appid, { forceRefresh })
-      }),
-    )
+  // Batch stale games into the undocumented GetTopAchievementsForGames
+  // endpoint (~100 games per HTTP call). For 1000-game libraries this
+  // collapses ~1000 per-game GetPlayerAchievements calls into ~10 bulk calls.
+  for (let index = 0; index < stale.length; index += BULK_ACHIEVEMENTS_BATCH_SIZE) {
+    const chunk = stale.slice(index, index + BULK_ACHIEVEMENTS_BATCH_SIZE)
+    const requestedAppIds = new Set(chunk.map((game) => game.appid))
+
+    let games: Awaited<ReturnType<typeof getTopAchievementsForGames>>
+    try {
+      games = await getTopAchievementsForGames(
+        steamId,
+        chunk.map((game) => game.appid),
+      )
+    } catch (error) {
+      logger.warn(
+        { err: error, batchSize: chunk.length },
+        "Bulk achievements batch failed — stale games will retry on next sync",
+      )
+      continue
+    }
+
+    const seen = new Set<number>()
+    for (const game of games) {
+      if (!requestedAppIds.has(game.appid)) continue
+      seen.add(game.appid)
+      const unlockedApinames = (game.achievements ?? [])
+        .map((achievement) => achievement.name ?? "")
+        .filter((name) => name.length > 0)
+      persistBulkGameStats(steamId, game.appid, game.total_achievements ?? 0, unlockedApinames)
+    }
+
+    // Games in the batch that the endpoint silently dropped — mark nothing;
+    // they'll be retried on the next sync.
+    const missing = chunk.filter((game) => !seen.has(game.appid))
+    if (missing.length > 0) {
+      logger.debug(
+        { missingCount: missing.length, batchStart: index },
+        "Bulk achievements response omitted games — will retry next sync",
+      )
+    }
   }
 }
 

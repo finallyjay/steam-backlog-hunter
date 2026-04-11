@@ -227,6 +227,61 @@ export function persistAchievements(steamId: string, appId: number, achievements
 }
 
 /**
+ * Persists a bulk `GetTopAchievementsForGames` result for a single game.
+ *
+ * The bulk endpoint only returns **unlocked** achievements, so this function
+ * writes the unlocked-count metadata onto `user_games` and replaces the
+ * game's `user_achievements` rows with one row per unlocked apiname. Locked
+ * achievements are not materialised — they're derived at read time via a
+ * LEFT JOIN against `game_achievements`.
+ *
+ * Unlike `persistAchievements`, this function does not touch the legacy
+ * `achievements_json` blob. That blob is only read as a safety net during
+ * the dual-write period and is unused by the normalized read path.
+ */
+export function persistBulkGameStats(steamId: string, appId: number, totalCount: number, unlockedApinames: string[]) {
+  const db = getSqliteDatabase()
+  const now = nowIso()
+  const unlockedCount = unlockedApinames.length
+  const perfectGame = totalCount > 0 && unlockedCount === totalCount ? 1 : 0
+
+  db.exec("BEGIN")
+  try {
+    db.prepare(
+      `
+      UPDATE user_games
+      SET
+        achievements_synced_at = ?,
+        unlocked_count = ?,
+        total_count = ?,
+        perfect_game = ?,
+        updated_at = ?
+      WHERE steam_id = ? AND appid = ? AND owned = 1
+    `,
+    ).run(now, unlockedCount, totalCount, perfectGame, now, steamId, appId)
+
+    db.prepare(`DELETE FROM user_achievements WHERE steam_id = ? AND appid = ?`).run(steamId, appId)
+
+    if (unlockedCount > 0) {
+      const insert = db.prepare(`
+        INSERT INTO user_achievements (
+          steam_id, appid, apiname, achieved, unlock_time, created_at, updated_at
+        ) VALUES (?, ?, ?, 1, NULL, ?, ?)
+      `)
+      for (const apiname of unlockedApinames) {
+        if (!apiname) continue
+        insert.run(steamId, appId, apiname, now, now)
+      }
+    }
+
+    db.exec("COMMIT")
+  } catch (error) {
+    db.exec("ROLLBACK")
+    throw error
+  }
+}
+
+/**
  * Dual-writes the game schema into both the legacy `games.schema_json` blob
  * and the normalized `game_achievements` table.
  */
