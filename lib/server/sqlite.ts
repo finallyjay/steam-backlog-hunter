@@ -68,6 +68,7 @@ function createBaseSchema(db: DatabaseSync) {
       playtime_forever INTEGER NOT NULL DEFAULT 0,
       playtime_2weeks INTEGER,
       rtime_last_played INTEGER,
+      rtime_first_played INTEGER,
       owned INTEGER NOT NULL DEFAULT 1,
       last_seen_in_owned_games_at TEXT,
       achievements_synced_at TEXT,
@@ -211,6 +212,26 @@ function seedAllowedUsersFromEnv(db: DatabaseSync) {
   }
 }
 
+/**
+ * Additive-only schema evolution: adds a column to an existing table if it's
+ * not already there. Safe on both fresh and existing databases, since the
+ * CREATE TABLE IF NOT EXISTS in createBaseSchema already defines the latest
+ * shape for new installs. This helper handles the "users with old databases"
+ * case without dropping data.
+ */
+function addColumnIfMissing(db: DatabaseSync, table: string, column: string, definition: string) {
+  const columns = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>
+  if (columns.some((c) => c.name === column)) return
+  db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`)
+}
+
+function applyAdditiveMigrations(db: DatabaseSync) {
+  // Unix timestamp of the first time this user played this game, sourced
+  // from ClientGetLastPlayedTimes. Nullable because older rows may not have
+  // been enriched yet.
+  addColumnIfMissing(db, "user_games", "rtime_first_played", "INTEGER")
+}
+
 export function getSqliteDatabase() {
   if (database) {
     return database
@@ -221,6 +242,7 @@ export function getSqliteDatabase() {
 
   database = new DatabaseSync(dbPath)
   createBaseSchema(database)
+  applyAdditiveMigrations(database)
   seedAllowedUsersFromEnv(database)
   seedPinnedGames(database)
 

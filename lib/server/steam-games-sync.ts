@@ -1,6 +1,6 @@
 import "server-only"
 
-import { getOwnedGames, type SteamGame } from "@/lib/steam-api"
+import { getLastPlayedTimes, getOwnedGames, type LastPlayedGame, type SteamGame } from "@/lib/steam-api"
 import { ensureGameImages } from "@/lib/server/steam-images"
 import { getSqliteDatabase } from "@/lib/server/sqlite"
 import { ensurePinnedGamesSynced } from "@/lib/server/pinned-games"
@@ -22,6 +22,7 @@ export type GameRow = {
   playtime_forever: number
   playtime_2weeks: number | null
   rtime_last_played: number | null
+  rtime_first_played: number | null
   img_icon_url: string | null
   img_logo_url: string | null
   image_icon_url: string | null
@@ -41,6 +42,7 @@ export function mapRowToSteamGame(row: GameRow): SteamGame {
     playtime_forever: row.playtime_forever,
     playtime_2weeks: row.playtime_2weeks ?? undefined,
     rtime_last_played: row.rtime_last_played ?? undefined,
+    rtime_first_played: row.rtime_first_played ?? undefined,
     img_icon_url: row.img_icon_url ?? "",
     img_logo_url: row.img_logo_url ?? "",
     image_icon_url: row.image_icon_url ?? undefined,
@@ -66,6 +68,7 @@ export function getStoredOwnedGames(steamId: string): SteamGame[] {
       ug.playtime_forever,
       ug.playtime_2weeks,
       ug.rtime_last_played,
+      ug.rtime_first_played,
       g.icon_hash AS img_icon_url,
       g.logo_hash AS img_logo_url,
       g.image_icon_url,
@@ -99,6 +102,7 @@ export function getStoredGame(steamId: string, appId: number): SteamGame | null 
       ug.playtime_forever,
       ug.playtime_2weeks,
       ug.rtime_last_played,
+      ug.rtime_first_played,
       g.icon_hash AS img_icon_url,
       g.logo_hash AS img_logo_url,
       g.image_icon_url,
@@ -210,6 +214,45 @@ export function persistOwnedGames(steamId: string, games: SteamGame[]) {
  * @param options.forceRefresh - Skip staleness check and always fetch from Steam API
  * @returns The user's owned games list
  */
+/**
+ * Enriches every user_games row that matches an entry in the
+ * ClientGetLastPlayedTimes response with its real playtime_forever,
+ * rtime_last_played and rtime_first_played. Rows not present in the
+ * response are untouched.
+ *
+ * The endpoint returns every game the account has ever played, including
+ * delisted ones (FaceRig, Free to Play, …) that GetOwnedGames hides, so
+ * pinned games finally get a real playtime instead of the 0 we write
+ * during upsertPinned. It also gives us first_playtime, which isn't
+ * exposed anywhere else in the Web API.
+ */
+export function persistLastPlayedTimes(steamId: string, games: LastPlayedGame[]) {
+  if (games.length === 0) return
+
+  const db = getSqliteDatabase()
+  const now = nowIso()
+  const update = db.prepare(
+    `UPDATE user_games
+     SET playtime_forever = ?,
+         rtime_last_played = COALESCE(?, rtime_last_played),
+         rtime_first_played = COALESCE(?, rtime_first_played),
+         updated_at = ?
+     WHERE steam_id = ? AND appid = ?`,
+  )
+
+  for (const game of games) {
+    if (game.playtime_forever === undefined) continue
+    update.run(
+      game.playtime_forever,
+      nullIfUndefined(game.last_playtime),
+      nullIfUndefined(game.first_playtime),
+      now,
+      steamId,
+      game.appid,
+    )
+  }
+}
+
 export async function ensureOwnedGamesSynced(steamId: string, options?: { forceRefresh?: boolean }) {
   const forceRefresh = options?.forceRefresh ?? false
   upsertProfile(steamId)
@@ -228,6 +271,12 @@ export async function ensureOwnedGamesSynced(steamId: string, options?: { forceR
   // Resolve pinned (delisted) games after the main upsert so persistOwnedGames'
   // markMissingAsUnowned sweep can't flip them back to owned=0.
   await ensurePinnedGamesSynced(steamId, new Set(games.map((game) => game.appid)))
+  // Enrich every matched row with real playtime + first_playtime from the
+  // client-side "last played times" log. Pinned games benefit most from
+  // this (they arrive with playtime=0), but every owned game also gets a
+  // first_playtime value that GetOwnedGames never exposes.
+  const lastPlayed = await getLastPlayedTimes(steamId)
+  persistLastPlayedTimes(steamId, lastPlayed)
   const finalGames = getStoredOwnedGames(steamId)
   await ensureGameImages(finalGames.map((game) => game.appid))
   return finalGames
@@ -252,6 +301,7 @@ export async function getRecentlyPlayedGamesForUser(steamId: string, options?: {
       ug.playtime_forever,
       ug.playtime_2weeks,
       ug.rtime_last_played,
+      ug.rtime_first_played,
       g.icon_hash AS img_icon_url,
       g.logo_hash AS img_logo_url,
       g.image_icon_url,
