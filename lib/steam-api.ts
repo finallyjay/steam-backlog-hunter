@@ -9,6 +9,7 @@ export interface SteamGame {
   image_landscape_url?: string
   image_portrait_url?: string
   rtime_last_played?: number
+  rtime_first_played?: number
   has_community_visible_stats?: boolean
   unlocked_count?: number
   total_count?: number
@@ -150,6 +151,40 @@ export async function getPlayerAchievements(steamId: string, appId: number): Pro
     }
     console.error("Error fetching achievements for app:", appId, error)
     return null
+  }
+}
+
+export interface LastPlayedGame {
+  appid: number
+  playtime_forever?: number
+  playtime_2weeks?: number
+  first_playtime?: number
+  last_playtime?: number
+}
+
+/**
+ * Fetches the "last played times" log for a Steam user via the undocumented
+ * `IPlayerService/ClientGetLastPlayedTimes/v1/` endpoint.
+ *
+ * This returns playtime data for **every** game the account has ever played —
+ * including delisted apps (FaceRig, Free to Play, …) that `GetOwnedGames`
+ * silently drops. Unlike `GetOwnedGames`, the response also contains
+ * `first_playtime`, which isn't exposed anywhere else in the Web API.
+ */
+export async function getLastPlayedTimes(steamId: string): Promise<LastPlayedGame[]> {
+  try {
+    const data = (await steamAPIRequest("/IPlayerService/ClientGetLastPlayedTimes/v1/", {
+      steamid: steamId,
+      min_last_played: "0",
+    })) as { response?: { games?: LastPlayedGame[] } }
+
+    return data.response?.games ?? []
+  } catch (error) {
+    if (error instanceof SteamAPIError && (error.status === 400 || error.status === 403)) {
+      return []
+    }
+    console.error("Error fetching last played times:", error)
+    return []
   }
 }
 

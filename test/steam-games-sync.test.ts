@@ -51,6 +51,7 @@ function mockSteamApi(
     getRecentlyPlayedGames: vi.fn().mockResolvedValue([]),
     getPlayerAchievements: vi.fn().mockResolvedValue(null),
     getGameSchema: vi.fn().mockResolvedValue(null),
+    getLastPlayedTimes: vi.fn().mockResolvedValue([]),
   }))
   vi.doMock("@/lib/server/steam-images", () => ({
     ensureGameImages: vi.fn().mockResolvedValue(undefined),
@@ -87,6 +88,7 @@ describe("ensureOwnedGamesSynced", () => {
       getRecentlyPlayedGames: vi.fn().mockResolvedValue([]),
       getPlayerAchievements: vi.fn().mockResolvedValue(null),
       getGameSchema: vi.fn().mockResolvedValue(null),
+      getLastPlayedTimes: vi.fn().mockResolvedValue([]),
     }))
     vi.doMock("@/lib/server/steam-images", () => ({
       ensureGameImages: vi.fn().mockResolvedValue(undefined),
@@ -147,6 +149,7 @@ describe("ensureOwnedGamesSynced", () => {
       getRecentlyPlayedGames: vi.fn().mockResolvedValue([]),
       getPlayerAchievements: vi.fn().mockResolvedValue(null),
       getGameSchema: vi.fn().mockResolvedValue(null),
+      getLastPlayedTimes: vi.fn().mockResolvedValue([]),
     }))
     vi.doMock("@/lib/server/steam-images", () => ({
       ensureGameImages: vi.fn().mockResolvedValue(undefined),

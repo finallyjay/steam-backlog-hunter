@@ -101,6 +101,7 @@ describe("syncAchievementsForStats (per-game)", () => {
       getRecentlyPlayedGames: vi.fn().mockResolvedValue([]),
       getPlayerAchievements: mockGetPlayerAchievements,
       getGameSchema: mockGetGameSchema,
+      getLastPlayedTimes: vi.fn().mockResolvedValue([]),
     }))
     vi.doMock("@/lib/server/steam-images", () => ({
       ensureGameImages: vi.fn().mockResolvedValue(undefined),
@@ -148,6 +149,7 @@ describe("syncAchievementsForStats (per-game)", () => {
       getRecentlyPlayedGames: vi.fn().mockResolvedValue([]),
       getPlayerAchievements: mockGetPlayerAchievements,
       getGameSchema: vi.fn(),
+      getLastPlayedTimes: vi.fn().mockResolvedValue([]),
     }))
     vi.doMock("@/lib/server/steam-images", () => ({
       ensureGameImages: vi.fn().mockResolvedValue(undefined),
@@ -179,6 +181,7 @@ describe("syncAchievementsForStats (per-game)", () => {
       getRecentlyPlayedGames: vi.fn().mockResolvedValue([]),
       getPlayerAchievements: mockGetPlayerAchievements,
       getGameSchema: vi.fn().mockResolvedValue(null),
+      getLastPlayedTimes: vi.fn().mockResolvedValue([]),
     }))
     vi.doMock("@/lib/server/steam-images", () => ({
       ensureGameImages: vi.fn().mockResolvedValue(undefined),
@@ -214,6 +217,7 @@ describe("syncAchievementsForStats (per-game)", () => {
       getRecentlyPlayedGames: vi.fn().mockResolvedValue([]),
       getPlayerAchievements: mockGetPlayerAchievements,
       getGameSchema: vi.fn().mockResolvedValue(null),
+      getLastPlayedTimes: vi.fn().mockResolvedValue([]),
     }))
     vi.doMock("@/lib/server/steam-images", () => ({
       ensureGameImages: vi.fn().mockResolvedValue(undefined),
@@ -244,6 +248,7 @@ describe("syncAchievementsForStats (incremental filter)", () => {
       getRecentlyPlayedGames: vi.fn().mockResolvedValue([]),
       getPlayerAchievements: mockGetPlayerAchievements,
       getGameSchema: vi.fn().mockResolvedValue(null),
+      getLastPlayedTimes: vi.fn().mockResolvedValue([]),
     }))
     vi.doMock("@/lib/server/steam-images", () => ({
       ensureGameImages: vi.fn().mockResolvedValue(undefined),

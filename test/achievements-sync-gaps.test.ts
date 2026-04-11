@@ -64,6 +64,7 @@ function mockSteamApi(mocks: {
     getRecentlyPlayedGames: vi.fn().mockResolvedValue([]),
     getPlayerAchievements: mocks.getPlayerAchievements ?? vi.fn().mockResolvedValue(null),
     getGameSchema: mocks.getGameSchema ?? vi.fn().mockResolvedValue(null),
+    getLastPlayedTimes: vi.fn().mockResolvedValue([]),
   }))
   vi.doMock("@/lib/server/steam-images", () => ({
     ensureGameImages: vi.fn().mockResolvedValue(undefined),
