@@ -120,6 +120,30 @@ describe("persistExtraGames", () => {
     persistExtraGames(STEAM_ID, [{ appid: 274920, playtime_forever: 569 }])
     expect(getExtraGamesForUser(STEAM_ID)).toEqual([])
   })
+
+  it("self-heals by deleting extras whose appid is now back in the owned library", async () => {
+    // Regression for the post-#131 incident: a transient GetOwnedGames
+    // failure wiped user_games.owned and persistExtraGames dumped the
+    // whole library into extras. On the next successful sync, Portal 2
+    // (etc.) is back in user_games, so the stale extras row must go.
+    const db = await seedProfile()
+    const now = new Date().toISOString()
+    db.prepare(
+      `INSERT INTO extra_games (steam_id, appid, playtime_forever, synced_at, created_at, updated_at)
+       VALUES (?, 620, 600, ?, ?, ?)`,
+    ).run(STEAM_ID, now, now, now)
+    db.prepare(`INSERT INTO games (appid, name, created_at, updated_at) VALUES (620, 'Portal 2', ?, ?)`).run(now, now)
+    db.prepare(
+      `INSERT INTO user_games (steam_id, appid, playtime_forever, owned, created_at, updated_at)
+       VALUES (?, 620, 600, 1, ?, ?)`,
+    ).run(STEAM_ID, now, now)
+
+    const { persistExtraGames, getExtraGamesForUser } = await import("@/lib/server/extra-games")
+    // The cleanup runs even when lastPlayed is empty — otherwise a user
+    // who'd been wiped couldn't self-heal without new data coming in.
+    persistExtraGames(STEAM_ID, [])
+    expect(getExtraGamesForUser(STEAM_ID)).toEqual([])
+  })
 })
 
 describe("getExtraGamesForUser", () => {
