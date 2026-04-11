@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, expect, it, vi } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
 vi.mock("@/lib/env", () => ({
   env: new Proxy(
@@ -21,16 +21,26 @@ vi.mock("@/app/lib/require-admin", () => ({
 }))
 
 const mockDb = {
-  prepare: vi.fn().mockReturnValue({ all: vi.fn().mockReturnValue([]), run: vi.fn() }),
+  prepare: vi.fn().mockReturnValue({
+    all: vi.fn().mockReturnValue([]),
+    run: vi.fn(),
+    get: vi.fn().mockReturnValue({ 1: 1 }),
+  }),
 }
 vi.mock("@/lib/server/sqlite", () => ({
   getSqliteDatabase: () => mockDb,
 }))
 
-import { GET, POST, DELETE } from "@/app/api/admin/users/route"
+vi.mock("@/lib/server/steam-store-utils", () => ({
+  upsertProfile: vi.fn(),
+}))
+
+import { GET, POST, DELETE, PATCH } from "@/app/api/admin/users/route"
 import { requireAdmin } from "@/app/lib/require-admin"
 
-const mockAdmin = { steamId: "76561198000000001", displayName: "admin", avatar: "", profileUrl: "" }
+const ORIGINAL_FETCH = globalThis.fetch
+
+const mockAdmin = { steamId: "76561198023709299", displayName: "admin", avatar: "", profileUrl: "" }
 
 describe("GET /api/admin/users", () => {
   it("returns 403 when not admin", async () => {
@@ -138,5 +148,111 @@ describe("DELETE /api/admin/users", () => {
       }),
     )
     expect(res.status).toBe(200)
+  })
+})
+
+describe("PATCH /api/admin/users", () => {
+  function patchReq(body: unknown) {
+    return new Request("http://localhost/api/admin/users", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: typeof body === "string" ? body : JSON.stringify(body),
+    })
+  }
+
+  afterEach(() => {
+    globalThis.fetch = ORIGINAL_FETCH
+  })
+
+  it("returns 403 when not admin", async () => {
+    vi.mocked(requireAdmin).mockResolvedValue(null)
+    const res = await PATCH(patchReq({ steamId: "76561198000000099" }))
+    expect(res.status).toBe(403)
+  })
+
+  it("returns 400 on malformed JSON", async () => {
+    vi.mocked(requireAdmin).mockResolvedValue(mockAdmin)
+    const res = await PATCH(patchReq("{not json"))
+    expect(res.status).toBe(400)
+  })
+
+  it("returns 400 for invalid Steam ID", async () => {
+    vi.mocked(requireAdmin).mockResolvedValue(mockAdmin)
+    const res = await PATCH(patchReq({ steamId: "abc" }))
+    expect(res.status).toBe(400)
+  })
+
+  it("returns 404 when the user is not in the allowed list", async () => {
+    vi.mocked(requireAdmin).mockResolvedValue(mockAdmin)
+    mockDb.prepare.mockReturnValueOnce({
+      all: vi.fn(),
+      run: vi.fn(),
+      get: vi.fn().mockReturnValue(undefined),
+    } as unknown as ReturnType<typeof mockDb.prepare>)
+    const res = await PATCH(patchReq({ steamId: "76561198000000099" }))
+    expect(res.status).toBe(404)
+  })
+
+  it("returns 502 when Steam profile fetch fails (non-ok)", async () => {
+    vi.mocked(requireAdmin).mockResolvedValue(mockAdmin)
+    mockDb.prepare.mockReturnValueOnce({
+      all: vi.fn(),
+      run: vi.fn(),
+      get: vi.fn().mockReturnValue({ 1: 1 }),
+    } as unknown as ReturnType<typeof mockDb.prepare>)
+    globalThis.fetch = vi.fn(
+      async () => ({ ok: false, status: 500, json: async () => ({}) }) as Response,
+    ) as typeof fetch
+    process.env.STEAM_API_KEY = "fake"
+    const res = await PATCH(patchReq({ steamId: "76561198000000099" }))
+    expect(res.status).toBe(502)
+  })
+
+  it("returns 502 when Steam profile fetch rejects", async () => {
+    vi.mocked(requireAdmin).mockResolvedValue(mockAdmin)
+    mockDb.prepare.mockReturnValueOnce({
+      all: vi.fn(),
+      run: vi.fn(),
+      get: vi.fn().mockReturnValue({ 1: 1 }),
+    } as unknown as ReturnType<typeof mockDb.prepare>)
+    globalThis.fetch = vi.fn(async () => {
+      throw new Error("network")
+    }) as typeof fetch
+    process.env.STEAM_API_KEY = "fake"
+    const res = await PATCH(patchReq({ steamId: "76561198000000099" }))
+    expect(res.status).toBe(502)
+  })
+
+  it("returns 200 with the profile on success", async () => {
+    vi.mocked(requireAdmin).mockResolvedValue(mockAdmin)
+    mockDb.prepare.mockReturnValueOnce({
+      all: vi.fn(),
+      run: vi.fn(),
+      get: vi.fn().mockReturnValue({ 1: 1 }),
+    } as unknown as ReturnType<typeof mockDb.prepare>)
+    globalThis.fetch = vi.fn(
+      async () =>
+        ({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            response: {
+              players: [
+                {
+                  personaname: "Tester",
+                  avatarfull: "https://example.com/a.jpg",
+                  profileurl: "https://steamcommunity.com/id/tester",
+                },
+              ],
+            },
+          }),
+        }) as Response,
+    ) as typeof fetch
+    process.env.STEAM_API_KEY = "fake"
+    const res = await PATCH(patchReq({ steamId: "76561198000000099" }))
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { success: boolean; profile: { persona_name: string } }
+    expect(body.success).toBe(true)
+    expect(body.profile.persona_name).toBe("Tester")
   })
 })

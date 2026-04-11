@@ -46,7 +46,7 @@ describe("GET /api/auth/steam/callback", () => {
 
   it("redirects non-whitelisted user to not_whitelisted error", async () => {
     process.env.NEXTAUTH_URL = "https://example.com"
-    process.env.STEAM_WHITELIST_IDS = "76561198000000001"
+    process.env.STEAM_WHITELIST_IDS = "76561198023709299"
 
     mockCookieStore.get.mockReturnValue({ value: TEST_NONCE })
 
@@ -69,14 +69,14 @@ describe("GET /api/auth/steam/callback", () => {
 
   it("redirects to auth_failed when nonce does not match cookie", async () => {
     process.env.NEXTAUTH_URL = "https://example.com"
-    process.env.STEAM_WHITELIST_IDS = "76561198000000001"
+    process.env.STEAM_WHITELIST_IDS = "76561198023709299"
 
     // Cookie has a different nonce than the query param
     const wrongNonce = "b".repeat(64)
     mockCookieStore.get.mockReturnValue({ value: wrongNonce })
 
     const request = new NextRequest(
-      `https://example.com/api/auth/steam/callback?nonce=${TEST_NONCE}&openid.claimed_id=https://steamcommunity.com/openid/id/76561198000000001&openid.return_to=https://example.com/api/auth/steam/callback?nonce=${TEST_NONCE}`,
+      `https://example.com/api/auth/steam/callback?nonce=${TEST_NONCE}&openid.claimed_id=https://steamcommunity.com/openid/id/76561198023709299&openid.return_to=https://example.com/api/auth/steam/callback?nonce=${TEST_NONCE}`,
     )
 
     const response = await GET(request)
@@ -87,7 +87,7 @@ describe("GET /api/auth/steam/callback", () => {
 
   it("redirects to auth_failed when Steam ID format is invalid", async () => {
     process.env.NEXTAUTH_URL = "https://example.com"
-    process.env.STEAM_WHITELIST_IDS = "76561198000000001"
+    process.env.STEAM_WHITELIST_IDS = "76561198023709299"
 
     mockCookieStore.get.mockReturnValue({ value: TEST_NONCE })
 
@@ -111,7 +111,7 @@ describe("GET /api/auth/steam/callback", () => {
 
   it("redirects to auth_failed when Steam verification rejects", async () => {
     process.env.NEXTAUTH_URL = "https://example.com"
-    process.env.STEAM_WHITELIST_IDS = "76561198000000001"
+    process.env.STEAM_WHITELIST_IDS = "76561198023709299"
 
     mockCookieStore.get.mockReturnValue({ value: TEST_NONCE })
 
@@ -123,7 +123,7 @@ describe("GET /api/auth/steam/callback", () => {
     )
 
     const request = new NextRequest(
-      `https://example.com/api/auth/steam/callback?nonce=${TEST_NONCE}&openid.claimed_id=https://steamcommunity.com/openid/id/76561198000000001&openid.return_to=https://example.com/api/auth/steam/callback?nonce=${TEST_NONCE}`,
+      `https://example.com/api/auth/steam/callback?nonce=${TEST_NONCE}&openid.claimed_id=https://steamcommunity.com/openid/id/76561198023709299&openid.return_to=https://example.com/api/auth/steam/callback?nonce=${TEST_NONCE}`,
     )
 
     const response = await GET(request)
@@ -145,7 +145,7 @@ describe("GET /api/auth/steam/callback", () => {
     )
 
     const request = new NextRequest(
-      `https://example.com/api/auth/steam/callback?nonce=${TEST_NONCE}&openid.claimed_id=https://evil.com/openid/id/76561198000000001&openid.return_to=https://example.com/api/auth/steam/callback?nonce=${TEST_NONCE}`,
+      `https://example.com/api/auth/steam/callback?nonce=${TEST_NONCE}&openid.claimed_id=https://evil.com/openid/id/76561198023709299&openid.return_to=https://example.com/api/auth/steam/callback?nonce=${TEST_NONCE}`,
     )
 
     const response = await GET(request)
@@ -156,7 +156,7 @@ describe("GET /api/auth/steam/callback", () => {
 
   it("redirects to auth_failed when return_to does not match realm", async () => {
     process.env.NEXTAUTH_URL = "https://example.com"
-    process.env.STEAM_WHITELIST_IDS = "76561198000000001"
+    process.env.STEAM_WHITELIST_IDS = "76561198023709299"
 
     mockCookieStore.get.mockReturnValue({ value: TEST_NONCE })
 
@@ -168,7 +168,7 @@ describe("GET /api/auth/steam/callback", () => {
     )
 
     const request = new NextRequest(
-      `https://example.com/api/auth/steam/callback?nonce=${TEST_NONCE}&openid.claimed_id=https://steamcommunity.com/openid/id/76561198000000001&openid.return_to=https://evil.com/callback`,
+      `https://example.com/api/auth/steam/callback?nonce=${TEST_NONCE}&openid.claimed_id=https://steamcommunity.com/openid/id/76561198023709299&openid.return_to=https://evil.com/callback`,
     )
 
     const response = await GET(request)
@@ -178,7 +178,7 @@ describe("GET /api/auth/steam/callback", () => {
   })
 
   it("redirects whitelisted user to dashboard with session cookie", async () => {
-    const steamId = "76561198000000001"
+    const steamId = "76561198023709299"
     process.env.NEXTAUTH_URL = "https://example.com"
     process.env.STEAM_WHITELIST_IDS = steamId
     process.env.STEAM_API_KEY = "test-api-key"
@@ -230,7 +230,7 @@ describe("GET /api/auth/steam/callback", () => {
   })
 
   it("includes steam level and badges in session cookie", async () => {
-    const steamId = "76561198000000001"
+    const steamId = "76561198023709299"
     process.env.NEXTAUTH_URL = "https://example.com"
     process.env.STEAM_WHITELIST_IDS = steamId
     process.env.STEAM_API_KEY = "test-api-key"
@@ -297,7 +297,7 @@ describe("GET /api/auth/steam/callback", () => {
 
   it("handles auth error gracefully", async () => {
     process.env.NEXTAUTH_URL = "https://example.com"
-    process.env.STEAM_WHITELIST_IDS = "76561198000000001"
+    process.env.STEAM_WHITELIST_IDS = "76561198023709299"
     process.env.STEAM_API_KEY = "test-api-key"
 
     mockCookieStore.get.mockReturnValue({ value: TEST_NONCE })
@@ -314,7 +314,7 @@ describe("GET /api/auth/steam/callback", () => {
     )
 
     const request = new NextRequest(
-      `https://example.com/api/auth/steam/callback?nonce=${TEST_NONCE}&openid.claimed_id=https://steamcommunity.com/openid/id/76561198000000001&openid.return_to=https://example.com/api/auth/steam/callback?nonce=${TEST_NONCE}`,
+      `https://example.com/api/auth/steam/callback?nonce=${TEST_NONCE}&openid.claimed_id=https://steamcommunity.com/openid/id/76561198023709299&openid.return_to=https://example.com/api/auth/steam/callback?nonce=${TEST_NONCE}`,
     )
 
     const response = await GET(request)

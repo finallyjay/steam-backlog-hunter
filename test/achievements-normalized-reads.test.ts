@@ -32,7 +32,7 @@ afterEach(() => {
   rmSync(tmpDir, { recursive: true, force: true })
 })
 
-const STEAM_ID = "76561198000000001"
+const STEAM_ID = "76561198023709299"
 const APPID_A = 730
 const APPID_B = 440
 

@@ -31,7 +31,7 @@ import { getCurrentUser } from "@/app/lib/server-auth"
 import { getOwnedGamesForUser, getRecentlyPlayedGamesForUser } from "@/lib/server/steam-store"
 
 const mockUser = {
-  steamId: "76561198000000001",
+  steamId: "76561198023709299",
   displayName: "test",
   avatar: "",
   profileUrl: "",
@@ -89,5 +89,13 @@ describe("GET /api/steam/games", () => {
 
     expect(response.status).toBe(200)
     expect(getRecentlyPlayedGamesForUser).toHaveBeenCalledWith(mockUser.steamId, { forceRefresh: true })
+  })
+
+  it("returns 500 when the underlying store call throws", async () => {
+    vi.mocked(getCurrentUser).mockResolvedValue(mockUser)
+    vi.mocked(getRecentlyPlayedGamesForUser).mockRejectedValue(new Error("db down"))
+    const request = new NextRequest("http://localhost/api/steam/games")
+    const response = await GET(request)
+    expect(response.status).toBe(500)
   })
 })

@@ -26,7 +26,7 @@ describe("GET /api/steam/stats", () => {
 
   it("forwards force refresh option when refresh query is present", async () => {
     vi.mocked(getCurrentUser).mockResolvedValue({
-      steamId: "76561198000000001",
+      steamId: "76561198023709299",
       displayName: "test",
       avatar: "",
       profileUrl: "",
@@ -45,7 +45,7 @@ describe("GET /api/steam/stats", () => {
     const response = await GET(new Request("http://localhost/api/steam/stats?refresh=1"))
 
     expect(response.status).toBe(200)
-    expect(getUserStats).toHaveBeenCalledWith("76561198000000001", { forceRefresh: true })
+    expect(getUserStats).toHaveBeenCalledWith("76561198023709299", { forceRefresh: true })
   })
 
   it("returns stats data in response body", async () => {
@@ -61,7 +61,7 @@ describe("GET /api/steam/stats", () => {
     }
 
     vi.mocked(getCurrentUser).mockResolvedValue({
-      steamId: "76561198000000001",
+      steamId: "76561198023709299",
       displayName: "test",
       avatar: "",
       profileUrl: "",
@@ -73,5 +73,22 @@ describe("GET /api/steam/stats", () => {
 
     expect(response.status).toBe(200)
     expect(body).toEqual(expectedStats)
+  })
+
+  it("returns 500 when getUserStats throws", async () => {
+    vi.mocked(getCurrentUser).mockResolvedValue({
+      steamId: "76561198023709299",
+      displayName: "test",
+      avatar: "",
+      profileUrl: "",
+    })
+    vi.mocked(getUserStats).mockRejectedValue(new Error("db down"))
+
+    vi.doMock("@/lib/server/logger", () => ({
+      logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+    }))
+
+    const response = await GET(new Request("http://localhost/api/steam/stats"))
+    expect(response.status).toBe(500)
   })
 })
