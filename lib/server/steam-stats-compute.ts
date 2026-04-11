@@ -147,17 +147,33 @@ export function getStoredStatsSnapshot(steamId: string) {
 async function syncAchievementsForStats(steamId: string, forceRefresh: boolean) {
   const ownedGames = await ensureOwnedGamesSynced(steamId, { forceRefresh })
 
-  // Candidate set: games with community stats that aren't already known-broken
-  // (synced once and confirmed to have 0 achievements), and whose stored
-  // unlock state is either missing or stale.
+  // Incremental filter: we only hit Steam for games where unlocks could
+  // plausibly have changed since our last sync. The goal is to keep a full
+  // refresh cheap even for 1000-game libraries.
   const stale = ownedGames.filter((game) => {
+    // No community stats → cannot have achievements, skip forever.
     if (!game.has_community_visible_stats) return false
+
     const stored = getStoredAchievements(steamId, game.appid)
+
+    // Known-broken: first sync reported 0 achievements (stats-only game,
+    // retired game, private profile, etc). Don't keep retrying.
     if (stored?.achievements_synced_at && (stored.total_count ?? 0) === 0) return false
-    if (!forceRefresh && stored && !isStale(stored.achievements_synced_at, ACHIEVEMENTS_STALE_MS)) {
-      return false
-    }
-    return true
+
+    // Never synced → always include (covers first sync and new purchases).
+    if (!stored?.achievements_synced_at) return true
+
+    // Weekly safety floor: re-sync anything older than ACHIEVEMENTS_STALE_MS
+    // regardless of playtime, to catch edge cases like community-event
+    // unlocks that don't move rtime_last_played.
+    if (isStale(stored.achievements_synced_at, ACHIEVEMENTS_STALE_MS)) return true
+
+    // Incremental: only re-sync if the game was actually played after our
+    // last successful sync. rtime_last_played is Unix seconds, synced_at is
+    // an ISO timestamp.
+    const syncedAtMs = Date.parse(stored.achievements_synced_at)
+    const playedAtMs = (game.rtime_last_played ?? 0) * 1000
+    return playedAtMs > syncedAtMs
   })
 
   if (stale.length === 0) return
