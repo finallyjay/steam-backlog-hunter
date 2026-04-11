@@ -11,10 +11,10 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "html", "json-summary"],
-      // Measure the whole source tree, not just files a test happens to
-      // import. Without `all: true` the denominator silently ignores any
-      // untested module, producing an inflated percentage.
-      all: true,
+      // The `include` glob forces v8 to measure every matching file in
+      // the denominator, even ones no test happens to import. Without
+      // this, untested modules are silently dropped and the percentage
+      // is inflated.
       include: ["lib/**/*.{ts,tsx}", "app/**/*.{ts,tsx}", "components/**/*.{ts,tsx}", "hooks/**/*.{ts,tsx}"],
       exclude: [
         // Test infra
