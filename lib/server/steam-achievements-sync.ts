@@ -11,12 +11,35 @@ const SCHEMA_STALE_MS = 30 * 24 * 60 * 60 * 1000
 
 export { ACHIEVEMENTS_STALE_MS }
 
-type UserAchievementRow = {
-  achievements_json: string | null
+type UserAchievementMetaRow = {
   achievements_synced_at: string | null
   unlocked_count: number | null
   total_count: number | null
   perfect_game: number | null
+}
+
+type AchievementJoinRow = {
+  appid: number
+  apiname: string
+  display_name: string | null
+  description: string | null
+  icon: string | null
+  icon_gray: string | null
+  achieved: number
+  unlock_time: number | null
+}
+
+function mapJoinRowToView(row: AchievementJoinRow): SteamAchievementView {
+  return {
+    apiname: row.apiname,
+    achieved: row.achieved,
+    unlocktime: row.unlock_time ?? 0,
+    name: row.display_name ?? row.apiname,
+    description: row.description ?? "",
+    displayName: row.display_name ?? row.apiname,
+    icon: row.icon ?? "",
+    icongray: row.icon_gray ?? "",
+  }
 }
 
 type SchemaRow = {
@@ -39,22 +62,70 @@ type GameSchema = {
   }
 }
 
-/** Retrieves stored achievement data for a single game from SQLite. */
+/** Retrieves stored achievement sync metadata (counts, timestamp, perfect flag) for a single game. */
 export function getStoredAchievements(steamId: string, appId: number) {
   const db = getSqliteDatabase()
   return db
     .prepare(
       `
-    SELECT achievements_json, achievements_synced_at, unlocked_count, total_count, perfect_game
+    SELECT achievements_synced_at, unlocked_count, total_count, perfect_game
     FROM user_games
     WHERE steam_id = ? AND appid = ? AND owned = 1
   `,
     )
-    .get(steamId, appId) as UserAchievementRow | undefined
+    .get(steamId, appId) as UserAchievementMetaRow | undefined
 }
 
 /**
- * Retrieves stored achievements for multiple games in a single query.
+ * Reads a single game's enriched achievements from the normalized tables.
+ *
+ * Returns the full achievement list (including locked entries) by joining
+ * `game_achievements` with `user_achievements`, or `null` if the game has
+ * never been synced or has no achievements defined in its schema.
+ */
+export function readStoredAchievementsList(steamId: string, appId: number): SteamAchievementView[] | null {
+  const db = getSqliteDatabase()
+  const meta = db
+    .prepare(
+      `SELECT achievements_synced_at FROM user_games
+       WHERE steam_id = ? AND appid = ? AND owned = 1`,
+    )
+    .get(steamId, appId) as { achievements_synced_at: string | null } | undefined
+
+  if (!meta?.achievements_synced_at) return null
+
+  const rows = db
+    .prepare(
+      `
+      SELECT
+        ga.appid,
+        ga.apiname,
+        ga.display_name,
+        ga.description,
+        ga.icon,
+        ga.icon_gray,
+        COALESCE(ua.achieved, 0) AS achieved,
+        COALESCE(ua.unlock_time, 0) AS unlock_time
+      FROM game_achievements ga
+      LEFT JOIN user_achievements ua
+        ON ua.appid = ga.appid
+        AND ua.apiname = ga.apiname
+        AND ua.steam_id = ?
+      WHERE ga.appid = ?
+      ORDER BY ga.apiname
+    `,
+    )
+    .all(steamId, appId) as AchievementJoinRow[]
+
+  if (rows.length === 0) return null
+  return rows.map(mapJoinRowToView)
+}
+
+/**
+ * Retrieves stored achievements for multiple games in a single JOIN query.
+ *
+ * Filters to games the user has already synced (`achievements_synced_at IS NOT NULL`)
+ * so that unsynced games are absent from the result rather than appearing as all-locked.
  *
  * @returns A map of app ID to achievement views
  */
@@ -62,23 +133,38 @@ export function getBatchStoredAchievements(steamId: string, appIds: number[]): R
   if (appIds.length === 0) return {}
 
   const db = getSqliteDatabase()
+  const placeholders = appIds.map(() => "?").join(",")
   const rows = db
     .prepare(
       `
-    SELECT appid, achievements_json
-    FROM user_games
-    WHERE steam_id = ? AND owned = 1 AND achievements_json IS NOT NULL
-      AND appid IN (${appIds.map(() => "?").join(",")})
-  `,
+      SELECT
+        ga.appid,
+        ga.apiname,
+        ga.display_name,
+        ga.description,
+        ga.icon,
+        ga.icon_gray,
+        COALESCE(ua.achieved, 0) AS achieved,
+        COALESCE(ua.unlock_time, 0) AS unlock_time
+      FROM user_games ug
+      JOIN game_achievements ga ON ga.appid = ug.appid
+      LEFT JOIN user_achievements ua
+        ON ua.appid = ga.appid
+        AND ua.apiname = ga.apiname
+        AND ua.steam_id = ug.steam_id
+      WHERE ug.steam_id = ?
+        AND ug.owned = 1
+        AND ug.achievements_synced_at IS NOT NULL
+        AND ug.appid IN (${placeholders})
+      ORDER BY ga.appid, ga.apiname
+    `,
     )
-    .all(steamId, ...appIds) as Array<{ appid: number; achievements_json: string }>
+    .all(steamId, ...appIds) as AchievementJoinRow[]
 
   const result: Record<number, SteamAchievementView[]> = {}
   for (const row of rows) {
-    const parsed = parseJson<SteamAchievementView[]>(row.achievements_json)
-    if (parsed) {
-      result[row.appid] = parsed
-    }
+    const list = result[row.appid] ?? (result[row.appid] = [])
+    list.push(mapJoinRowToView(row))
   }
   return result
 }
@@ -263,12 +349,12 @@ export async function getAchievementsForGame(steamId: string, appId: number, opt
     storedAchievements &&
     !isStale(storedAchievements.achievements_synced_at, ACHIEVEMENTS_STALE_MS)
   ) {
-    const parsed = parseJson<SteamAchievementView[]>(storedAchievements.achievements_json)
-    if (parsed) {
+    const cached = readStoredAchievementsList(steamId, appId)
+    if (cached) {
       return {
         steamID: steamId,
         gameName: game.name,
-        achievements: parsed,
+        achievements: cached,
         success: true,
       }
     }
