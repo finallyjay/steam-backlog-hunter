@@ -120,8 +120,29 @@ export async function GET(request: NextRequest) {
       fetch(levelUrl),
       fetch(badgesUrl),
     ])
-    const userInfo = await userInfoResponse.json()
-    const player = userInfo.response.players[0]
+
+    const userInfoText = await userInfoResponse.text()
+    let userInfo: { response?: { players?: Array<Record<string, unknown>> } }
+    try {
+      userInfo = JSON.parse(userInfoText)
+    } catch {
+      logger.error(
+        { status: userInfoResponse.status, bodySnippet: userInfoText.slice(0, 200) },
+        "GetPlayerSummaries returned non-JSON response",
+      )
+      return NextResponse.redirect(getAppUrl("/?error=auth_error", request))
+    }
+    const player = userInfo.response?.players?.[0] as
+      | {
+          steamid: string
+          personaname: string
+          avatarfull: string
+          profileurl: string
+          timecreated?: number
+          personastate?: number
+          communityvisibilitystate?: number
+        }
+      | undefined
 
     if (!player) {
       return NextResponse.redirect(getAppUrl("/?error=auth_failed", request))

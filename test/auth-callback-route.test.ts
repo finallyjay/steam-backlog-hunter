@@ -191,20 +191,22 @@ describe("GET /api/auth/steam/callback", () => {
         const urlStr = url instanceof URL ? url.toString() : url
         if (urlStr.includes("GetPlayerSummaries")) {
           return Promise.resolve({
-            json: async () => ({
-              response: {
-                players: [
-                  {
-                    steamid: steamId,
-                    personaname: "TestPlayer",
-                    avatarfull: "https://avatar.url/full.jpg",
-                    profileurl: "https://steamcommunity.com/id/testplayer/",
-                    timecreated: 1234567890,
-                    personastate: 1,
-                  },
-                ],
-              },
-            }),
+            status: 200,
+            text: async () =>
+              JSON.stringify({
+                response: {
+                  players: [
+                    {
+                      steamid: steamId,
+                      personaname: "TestPlayer",
+                      avatarfull: "https://avatar.url/full.jpg",
+                      profileurl: "https://steamcommunity.com/id/testplayer/",
+                      timecreated: 1234567890,
+                      personastate: 1,
+                    },
+                  ],
+                },
+              }),
           })
         }
         // OpenID verification
@@ -243,20 +245,22 @@ describe("GET /api/auth/steam/callback", () => {
         const urlStr = url instanceof URL ? url.toString() : url
         if (urlStr.includes("GetPlayerSummaries")) {
           return Promise.resolve({
-            json: async () => ({
-              response: {
-                players: [
-                  {
-                    steamid: steamId,
-                    personaname: "TestPlayer",
-                    avatarfull: "https://avatar.url/full.jpg",
-                    profileurl: "https://steamcommunity.com/id/testplayer/",
-                    timecreated: 1234567890,
-                    personastate: 1,
-                  },
-                ],
-              },
-            }),
+            status: 200,
+            text: async () =>
+              JSON.stringify({
+                response: {
+                  players: [
+                    {
+                      steamid: steamId,
+                      personaname: "TestPlayer",
+                      avatarfull: "https://avatar.url/full.jpg",
+                      profileurl: "https://steamcommunity.com/id/testplayer/",
+                      timecreated: 1234567890,
+                      personastate: 1,
+                    },
+                  ],
+                },
+              }),
           })
         }
         if (urlStr.includes("GetSteamLevel")) {
