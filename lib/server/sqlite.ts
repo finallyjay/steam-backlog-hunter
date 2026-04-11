@@ -120,6 +120,34 @@ function createBaseSchema(db: DatabaseSync) {
       added_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS game_achievements (
+      appid INTEGER NOT NULL,
+      apiname TEXT NOT NULL,
+      display_name TEXT,
+      description TEXT,
+      icon TEXT,
+      icon_gray TEXT,
+      hidden INTEGER NOT NULL DEFAULT 0,
+      global_percent REAL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (appid, apiname),
+      FOREIGN KEY (appid) REFERENCES games(appid)
+    );
+
+    CREATE TABLE IF NOT EXISTS user_achievements (
+      steam_id TEXT NOT NULL,
+      appid INTEGER NOT NULL,
+      apiname TEXT NOT NULL,
+      achieved INTEGER NOT NULL DEFAULT 0,
+      unlock_time INTEGER,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (steam_id, appid, apiname),
+      FOREIGN KEY (steam_id) REFERENCES steam_profile(steam_id),
+      FOREIGN KEY (appid) REFERENCES games(appid)
+    );
+
     CREATE INDEX IF NOT EXISTS idx_user_games_steam_id ON user_games(steam_id);
     CREATE INDEX IF NOT EXISTS idx_user_games_steam_id_owned ON user_games(steam_id, owned);
     CREATE INDEX IF NOT EXISTS idx_stats_snapshot_steam_id ON stats_snapshot(steam_id);
@@ -266,6 +294,136 @@ const migrations: Array<(db: DatabaseSync) => void> = [
     addColumnIfMissing("steam_profile", "avatar_url", "TEXT")
     addColumnIfMissing("steam_profile", "profile_url", "TEXT")
     addColumnIfMissing("steam_profile", "last_login_at", "TEXT")
+  },
+
+  // Migration 8: Create normalized achievements tables and backfill from
+  // existing schema_json / achievements_json blobs. The JSON columns are
+  // still dual-written while read paths are migrated in a follow-up.
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS game_achievements (
+        appid INTEGER NOT NULL,
+        apiname TEXT NOT NULL,
+        display_name TEXT,
+        description TEXT,
+        icon TEXT,
+        icon_gray TEXT,
+        hidden INTEGER NOT NULL DEFAULT 0,
+        global_percent REAL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY (appid, apiname),
+        FOREIGN KEY (appid) REFERENCES games(appid)
+      );
+
+      CREATE TABLE IF NOT EXISTS user_achievements (
+        steam_id TEXT NOT NULL,
+        appid INTEGER NOT NULL,
+        apiname TEXT NOT NULL,
+        achieved INTEGER NOT NULL DEFAULT 0,
+        unlock_time INTEGER,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY (steam_id, appid, apiname),
+        FOREIGN KEY (steam_id) REFERENCES steam_profile(steam_id),
+        FOREIGN KEY (appid) REFERENCES games(appid)
+      );
+    `)
+
+    const now = new Date().toISOString()
+
+    const insertGameAch = db.prepare(`
+      INSERT INTO game_achievements (
+        appid, apiname, display_name, description, icon, icon_gray, hidden, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(appid, apiname) DO UPDATE SET
+        display_name = excluded.display_name,
+        description = excluded.description,
+        icon = excluded.icon,
+        icon_gray = excluded.icon_gray,
+        hidden = excluded.hidden,
+        updated_at = excluded.updated_at
+    `)
+
+    type SchemaRow = { appid: number; schema_json: string | null }
+    const schemaRows = db
+      .prepare("SELECT appid, schema_json FROM games WHERE schema_json IS NOT NULL")
+      .all() as SchemaRow[]
+
+    for (const row of schemaRows) {
+      if (!row.schema_json) continue
+      try {
+        const schema = JSON.parse(row.schema_json) as {
+          availableGameStats?: {
+            achievements?: Array<{
+              name: string
+              displayName?: string
+              description?: string
+              icon?: string
+              icongray?: string
+              hidden?: number
+            }>
+          }
+        }
+        const list = schema.availableGameStats?.achievements ?? []
+        for (const item of list) {
+          if (!item.name) continue
+          insertGameAch.run(
+            row.appid,
+            item.name,
+            item.displayName ?? null,
+            item.description ?? null,
+            item.icon ?? null,
+            item.icongray ?? null,
+            item.hidden ? 1 : 0,
+            now,
+            now,
+          )
+        }
+      } catch {
+        // Skip malformed rows — dual-write will repopulate on next sync.
+      }
+    }
+
+    const insertUserAch = db.prepare(`
+      INSERT INTO user_achievements (
+        steam_id, appid, apiname, achieved, unlock_time, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(steam_id, appid, apiname) DO UPDATE SET
+        achieved = excluded.achieved,
+        unlock_time = excluded.unlock_time,
+        updated_at = excluded.updated_at
+    `)
+
+    type UserRow = { steam_id: string; appid: number; achievements_json: string | null }
+    const userRows = db
+      .prepare("SELECT steam_id, appid, achievements_json FROM user_games WHERE achievements_json IS NOT NULL")
+      .all() as UserRow[]
+
+    for (const row of userRows) {
+      if (!row.achievements_json) continue
+      try {
+        const list = JSON.parse(row.achievements_json) as Array<{
+          apiname: string
+          achieved: number
+          unlocktime?: number
+        }>
+        for (const item of list) {
+          if (!item.apiname) continue
+          insertUserAch.run(
+            row.steam_id,
+            row.appid,
+            item.apiname,
+            item.achieved ? 1 : 0,
+            item.unlocktime ?? null,
+            now,
+            now,
+          )
+        }
+      } catch {
+        // Skip malformed rows — dual-write will repopulate on next sync.
+      }
+    }
   },
 ]
 
