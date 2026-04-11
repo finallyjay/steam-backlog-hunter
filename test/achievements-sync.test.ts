@@ -38,7 +38,7 @@ async function seedOwnedGames(
   entries: Array<{
     appid: number
     name: string
-    hasStats?: boolean
+    hasStats?: boolean | null
     syncedAt?: string | null
     totalCount?: number
     rtimeLastPlayed?: number | null
@@ -51,10 +51,11 @@ async function seedOwnedGames(
   db.prepare(`INSERT INTO steam_profile (steam_id, created_at, updated_at) VALUES (?, ?, ?)`).run(STEAM_ID, now, now)
 
   for (const entry of entries) {
+    const statsFlag = entry.hasStats === null ? null : entry.hasStats === false ? 0 : 1
     db.prepare(
       `INSERT INTO games (appid, name, has_community_visible_stats, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?)`,
-    ).run(entry.appid, entry.name, entry.hasStats === false ? 0 : 1, now, now)
+    ).run(entry.appid, entry.name, statsFlag, now, now)
 
     db.prepare(
       `INSERT INTO user_games (
@@ -324,6 +325,39 @@ describe("syncAchievementsForStats (incremental filter)", () => {
     await getStatsForUser(STEAM_ID, { forceRefresh: false })
 
     expect(mockGetPlayerAchievements).toHaveBeenCalledWith(STEAM_ID, 730)
+  })
+
+  it("includes games with NULL has_community_visible_stats (Steam omits the flag for older titles)", async () => {
+    const mockGetPlayerAchievements = vi.fn().mockResolvedValue({
+      steamID: STEAM_ID,
+      gameName: "Assassin's Creed",
+      achievements: [
+        { apiname: "ACH_ONE", achieved: 1, unlocktime: 1 },
+        { apiname: "ACH_TWO", achieved: 1, unlocktime: 2 },
+      ],
+      success: true,
+    })
+    mockSteamApi(mockGetPlayerAchievements)
+
+    const db = await seedOwnedGames([
+      { appid: 15100, name: "Assassin's Creed", hasStats: null },
+      { appid: 999, name: "No Stats Game", hasStats: false },
+    ])
+    const now = new Date().toISOString()
+    db.prepare(`UPDATE steam_profile SET last_owned_games_sync_at = ? WHERE steam_id = ?`).run(now, STEAM_ID)
+
+    const { getStatsForUser } = await import("@/lib/server/steam-stats-compute")
+    await getStatsForUser(STEAM_ID, { forceRefresh: false })
+
+    // NULL flag → included (Steam just didn't tell us; we ask directly)
+    expect(mockGetPlayerAchievements).toHaveBeenCalledWith(STEAM_ID, 15100)
+    // Explicit false → still skipped
+    expect(mockGetPlayerAchievements).not.toHaveBeenCalledWith(STEAM_ID, 999)
+
+    const row = db
+      .prepare("SELECT unlocked_count, total_count FROM user_games WHERE steam_id = ? AND appid = ?")
+      .get(STEAM_ID, 15100) as { unlocked_count: number; total_count: number }
+    expect(row).toEqual({ unlocked_count: 2, total_count: 2 })
   })
 
   it("never-played game is synced once (first sync) then skipped forever after", async () => {
