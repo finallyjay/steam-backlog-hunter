@@ -151,8 +151,13 @@ async function syncAchievementsForStats(steamId: string, forceRefresh: boolean) 
   // plausibly have changed since our last sync. The goal is to keep a full
   // refresh cheap even for 1000-game libraries.
   const stale = ownedGames.filter((game) => {
-    // No community stats → cannot have achievements, skip forever.
-    if (!game.has_community_visible_stats) return false
+    // Skip only when Steam has *explicitly* told us the game has no community
+    // stats. The flag is often missing entirely on older titles (Assassin's
+    // Creed, BioShock, Call of Duty, …) — we can't use undefined/null as a
+    // "no achievements" signal, so we include those games and let the first
+    // GetPlayerAchievements call decide (a null response marks the game as
+    // known-broken via the total_count === 0 rule below).
+    if (game.has_community_visible_stats === false) return false
 
     const stored = getStoredAchievements(steamId, game.appid)
 
