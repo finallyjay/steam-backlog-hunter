@@ -1,20 +1,21 @@
 import "server-only"
 
 import type { SteamStatsResponse } from "@/lib/types/steam"
-import { getTopAchievementsForGames } from "@/lib/steam-api"
+import { getPlayerAchievements } from "@/lib/steam-api"
 import { getSqliteDatabase } from "@/lib/server/sqlite"
 import { isStale, upsertProfile, getProfileSync, roundPercent } from "@/lib/server/steam-store-utils"
 import { ensureOwnedGamesSynced, getRecentlyPlayedGamesForUser } from "@/lib/server/steam-games-sync"
 import { logger } from "@/lib/server/logger"
 import {
   ACHIEVEMENTS_STALE_MS,
+  ensureSchema,
   getStoredAchievements,
-  persistBulkGameStats,
+  persistAchievements,
 } from "@/lib/server/steam-achievements-sync"
 
 export const OWNED_GAMES_STALE_MS = 24 * 60 * 60 * 1000
 const STATS_STALE_MS = 15 * 60 * 1000
-const BULK_ACHIEVEMENTS_BATCH_SIZE = 100
+const ACHIEVEMENTS_SYNC_CONCURRENCY = 5
 
 type StatsSnapshotRow = {
   total_games: number
@@ -161,47 +162,28 @@ async function syncAchievementsForStats(steamId: string, forceRefresh: boolean) 
 
   if (stale.length === 0) return
 
-  // Batch stale games into the undocumented GetTopAchievementsForGames
-  // endpoint (~100 games per HTTP call). For 1000-game libraries this
-  // collapses ~1000 per-game GetPlayerAchievements calls into ~10 bulk calls.
-  for (let index = 0; index < stale.length; index += BULK_ACHIEVEMENTS_BATCH_SIZE) {
-    const chunk = stale.slice(index, index + BULK_ACHIEVEMENTS_BATCH_SIZE)
-    const requestedAppIds = new Set(chunk.map((game) => game.appid))
-
-    let games: Awaited<ReturnType<typeof getTopAchievementsForGames>>
-    try {
-      games = await getTopAchievementsForGames(
-        steamId,
-        chunk.map((game) => game.appid),
-      )
-    } catch (error) {
-      logger.warn(
-        { err: error, batchSize: chunk.length },
-        "Bulk achievements batch failed — stale games will retry on next sync",
-      )
-      continue
-    }
-
-    const seen = new Set<number>()
-    for (const game of games) {
-      if (!requestedAppIds.has(game.appid)) continue
-      seen.add(game.appid)
-      const unlockedApinames = (game.achievements ?? [])
-        .map((achievement) => achievement.name ?? "")
-        .filter((name) => name.length > 0)
-      persistBulkGameStats(steamId, game.appid, game.total_achievements ?? 0, unlockedApinames)
-    }
-
-    // Games in the batch that the endpoint silently dropped — mark nothing;
-    // they'll be retried on the next sync.
-    const missing = chunk.filter((game) => !seen.has(game.appid))
-    if (missing.length > 0) {
-      logger.debug(
-        { missingCount: missing.length, batchStart: index },
-        "Bulk achievements response omitted games — will retry next sync",
-      )
+  // Fan out per-game GetPlayerAchievements requests with bounded concurrency.
+  // The bulk GetTopAchievementsForGames endpoint was tried but is unusable:
+  // it identifies achievements by statid+bit and exposes only a localized
+  // `name` (no apiname), so its rows cannot be joined against game_achievements.
+  let cursor = 0
+  async function worker() {
+    while (cursor < stale.length) {
+      const index = cursor++
+      if (index >= stale.length) return
+      const game = stale[index]
+      try {
+        const [playerAchievements] = await Promise.all([
+          getPlayerAchievements(steamId, game.appid),
+          ensureSchema(game.appid),
+        ])
+        persistAchievements(steamId, game.appid, playerAchievements?.achievements ?? [])
+      } catch (error) {
+        logger.warn({ err: error, appId: game.appid }, "Per-game achievements sync failed — will retry on next sync")
+      }
     }
   }
+  await Promise.all(Array.from({ length: ACHIEVEMENTS_SYNC_CONCURRENCY }, worker))
 }
 
 /**
