@@ -1,9 +1,9 @@
 import "server-only"
 
-import { getGameSchema, getPlayerAchievements } from "@/lib/steam-api"
+import { getGameSchema, getPlayerAchievements, type SteamAchievement } from "@/lib/steam-api"
 import type { SteamAchievementView } from "@/lib/types/steam"
 import { getSqliteDatabase } from "@/lib/server/sqlite"
-import { nowIso, isStale, parseJson } from "@/lib/server/steam-store-utils"
+import { nowIso, isStale } from "@/lib/server/steam-store-utils"
 import { ensureOwnedGamesSynced, getStoredGame } from "@/lib/server/steam-games-sync"
 
 const ACHIEVEMENTS_STALE_MS = 7 * 24 * 60 * 60 * 1000
@@ -40,11 +40,6 @@ function mapJoinRowToView(row: AchievementJoinRow): SteamAchievementView {
     icon: row.icon ?? "",
     icongray: row.icon_gray ?? "",
   }
-}
-
-type SchemaRow = {
-  schema_json: string | null
-  schema_synced_at: string | null
 }
 
 type SchemaAchievement = {
@@ -170,12 +165,15 @@ export function getBatchStoredAchievements(steamId: string, appIds: number[]): R
 }
 
 /**
- * Saves achievement data to SQLite, computing unlocked/total counts and perfect game status.
+ * Persists the result of a per-game `GetPlayerAchievements` call.
  *
- * Dual-writes into both the legacy `user_games.achievements_json` blob and the
- * normalized `user_achievements` table while the read path is being migrated.
+ * Writes `user_games` metadata (counts, sync timestamp, perfect flag) and
+ * replaces the game's `user_achievements` rows with one row per **unlocked**
+ * achievement (preserving `unlock_time`). Locked achievements are derived at
+ * read time via the LEFT JOIN against `game_achievements`, so there's no
+ * reason to materialise them.
  */
-export function persistAchievements(steamId: string, appId: number, achievements: SteamAchievementView[]) {
+export function persistAchievements(steamId: string, appId: number, achievements: SteamAchievement[]) {
   const db = getSqliteDatabase()
   const now = nowIso()
   const unlockedCount = achievements.filter((achievement) => achievement.achieved === 1).length
@@ -188,7 +186,6 @@ export function persistAchievements(steamId: string, appId: number, achievements
       `
       UPDATE user_games
       SET
-        achievements_json = ?,
         achievements_synced_at = ?,
         unlocked_count = ?,
         total_count = ?,
@@ -196,27 +193,19 @@ export function persistAchievements(steamId: string, appId: number, achievements
         updated_at = ?
       WHERE steam_id = ? AND appid = ? AND owned = 1
     `,
-    ).run(JSON.stringify(achievements), now, unlockedCount, totalCount, perfectGame, now, steamId, appId)
+    ).run(now, unlockedCount, totalCount, perfectGame, now, steamId, appId)
 
     db.prepare(`DELETE FROM user_achievements WHERE steam_id = ? AND appid = ?`).run(steamId, appId)
 
     const insert = db.prepare(`
       INSERT INTO user_achievements (
         steam_id, appid, apiname, achieved, unlock_time, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, 1, ?, ?, ?)
     `)
 
     for (const achievement of achievements) {
-      if (!achievement.apiname) continue
-      insert.run(
-        steamId,
-        appId,
-        achievement.apiname,
-        achievement.achieved ? 1 : 0,
-        achievement.unlocktime ?? null,
-        now,
-        now,
-      )
+      if (!achievement.apiname || achievement.achieved !== 1) continue
+      insert.run(steamId, appId, achievement.apiname, achievement.unlocktime ?? null, now, now)
     }
 
     db.exec("COMMIT")
@@ -282,8 +271,9 @@ export function persistBulkGameStats(steamId: string, appId: number, totalCount:
 }
 
 /**
- * Dual-writes the game schema into both the legacy `games.schema_json` blob
- * and the normalized `game_achievements` table.
+ * Persists the game schema (achievement definitions) into the normalized
+ * `game_achievements` table. Callers that want to refresh must go through
+ * `ensureSchema`, which handles staleness and upstream fetching.
  */
 function persistSchema(appId: number, schema: GameSchema | null) {
   const db = getSqliteDatabase()
@@ -291,41 +281,37 @@ function persistSchema(appId: number, schema: GameSchema | null) {
 
   db.exec("BEGIN")
   try {
-    db.prepare(
-      `
-      UPDATE games
-      SET schema_json = ?, schema_synced_at = ?, updated_at = ?
-      WHERE appid = ?
-    `,
-    ).run(schema ? JSON.stringify(schema) : null, now, now, appId)
+    db.prepare(`UPDATE games SET schema_synced_at = ?, updated_at = ? WHERE appid = ?`).run(now, now, appId)
 
     const achievements = schema?.availableGameStats?.achievements ?? []
-    const upsert = db.prepare(`
-      INSERT INTO game_achievements (
-        appid, apiname, display_name, description, icon, icon_gray, hidden, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(appid, apiname) DO UPDATE SET
-        display_name = excluded.display_name,
-        description = excluded.description,
-        icon = excluded.icon,
-        icon_gray = excluded.icon_gray,
-        hidden = excluded.hidden,
-        updated_at = excluded.updated_at
-    `)
+    if (achievements.length > 0) {
+      const upsert = db.prepare(`
+        INSERT INTO game_achievements (
+          appid, apiname, display_name, description, icon, icon_gray, hidden, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(appid, apiname) DO UPDATE SET
+          display_name = excluded.display_name,
+          description = excluded.description,
+          icon = excluded.icon,
+          icon_gray = excluded.icon_gray,
+          hidden = excluded.hidden,
+          updated_at = excluded.updated_at
+      `)
 
-    for (const achievement of achievements) {
-      if (!achievement.name) continue
-      upsert.run(
-        appId,
-        achievement.name,
-        achievement.displayName ?? null,
-        achievement.description ?? null,
-        achievement.icon ?? null,
-        achievement.icongray ?? null,
-        achievement.hidden ? 1 : 0,
-        now,
-        now,
-      )
+      for (const achievement of achievements) {
+        if (!achievement.name) continue
+        upsert.run(
+          appId,
+          achievement.name,
+          achievement.displayName ?? null,
+          achievement.description ?? null,
+          achievement.icon ?? null,
+          achievement.icongray ?? null,
+          achievement.hidden ? 1 : 0,
+          now,
+          now,
+        )
+      }
     }
 
     db.exec("COMMIT")
@@ -335,66 +321,38 @@ function persistSchema(appId: number, schema: GameSchema | null) {
   }
 }
 
-/** Retrieves the stored game schema (achievement definitions) from SQLite. */
-export function getStoredSchema(appId: number) {
-  const db = getSqliteDatabase()
-  return db
-    .prepare(
-      `
-    SELECT schema_json, schema_synced_at
-    FROM games
-    WHERE appid = ?
-  `,
-    )
-    .get(appId) as SchemaRow | undefined
-}
-
-/** Ensures the game schema is synced, fetching from Steam API if stale or missing. */
-export async function ensureSchema(steamId: string, appId: number, options?: { forceRefresh?: boolean }) {
+/**
+ * Ensures the game schema is synced, fetching from Steam API if stale or missing.
+ *
+ * Runs for its side effect on `game_achievements` — the return value is not
+ * consumed by any caller, since read paths go through the normalized tables.
+ */
+export async function ensureSchema(appId: number, options?: { forceRefresh?: boolean }): Promise<void> {
   const forceRefresh = options?.forceRefresh ?? false
-  const storedSchema = getStoredSchema(appId)
+  const db = getSqliteDatabase()
+  const row = db.prepare(`SELECT schema_synced_at FROM games WHERE appid = ?`).get(appId) as
+    | { schema_synced_at: string | null }
+    | undefined
 
-  if (!forceRefresh && storedSchema && !isStale(storedSchema.schema_synced_at, SCHEMA_STALE_MS)) {
-    return parseJson<GameSchema>(storedSchema.schema_json)
+  if (!forceRefresh && row?.schema_synced_at && !isStale(row.schema_synced_at, SCHEMA_STALE_MS)) {
+    return
   }
 
   const schema = (await getGameSchema(appId)) as GameSchema | null
   persistSchema(appId, schema)
-  return schema
-}
-
-/** Enriches raw player achievements with display names, descriptions, and icons from the game schema. */
-export function buildAchievementsView(
-  rawAchievements: NonNullable<Awaited<ReturnType<typeof getPlayerAchievements>>>["achievements"],
-  schema: GameSchema | null,
-): SteamAchievementView[] {
-  return rawAchievements.map((achievement) => {
-    const schemaAchievement = schema?.availableGameStats?.achievements?.find(
-      (schemaItem) => schemaItem.name === achievement.apiname,
-    )
-
-    return {
-      ...achievement,
-      displayName: schemaAchievement?.displayName || achievement.name || achievement.apiname,
-      description: schemaAchievement?.description || achievement.description || "",
-      icon: schemaAchievement?.icon || "",
-      icongray: schemaAchievement?.icongray || "",
-    }
-  })
 }
 
 /**
  * Returns enriched achievements for a game, fetching from Steam API if stale.
  *
- * @returns Achievement data with schema-enriched views, or null if the game is not owned or has no achievements
+ * @returns Achievement data reconstructed from the normalized tables, or null
+ *          if the game is not owned or is known to have no achievements
  */
 export async function getAchievementsForGame(steamId: string, appId: number, options?: { forceRefresh?: boolean }) {
   await ensureOwnedGamesSynced(steamId)
 
   const game = getStoredGame(steamId, appId)
-  if (!game) {
-    return null
-  }
+  if (!game) return null
 
   const forceRefresh = options?.forceRefresh ?? false
   const storedAchievements = getStoredAchievements(steamId, appId)
@@ -404,6 +362,10 @@ export async function getAchievementsForGame(steamId: string, appId: number, opt
     storedAchievements &&
     !isStale(storedAchievements.achievements_synced_at, ACHIEVEMENTS_STALE_MS)
   ) {
+    // Known broken/retired game — metadata says "no achievements here". Don't
+    // re-fetch on every request.
+    if ((storedAchievements.total_count ?? 0) === 0) return null
+
     const cached = readStoredAchievementsList(steamId, appId)
     if (cached) {
       return {
@@ -415,10 +377,7 @@ export async function getAchievementsForGame(steamId: string, appId: number, opt
     }
   }
 
-  const [playerAchievements, schema] = await Promise.all([
-    getPlayerAchievements(steamId, appId),
-    ensureSchema(steamId, appId, options),
-  ])
+  const [playerAchievements] = await Promise.all([getPlayerAchievements(steamId, appId), ensureSchema(appId, options)])
 
   if (!playerAchievements) {
     // Mark as checked with 0 achievements so we don't retry broken/retired games
@@ -426,13 +385,13 @@ export async function getAchievementsForGame(steamId: string, appId: number, opt
     return null
   }
 
-  const enrichedAchievements = buildAchievementsView(playerAchievements.achievements, schema)
-  persistAchievements(steamId, appId, enrichedAchievements)
+  persistAchievements(steamId, appId, playerAchievements.achievements)
 
+  const achievements = readStoredAchievementsList(steamId, appId)
   return {
     steamID: playerAchievements.steamID,
     gameName: playerAchievements.gameName,
-    achievements: enrichedAchievements,
+    achievements: achievements ?? [],
     success: playerAchievements.success,
   }
 }
