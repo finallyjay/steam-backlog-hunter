@@ -4,7 +4,12 @@ import { getLastPlayedTimes, getOwnedGames, type LastPlayedGame, type SteamGame 
 import { ensureGameImages } from "@/lib/server/steam-images"
 import { getSqliteDatabase } from "@/lib/server/sqlite"
 import { ensurePinnedGamesSynced } from "@/lib/server/pinned-games"
-import { getExtraAppIds, persistExtraGames, syncExtraAchievements } from "@/lib/server/extra-games"
+import {
+  getExtraAppIds,
+  hydrateMissingExtraNames,
+  persistExtraGames,
+  syncExtraAchievements,
+} from "@/lib/server/extra-games"
 import { logger } from "@/lib/server/logger"
 import {
   nowIso,
@@ -301,9 +306,15 @@ export async function ensureOwnedGamesSynced(steamId: string, options?: { forceR
   persistExtraGames(steamId, lastPlayed)
   // Fetch achievements + names for extras so the Extras page has the same
   // level of detail as the Library. GetPlayerAchievements.gameName is the
-  // authoritative name source for delisted apps (the public store API
-  // returns success=false for them).
+  // authoritative name source for apps with achievements (delisted or not).
   await syncExtraAchievements(steamId)
+  // Fallback pass: hydrate names for extras that are still nameless after
+  // the achievement sync — typically live apps without any Steam
+  // achievements (dedicated servers, demos, retired betas) where
+  // GetPlayerAchievements has nothing to return. Uses the public store
+  // appdetails endpoint. Truly delisted no-achievement apps stay nameless
+  // and render as "App #{appid}".
+  await hydrateMissingExtraNames(steamId)
   const finalGames = getStoredOwnedGames(steamId)
   // Image probes: both owned and extras share the `games` cache, so running
   // ensureGameImages across the union fills in headers/portraits for every

@@ -24,6 +24,80 @@ export type ExtraGame = {
 
 const EXTRAS_ACHIEVEMENTS_CONCURRENCY = 5
 
+// Store API: max 200 appids per request, rate-limited ~200 req / 5min per IP.
+// Only fires on extras whose name is still missing after the achievements
+// pass (so typically live games without achievements — dedicated servers,
+// demos, betas retired after launch, etc). Batches of 200 → ≤3 calls even
+// on a 500-extras account.
+const STORE_BATCH_SIZE = 200
+
+type StoreAppDetails = {
+  success?: boolean
+  data?: {
+    name?: string
+    type?: string
+  }
+}
+
+/**
+ * Fallback name hydrator: for any extras row whose `games.name` is still
+ * NULL after the achievement sync, try the public
+ * `store.steampowered.com/api/appdetails` endpoint. Covers live apps that
+ * have no Steam achievements (dedicated servers, old demos, …) for which
+ * GetPlayerAchievements can't give us a name.
+ *
+ * Delisted apps usually return `success=false` from this endpoint — those
+ * stay nameless and fall back to `App #{appid}` in the UI, same as before.
+ *
+ * Swallows per-batch errors so a transient store outage never breaks the
+ * parent sync pipeline.
+ */
+export async function hydrateMissingExtraNames(steamId: string) {
+  const db = getSqliteDatabase()
+  const rows = db
+    .prepare(
+      `
+      SELECT e.appid
+      FROM extra_games e
+      LEFT JOIN games g ON g.appid = e.appid
+      WHERE e.steam_id = ? AND (g.name IS NULL OR g.name = '')
+    `,
+    )
+    .all(steamId) as Array<{ appid: number }>
+
+  if (rows.length === 0) return
+
+  const now = nowIso()
+  const upsertGame = db.prepare(`
+    INSERT INTO games (appid, name, created_at, updated_at)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(appid) DO UPDATE SET
+      name = COALESCE(excluded.name, games.name),
+      updated_at = excluded.updated_at
+  `)
+
+  const appIds = rows.map((r) => r.appid)
+  for (let i = 0; i < appIds.length; i += STORE_BATCH_SIZE) {
+    const batch = appIds.slice(i, i + STORE_BATCH_SIZE)
+    try {
+      const url = new URL("https://store.steampowered.com/api/appdetails")
+      url.searchParams.set("appids", batch.join(","))
+      url.searchParams.set("filters", "basic")
+      const response = await fetch(url.toString(), { cache: "no-store" })
+      if (!response.ok) continue
+
+      const payload = (await response.json()) as Record<string, StoreAppDetails>
+      for (const appid of batch) {
+        const entry = payload[String(appid)]
+        const name = entry?.success && entry.data?.name ? entry.data.name : null
+        if (name) upsertGame.run(appid, name, now, now)
+      }
+    } catch (error) {
+      logger.warn({ err: error, batchSize: batch.length }, "Store appdetails batch failed")
+    }
+  }
+}
+
 /**
  * Upserts every played-game row that is NOT in the user's owned library and
  * NOT a pinned game. These surface refunded, family-shared, delisted and

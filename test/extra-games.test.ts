@@ -435,6 +435,108 @@ describe("syncExtraAchievements", () => {
   })
 })
 
+describe("hydrateMissingExtraNames", () => {
+  function mockStore(handler: (appids: string) => Record<string, unknown>) {
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input))
+      const appids = url.searchParams.get("appids") ?? ""
+      return {
+        ok: true,
+        status: 200,
+        json: async () => handler(appids),
+      } as unknown as Response
+    }) as unknown as typeof fetch
+  }
+
+  async function seedExtraWithoutName(appId: number) {
+    const db = await seedProfile()
+    const now = new Date().toISOString()
+    db.prepare(
+      `INSERT INTO extra_games (steam_id, appid, playtime_forever, synced_at, created_at, updated_at)
+       VALUES (?, ?, 100, ?, ?, ?)`,
+    ).run(STEAM_ID, appId, now, now, now)
+    return db
+  }
+
+  const ORIGINAL_FETCH = globalThis.fetch
+  afterEach(() => {
+    globalThis.fetch = ORIGINAL_FETCH
+  })
+
+  it("is a no-op when every extras row already has a name cached", async () => {
+    const db = await seedExtraWithoutName(111)
+    const now = new Date().toISOString()
+    db.prepare(`INSERT INTO games (appid, name, created_at, updated_at) VALUES (111, 'Already Cached', ?, ?)`).run(
+      now,
+      now,
+    )
+    const fetchSpy = vi.fn()
+    globalThis.fetch = fetchSpy as unknown as typeof fetch
+
+    const { hydrateMissingExtraNames } = await import("@/lib/server/extra-games")
+    await hydrateMissingExtraNames(STEAM_ID)
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it("upserts names fetched from the store API for nameless extras", async () => {
+    const db = await seedExtraWithoutName(111)
+    mockStore((appids) => {
+      const out: Record<string, unknown> = {}
+      for (const id of appids.split(",")) {
+        out[id] = { success: true, data: { name: `Game ${id}`, type: "game" } }
+      }
+      return out
+    })
+    const { hydrateMissingExtraNames } = await import("@/lib/server/extra-games")
+    await hydrateMissingExtraNames(STEAM_ID)
+    const row = db.prepare("SELECT name FROM games WHERE appid=111").get() as { name: string }
+    expect(row.name).toBe("Game 111")
+  })
+
+  it("leaves the row nameless when the store API says success=false (delisted)", async () => {
+    const db = await seedExtraWithoutName(274920)
+    mockStore((appids) => {
+      const out: Record<string, unknown> = {}
+      for (const id of appids.split(",")) out[id] = { success: false }
+      return out
+    })
+    const { hydrateMissingExtraNames } = await import("@/lib/server/extra-games")
+    await hydrateMissingExtraNames(STEAM_ID)
+    const row = db.prepare("SELECT name FROM games WHERE appid=274920").get() as { name: string | null } | undefined
+    // Either no row at all, or row with null name — either way it's nameless
+    expect(row?.name ?? null).toBeNull()
+  })
+
+  it("swallows store API failures without throwing", async () => {
+    await seedExtraWithoutName(111)
+    globalThis.fetch = vi.fn(async () => ({
+      ok: false,
+      status: 500,
+      json: async () => ({}),
+    })) as unknown as typeof fetch
+    const { hydrateMissingExtraNames } = await import("@/lib/server/extra-games")
+    await expect(hydrateMissingExtraNames(STEAM_ID)).resolves.toBeUndefined()
+  })
+
+  it("swallows store API rejected promises without throwing", async () => {
+    await seedExtraWithoutName(111)
+    globalThis.fetch = vi.fn(async () => {
+      throw new Error("network")
+    }) as unknown as typeof fetch
+    const { hydrateMissingExtraNames } = await import("@/lib/server/extra-games")
+    await expect(hydrateMissingExtraNames(STEAM_ID)).resolves.toBeUndefined()
+  })
+
+  it("is a no-op when the user has no extras at all", async () => {
+    await seedProfile()
+    const fetchSpy = vi.fn()
+    globalThis.fetch = fetchSpy as unknown as typeof fetch
+    const { hydrateMissingExtraNames } = await import("@/lib/server/extra-games")
+    await hydrateMissingExtraNames(STEAM_ID)
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+})
+
 describe("getExtraAppIds", () => {
   it("returns an empty array for a user with no extras", async () => {
     await seedProfile()
