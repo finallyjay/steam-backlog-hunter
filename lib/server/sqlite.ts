@@ -164,10 +164,29 @@ function createBaseSchema(db: DatabaseSync) {
       playtime_forever INTEGER NOT NULL DEFAULT 0,
       rtime_first_played INTEGER,
       rtime_last_played INTEGER,
+      achievements_synced_at TEXT,
+      unlocked_count INTEGER,
+      total_count INTEGER,
+      perfect_game INTEGER NOT NULL DEFAULT 0,
       synced_at TEXT NOT NULL,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
       PRIMARY KEY (steam_id, appid),
+      FOREIGN KEY (steam_id) REFERENCES steam_profile(steam_id)
+    );
+
+    -- Per-user unlocked achievements for games in extra_games. Intentionally
+    -- a separate table from user_achievements so there is zero possibility of
+    -- an extras row leaking into library stats via a forgotten WHERE clause.
+    CREATE TABLE IF NOT EXISTS extra_game_achievements (
+      steam_id TEXT NOT NULL,
+      appid INTEGER NOT NULL,
+      apiname TEXT NOT NULL,
+      achieved INTEGER NOT NULL DEFAULT 0,
+      unlock_time INTEGER,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (steam_id, appid, apiname),
       FOREIGN KEY (steam_id) REFERENCES steam_profile(steam_id)
     );
 
@@ -249,6 +268,12 @@ function applyAdditiveMigrations(db: DatabaseSync) {
   // from ClientGetLastPlayedTimes. Nullable because older rows may not have
   // been enriched yet.
   addColumnIfMissing(db, "user_games", "rtime_first_played", "INTEGER")
+  // Achievement metadata for extras — only present on databases that already
+  // had extra_games before we added achievement sync.
+  addColumnIfMissing(db, "extra_games", "achievements_synced_at", "TEXT")
+  addColumnIfMissing(db, "extra_games", "unlocked_count", "INTEGER")
+  addColumnIfMissing(db, "extra_games", "total_count", "INTEGER")
+  addColumnIfMissing(db, "extra_games", "perfect_game", "INTEGER NOT NULL DEFAULT 0")
 }
 
 export function getSqliteDatabase() {

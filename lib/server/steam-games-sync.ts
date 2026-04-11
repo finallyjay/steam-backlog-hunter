@@ -4,7 +4,7 @@ import { getLastPlayedTimes, getOwnedGames, type LastPlayedGame, type SteamGame 
 import { ensureGameImages } from "@/lib/server/steam-images"
 import { getSqliteDatabase } from "@/lib/server/sqlite"
 import { ensurePinnedGamesSynced } from "@/lib/server/pinned-games"
-import { persistExtraGames } from "@/lib/server/extra-games"
+import { getExtraAppIds, persistExtraGames, syncExtraAchievements } from "@/lib/server/extra-games"
 import {
   nowIso,
   nullIfUndefined,
@@ -281,9 +281,19 @@ export async function ensureOwnedGamesSynced(steamId: string, options?: { forceR
   // Everything in lastPlayed that ISN'T already in user_games (owned + pinned)
   // lands in extra_games — refunded, family-shared, delisted-but-not-pinned,
   // etc. Fully isolated from library stats.
-  await persistExtraGames(steamId, lastPlayed)
+  persistExtraGames(steamId, lastPlayed)
+  // Fetch achievements + names for extras so the Extras page has the same
+  // level of detail as the Library. GetPlayerAchievements.gameName is the
+  // authoritative name source for delisted apps (the public store API
+  // returns success=false for them).
+  await syncExtraAchievements(steamId)
   const finalGames = getStoredOwnedGames(steamId)
-  await ensureGameImages(finalGames.map((game) => game.appid))
+  // Image probes: both owned and extras share the `games` cache, so running
+  // ensureGameImages across the union fills in headers/portraits for every
+  // game that appears in the UI.
+  const extraAppIds = getExtraAppIds(steamId)
+  const imageAppIds = Array.from(new Set([...finalGames.map((g) => g.appid), ...extraAppIds]))
+  await ensureGameImages(imageAppIds)
   return finalGames
 }
 

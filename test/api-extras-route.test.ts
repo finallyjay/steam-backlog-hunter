@@ -57,9 +57,16 @@ describe("GET /api/steam/extras", () => {
       {
         appid: 111,
         name: "Refunded Game",
+        image_landscape_url: null,
+        image_portrait_url: null,
+        image_icon_url: null,
         playtime_forever: 120,
         rtime_first_played: 1_000_000_000,
         rtime_last_played: 1_100_000_000,
+        unlocked_count: 3,
+        total_count: 10,
+        perfect_game: 0,
+        achievements_synced_at: "2026-04-11T10:00:00.000Z",
         synced_at: "2026-04-11T10:00:00.000Z",
       },
     ])
