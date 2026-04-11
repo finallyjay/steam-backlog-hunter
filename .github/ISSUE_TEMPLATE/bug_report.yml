@@ -1,0 +1,56 @@
+name: Bug report
+description: Something in the app is broken or behaves unexpectedly
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug. A good report includes what you did, what you expected, and what actually happened — that's usually enough to get started.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: A clear description of the bug. Screenshots or logs are welcome.
+      placeholder: "When I click sync on the dashboard, the achievement counts freeze at zero."
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+      placeholder: "Counts should update to reflect the current Steam data within a few seconds."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Minimal sequence that triggers the bug. Include the route, any relevant filters, and the game(s) involved if it's game-specific.
+      placeholder: |
+        1. Log in as steam id 76561...
+        2. Go to /dashboard
+        3. Click "Sync"
+        4. Observe counts stay at 0
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Where were you running the app?
+      placeholder: "Local dev (pnpm dev, Node 24.13, macOS), or deployed instance"
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / console output
+      description: Paste any relevant server logs, browser console errors, or network request failures.
+      render: shell
+    validations:
+      required: false
