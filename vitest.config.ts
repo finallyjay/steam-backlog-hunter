@@ -42,10 +42,10 @@ export default defineConfig({
       // coverage PR ratchets these up; CI fails if a PR regresses below
       // the current floor.
       thresholds: {
-        lines: 75,
-        statements: 73,
-        branches: 62,
-        functions: 58,
+        lines: 92,
+        statements: 90,
+        branches: 83,
+        functions: 81,
       },
     },
   },
