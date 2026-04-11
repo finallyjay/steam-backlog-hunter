@@ -48,6 +48,10 @@ async function seedOwnedGames(
   const db = getSqliteDatabase()
   const now = new Date().toISOString()
 
+  // Clear the pinned_games seed so these sync tests can assert exact call
+  // counts without being polluted by the default delisted entries.
+  db.prepare("DELETE FROM pinned_games").run()
+
   db.prepare(`INSERT INTO steam_profile (steam_id, created_at, updated_at) VALUES (?, ?, ?)`).run(STEAM_ID, now, now)
 
   for (const entry of entries) {
