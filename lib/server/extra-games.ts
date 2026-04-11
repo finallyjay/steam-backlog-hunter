@@ -1,85 +1,39 @@
 import "server-only"
 
-import type { LastPlayedGame } from "@/lib/steam-api"
+import { getPlayerAchievements, type LastPlayedGame } from "@/lib/steam-api"
 import { getSqliteDatabase } from "@/lib/server/sqlite"
-import { nowIso } from "@/lib/server/steam-store-utils"
+import { isStale, nowIso } from "@/lib/server/steam-store-utils"
+import { ensureSchema, ACHIEVEMENTS_STALE_MS } from "@/lib/server/steam-achievements-sync"
 import { logger } from "@/lib/server/logger"
 
 export type ExtraGame = {
   appid: number
   name: string | null
+  image_landscape_url: string | null
+  image_portrait_url: string | null
+  image_icon_url: string | null
   playtime_forever: number
   rtime_first_played: number | null
   rtime_last_played: number | null
+  unlocked_count: number | null
+  total_count: number | null
+  perfect_game: number
+  achievements_synced_at: string | null
   synced_at: string
 }
 
-// Store API: max 200 appids per request, rate-limited ~200 req / 5min per IP.
-// We only batch during the owned-games refresh (~every 24h per user), so one
-// fan-out of 3 calls on first sync is fine.
-const STORE_BATCH_SIZE = 200
-
-type StoreAppDetails = {
-  success?: boolean
-  data?: {
-    name?: string
-    type?: string
-  }
-}
-
-/**
- * Fetches `name` from the public store `appdetails` API for the given ids and
- * upserts them into the shared `games` name cache. Subsequent queries that
- * join against `games` will surface the names without re-fetching.
- *
- * Swallows per-batch errors so a transient store outage doesn't break the
- * whole sync. Appids whose store entry 404s or returns `success=false`
- * (delisted with no remaining metadata) are simply left nameless.
- */
-async function hydrateMissingGameNames(appIds: number[]) {
-  if (appIds.length === 0) return
-
-  const db = getSqliteDatabase()
-  const now = nowIso()
-  const upsertGame = db.prepare(`
-    INSERT INTO games (appid, name, created_at, updated_at)
-    VALUES (?, ?, ?, ?)
-    ON CONFLICT(appid) DO UPDATE SET
-      name = COALESCE(excluded.name, games.name),
-      updated_at = excluded.updated_at
-  `)
-
-  for (let i = 0; i < appIds.length; i += STORE_BATCH_SIZE) {
-    const batch = appIds.slice(i, i + STORE_BATCH_SIZE)
-    try {
-      const url = new URL("https://store.steampowered.com/api/appdetails")
-      url.searchParams.set("appids", batch.join(","))
-      url.searchParams.set("filters", "basic")
-      const response = await fetch(url.toString(), { cache: "no-store" })
-      if (!response.ok) continue
-
-      const payload = (await response.json()) as Record<string, StoreAppDetails>
-      for (const appid of batch) {
-        const entry = payload[String(appid)]
-        const name = entry?.success && entry.data?.name ? entry.data.name : null
-        upsertGame.run(appid, name, now, now)
-      }
-    } catch (error) {
-      logger.warn({ err: error, batchSize: batch.length }, "Store appdetails batch failed")
-    }
-  }
-}
+const EXTRAS_ACHIEVEMENTS_CONCURRENCY = 5
 
 /**
  * Upserts every played-game row that is NOT in the user's owned library and
- * NOT a pinned game. These surfaces refunded, family-shared, delisted and
+ * NOT a pinned game. These surface refunded, family-shared, delisted and
  * otherwise-unowned games whose playtime Steam still remembers via
  * ClientGetLastPlayedTimes.
  *
  * Fully isolated from `user_games` so nothing in `extra_games` can leak into
  * library stats / KPIs / insights.
  */
-export async function persistExtraGames(steamId: string, lastPlayed: LastPlayedGame[]) {
+export function persistExtraGames(steamId: string, lastPlayed: LastPlayedGame[]) {
   if (lastPlayed.length === 0) return
 
   const db = getSqliteDatabase()
@@ -136,28 +90,159 @@ export async function persistExtraGames(steamId: string, lastPlayed: LastPlayedG
     db.exec("ROLLBACK")
     throw error
   }
+}
 
-  // Hydrate names for any candidate appids that don't already have a name
-  // cached in the shared `games` table. Fires one extra fan-out of store API
-  // calls on first sync (cheap, batches of 200), then becomes a no-op once
-  // the cache is warm.
-  const nameless = db
-    .prepare(
+/**
+ * Persists unlocked achievements + count metadata for a single extras game.
+ * Mirrors `persistAchievements` for the library path but writes to the
+ * physically separate `extra_game_achievements` table and updates count
+ * columns on `extra_games`, never on `user_games`.
+ */
+export function persistExtraAchievements(
+  steamId: string,
+  appId: number,
+  gameName: string,
+  achievements: Array<{ apiname?: string; achieved: number; unlocktime?: number }>,
+) {
+  const db = getSqliteDatabase()
+  const now = nowIso()
+
+  // Dedupe apinames the same way persistAchievements does — Steam occasionally
+  // repeats entries in the bulk response.
+  const unlockedByApiname = new Map<string, { apiname: string; unlocktime?: number }>()
+  for (const achievement of achievements) {
+    if (!achievement.apiname || achievement.achieved !== 1) continue
+    if (!unlockedByApiname.has(achievement.apiname)) {
+      unlockedByApiname.set(achievement.apiname, {
+        apiname: achievement.apiname,
+        unlocktime: achievement.unlocktime,
+      })
+    }
+  }
+  const unlockedCount = unlockedByApiname.size
+  const totalCount = achievements.length
+  const perfectGame = totalCount > 0 && unlockedCount === totalCount ? 1 : 0
+
+  db.exec("BEGIN")
+  try {
+    // Cache the game name on the shared games table so the UI can show it.
+    // This is the authoritative name source for delisted games — far more
+    // reliable than the public store appdetails API.
+    if (gameName) {
+      db.prepare(
+        `
+        INSERT INTO games (appid, name, created_at, updated_at)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(appid) DO UPDATE SET
+          name = excluded.name,
+          updated_at = excluded.updated_at
+      `,
+      ).run(appId, gameName, now, now)
+    }
+
+    db.prepare(
       `
-      SELECT e.appid
-      FROM extra_games e
-      LEFT JOIN games g ON g.appid = e.appid
-      WHERE e.steam_id = ? AND (g.name IS NULL OR g.name = '')
+      UPDATE extra_games
+      SET
+        achievements_synced_at = ?,
+        unlocked_count = ?,
+        total_count = ?,
+        perfect_game = ?,
+        updated_at = ?
+      WHERE steam_id = ? AND appid = ?
     `,
-    )
-    .all(steamId) as Array<{ appid: number }>
+    ).run(now, unlockedCount, totalCount, perfectGame, now, steamId, appId)
 
-  if (nameless.length > 0) {
-    await hydrateMissingGameNames(nameless.map((r) => r.appid))
+    db.prepare(`DELETE FROM extra_game_achievements WHERE steam_id = ? AND appid = ?`).run(steamId, appId)
+
+    const insert = db.prepare(`
+      INSERT INTO extra_game_achievements (
+        steam_id, appid, apiname, achieved, unlock_time, created_at, updated_at
+      ) VALUES (?, ?, ?, 1, ?, ?, ?)
+    `)
+    for (const entry of unlockedByApiname.values()) {
+      insert.run(steamId, appId, entry.apiname, entry.unlocktime ?? null, now, now)
+    }
+
+    db.exec("COMMIT")
+  } catch (error) {
+    db.exec("ROLLBACK")
+    throw error
   }
 }
 
-/** Returns every extra-games row for a user, joined with the shared games name cache. */
+/**
+ * Syncs achievements for every extras row that needs refreshing. Uses the
+ * same incremental filter as the library path: skip if the stored data is
+ * fresh and rtime_last_played hasn't advanced. 7-day staleness floor for
+ * rare edge cases where achievements unlock without moving rtime.
+ *
+ * Runs per-game GetPlayerAchievements + ensureSchema with concurrency=5.
+ * Swallows per-game failures so a single broken entry can't abort the whole
+ * extras sync.
+ */
+export async function syncExtraAchievements(steamId: string) {
+  const db = getSqliteDatabase()
+  const rows = db
+    .prepare(
+      `
+      SELECT appid, rtime_last_played, achievements_synced_at, total_count
+      FROM extra_games
+      WHERE steam_id = ?
+    `,
+    )
+    .all(steamId) as Array<{
+    appid: number
+    rtime_last_played: number | null
+    achievements_synced_at: string | null
+    total_count: number | null
+  }>
+
+  const stale = rows.filter((row) => {
+    // Known-broken: synced once, reported 0 achievements (stats-only games,
+    // games without any Steam achievements, etc). Don't retry.
+    if (row.achievements_synced_at && (row.total_count ?? 0) === 0) return false
+    // Never synced → include.
+    if (!row.achievements_synced_at) return true
+    // Weekly staleness floor catches edge cases where rtime didn't move.
+    if (isStale(row.achievements_synced_at, ACHIEVEMENTS_STALE_MS)) return true
+    // Incremental: only re-sync if the game was played after our last sync.
+    const syncedAtMs = Date.parse(row.achievements_synced_at)
+    const playedAtMs = (row.rtime_last_played ?? 0) * 1000
+    return playedAtMs > syncedAtMs
+  })
+
+  if (stale.length === 0) return
+
+  let cursor = 0
+  async function worker() {
+    while (cursor < stale.length) {
+      const index = cursor++
+      if (index >= stale.length) return
+      const row = stale[index]
+      try {
+        const [playerAchievements] = await Promise.all([
+          getPlayerAchievements(steamId, row.appid),
+          ensureSchema(row.appid),
+        ])
+        if (!playerAchievements) {
+          // Mark as known-broken so we don't retry every sync.
+          persistExtraAchievements(steamId, row.appid, "", [])
+          continue
+        }
+        persistExtraAchievements(steamId, row.appid, playerAchievements.gameName, playerAchievements.achievements ?? [])
+      } catch (error) {
+        logger.warn({ err: error, appId: row.appid }, "Per-extras achievements sync failed — will retry on next sync")
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: EXTRAS_ACHIEVEMENTS_CONCURRENCY }, worker))
+}
+
+/**
+ * Returns every extra-games row for a user, joined with the shared games
+ * name + image cache. Ordered by playtime desc then last_played desc.
+ */
 export function getExtraGamesForUser(steamId: string): ExtraGame[] {
   const db = getSqliteDatabase()
   const rows = db
@@ -166,9 +251,16 @@ export function getExtraGamesForUser(steamId: string): ExtraGame[] {
       SELECT
         e.appid,
         g.name,
+        g.image_landscape_url,
+        g.image_portrait_url,
+        g.image_icon_url,
         e.playtime_forever,
         e.rtime_first_played,
         e.rtime_last_played,
+        e.unlocked_count,
+        e.total_count,
+        e.perfect_game,
+        e.achievements_synced_at,
         e.synced_at
       FROM extra_games e
       LEFT JOIN games g ON g.appid = e.appid
@@ -178,4 +270,11 @@ export function getExtraGamesForUser(steamId: string): ExtraGame[] {
     )
     .all(steamId) as ExtraGame[]
   return rows
+}
+
+/** Returns the list of appids currently tracked as extras for a user. */
+export function getExtraAppIds(steamId: string): number[] {
+  const db = getSqliteDatabase()
+  const rows = db.prepare(`SELECT appid FROM extra_games WHERE steam_id = ?`).all(steamId) as Array<{ appid: number }>
+  return rows.map((r) => r.appid)
 }

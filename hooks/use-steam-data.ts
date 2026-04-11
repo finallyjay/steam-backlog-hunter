@@ -268,9 +268,16 @@ export function useSteamStats() {
 export type SteamExtraGame = {
   appid: number
   name: string | null
+  image_landscape_url: string | null
+  image_portrait_url: string | null
+  image_icon_url: string | null
   playtime_forever: number
   rtime_first_played: number | null
   rtime_last_played: number | null
+  unlocked_count: number | null
+  total_count: number | null
+  perfect_game: number
+  achievements_synced_at: string | null
   synced_at: string
 }
 

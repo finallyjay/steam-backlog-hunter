@@ -2,20 +2,15 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
-import { AlertCircle, Search } from "lucide-react"
+import { AlertCircle, Search, Sparkles } from "lucide-react"
 
 import { useCurrentUser } from "@/hooks/use-current-user"
 import { useSteamExtras } from "@/hooks/use-steam-data"
 import { PageContainer } from "@/components/ui/page-container"
 import { LoadingMessage } from "@/components/ui/loading-message"
-import { formatPlaytime } from "@/lib/utils"
-
-function formatDate(unixSeconds: number | null) {
-  if (!unixSeconds) return "—"
-  const d = new Date(unixSeconds * 1000)
-  if (Number.isNaN(d.getTime())) return "—"
-  return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
-}
+import { GameCard } from "@/components/ui/game-card"
+import { Skeleton } from "@/components/ui/skeleton"
+import { getSteamHeaderImageUrl } from "@/lib/steam-api"
 
 export default function ExtrasPage() {
   const { user, loading: loadingUser } = useCurrentUser()
@@ -44,30 +39,41 @@ export default function ExtrasPage() {
 
   return (
     <PageContainer>
-      <div className="space-y-6">
-        <div className="space-y-2">
-          <h1 className="text-2xl font-semibold tracking-tight">Extras</h1>
-          <p className="text-muted-foreground max-w-2xl text-sm">
-            Games Steam remembers you played at some point but that aren&apos;t in your main library: refunded,
-            family-shared, delisted, or otherwise removed. These <strong>don&apos;t count</strong> in your library
-            stats, insights, or KPIs — they&apos;re tracked separately so you can still see them without contaminating
-            anything else.
+      <div className="space-y-4">
+        <div className="flex items-start gap-3">
+          <div className="bg-accent/15 text-accent border-surface-4 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border">
+            <Sparkles className="h-5 w-5" />
+          </div>
+          <div className="space-y-1">
+            <h1 className="text-2xl font-semibold tracking-tight">Extras</h1>
+            <p className="text-muted-foreground max-w-2xl text-sm">
+              Games Steam remembers you played at some point but that aren&apos;t in your main library: refunded,
+              family-shared, delisted, or otherwise removed. These <strong>don&apos;t count</strong> in your library
+              stats, insights or KPIs — they&apos;re tracked separately so you can still see them without contaminating
+              anything else.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between gap-4">
+          <div className="border-surface-4 bg-surface-1 focus-within:border-accent flex h-9 min-w-0 flex-1 items-center gap-2 rounded-lg border px-3">
+            <Search className="text-muted-foreground h-4 w-4 shrink-0" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search extras…"
+              className="text-foreground placeholder:text-muted-foreground h-full w-full bg-transparent text-sm focus:outline-none"
+            />
+          </div>
+          <p className="text-muted-foreground shrink-0 text-sm">
+            {loadingGames
+              ? "Loading…"
+              : `${filtered.length}${filtered.length !== games.length ? ` of ${games.length}` : ""} games`}
           </p>
         </div>
 
-        <div className="border-surface-4 bg-surface-1 focus-within:border-accent flex h-9 items-center gap-2 rounded-lg border px-3">
-          <Search className="text-muted-foreground h-4 w-4 shrink-0" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search extras…"
-            className="text-foreground placeholder:text-muted-foreground h-full w-full bg-transparent text-sm focus:outline-none"
-          />
-          <span className="text-muted-foreground shrink-0 text-sm">
-            {loadingGames ? "Loading…" : `${filtered.length} of ${games.length}`}
-          </span>
-        </div>
+        <hr className="border-surface-4" />
 
         {error ? (
           <div className="border-destructive/40 bg-destructive/5 flex items-start gap-3 rounded-lg border px-4 py-3">
@@ -78,7 +84,21 @@ export default function ExtrasPage() {
             </div>
           </div>
         ) : loadingGames ? (
-          <p className="text-muted-foreground py-8 text-center text-sm">Loading extras…</p>
+          <div className="space-y-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div
+                key={i}
+                className="border-surface-4 bg-surface-1 flex items-stretch gap-4 rounded-lg border px-4 py-4"
+              >
+                <Skeleton className="h-[5.9rem] w-48 rounded-2xl" />
+                <div className="min-w-0 flex-1 space-y-2">
+                  <Skeleton className="h-5 w-44" />
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-2 w-full rounded-full" />
+                </div>
+              </div>
+            ))}
+          </div>
         ) : filtered.length === 0 ? (
           <div className="border-surface-4 bg-surface-1 rounded-lg border px-6 py-10 text-center">
             <p className="text-muted-foreground">No extras yet.</p>
@@ -87,42 +107,22 @@ export default function ExtrasPage() {
             </p>
           </div>
         ) : (
-          <div className="border-surface-4 bg-surface-1 overflow-hidden rounded-lg border">
-            <table className="w-full text-sm">
-              <thead className="text-muted-foreground border-surface-4 border-b text-left text-xs tracking-wider uppercase">
-                <tr>
-                  <th className="px-4 py-2 font-medium">Game</th>
-                  <th className="px-4 py-2 font-medium">Playtime</th>
-                  <th className="hidden px-4 py-2 font-medium md:table-cell">First played</th>
-                  <th className="hidden px-4 py-2 font-medium md:table-cell">Last played</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((game) => (
-                  <tr key={game.appid} className="border-surface-4/50 hover:bg-surface-2 border-t">
-                    <td className="px-4 py-2.5">
-                      <a
-                        href={`https://store.steampowered.com/app/${game.appid}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="hover:text-accent text-foreground"
-                      >
-                        {game.name ?? `App #${game.appid}`}
-                      </a>
-                    </td>
-                    <td className="text-muted-foreground px-4 py-2.5 tabular-nums">
-                      {formatPlaytime(game.playtime_forever / 60)}
-                    </td>
-                    <td className="text-muted-foreground hidden px-4 py-2.5 tabular-nums md:table-cell">
-                      {formatDate(game.rtime_first_played)}
-                    </td>
-                    <td className="text-muted-foreground hidden px-4 py-2.5 tabular-nums md:table-cell">
-                      {formatDate(game.rtime_last_played)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="space-y-4">
+            {filtered.map((game) => (
+              <GameCard
+                key={game.appid}
+                id={game.appid}
+                name={game.name ?? `App #${game.appid}`}
+                image={game.image_landscape_url ?? getSteamHeaderImageUrl(game.appid)}
+                playtime={Number(((game.playtime_forever ?? 0) / 60).toFixed(1))}
+                href={`https://store.steampowered.com/app/${game.appid}`}
+                achievements={[]}
+                achievementsLoading={false}
+                serverTotal={game.total_count ?? 0}
+                serverUnlocked={game.unlocked_count ?? 0}
+                serverPerfect={game.perfect_game === 1}
+              />
+            ))}
           </div>
         )}
       </div>
