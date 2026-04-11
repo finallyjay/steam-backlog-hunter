@@ -160,21 +160,27 @@ function createBaseSchema(db: DatabaseSync) {
 
 /**
  * Seeds pinned_games with known delisted apps that still respond to
- * GetPlayerAchievements. Idempotent via INSERT OR IGNORE so manual additions
- * via the admin endpoint are preserved.
+ * GetPlayerAchievements.
+ *
+ * Runs on every database open. INSERT OR IGNORE means editing this list is
+ * additive: new entries land on the next startup in both local and
+ * production databases without a migration, and existing rows (including
+ * any added manually via the admin endpoint) are untouched. Remove an
+ * entry here only if you also want it gone in production — the runtime
+ * won't re-add it, but it won't delete pre-existing rows either.
  */
+const DEFAULT_PINNED_GAMES: ReadonlyArray<readonly [number, string]> = [
+  [274920, "FaceRig (delisted 2022)"],
+  [245550, "Free to Play (Valve documentary)"],
+  [2158860, "JBMod"],
+  [432150, "They Came From The Moon"],
+  [344040, "Qubburo 2 (appid recycled to Voxelized in current schema)"],
+]
+
 function seedPinnedGames(db: DatabaseSync) {
   const now = new Date().toISOString()
   const insert = db.prepare("INSERT OR IGNORE INTO pinned_games (appid, reason, added_at) VALUES (?, ?, ?)")
-  // Delisted apps that GetOwnedGames hides but GetPlayerAchievements still
-  // honours. Users who own them get them re-added to their library.
-  const defaults: Array<[number, string]> = [
-    [274920, "FaceRig (delisted 2022)"],
-    [245550, "Free to Play (Valve documentary)"],
-    [2158860, "JBMod"],
-    [432150, "They Came From The Moon"],
-  ]
-  for (const [appid, reason] of defaults) {
+  for (const [appid, reason] of DEFAULT_PINNED_GAMES) {
     insert.run(appid, reason, now)
   }
 }
