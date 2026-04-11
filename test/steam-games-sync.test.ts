@@ -114,6 +114,43 @@ describe("ensureOwnedGamesSynced", () => {
     expect(games).toHaveLength(1)
   })
 
+  it("preserves the existing library when GetOwnedGames returns empty (transient failure guard)", async () => {
+    // Regression: a transient Steam API failure made getOwnedGames return []
+    // and persistOwnedGames' markMissingAsUnowned flipped the whole library
+    // to owned=0, which then fed the entire library into extras. Guard:
+    // if the fetch comes back empty but we already had a populated library,
+    // treat it as a blip and bail without touching user_games.
+    mockSteamApi([]) // Steam returns nothing
+    const db = await seedBase()
+    const oldIso = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
+    db.prepare(
+      `INSERT INTO steam_profile (steam_id, last_owned_games_sync_at, created_at, updated_at)
+                VALUES (?, ?, ?, ?)`,
+    ).run(STEAM_ID, oldIso, oldIso, oldIso)
+    db.prepare(`INSERT INTO games (appid, name, created_at, updated_at) VALUES (620, 'Portal 2', ?, ?)`).run(
+      oldIso,
+      oldIso,
+    )
+    db.prepare(`INSERT INTO games (appid, name, created_at, updated_at) VALUES (440, 'TF2', ?, ?)`).run(oldIso, oldIso)
+    db.prepare(
+      `INSERT INTO user_games (steam_id, appid, playtime_forever, owned, created_at, updated_at)
+                VALUES (?, 620, 100, 1, ?, ?)`,
+    ).run(STEAM_ID, oldIso, oldIso)
+    db.prepare(
+      `INSERT INTO user_games (steam_id, appid, playtime_forever, owned, created_at, updated_at)
+                VALUES (?, 440, 500, 1, ?, ?)`,
+    ).run(STEAM_ID, oldIso, oldIso)
+
+    const { ensureOwnedGamesSynced } = await import("@/lib/server/steam-games-sync")
+    const games = await ensureOwnedGamesSynced(STEAM_ID)
+    expect(games).toHaveLength(2)
+
+    const owned = db
+      .prepare("SELECT appid FROM user_games WHERE steam_id = ? AND owned = 1 ORDER BY appid")
+      .all(STEAM_ID) as Array<{ appid: number }>
+    expect(owned.map((r) => r.appid)).toEqual([440, 620])
+  })
+
   it("marks games no longer owned as owned=0 on refresh", async () => {
     mockSteamApi([{ appid: 620, name: "Portal 2" }]) // 440 missing from the new fetch
     const db = await seedBase()

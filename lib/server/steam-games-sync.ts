@@ -5,6 +5,7 @@ import { ensureGameImages } from "@/lib/server/steam-images"
 import { getSqliteDatabase } from "@/lib/server/sqlite"
 import { ensurePinnedGamesSynced } from "@/lib/server/pinned-games"
 import { getExtraAppIds, persistExtraGames, syncExtraAchievements } from "@/lib/server/extra-games"
+import { logger } from "@/lib/server/logger"
 import {
   nowIso,
   nullIfUndefined,
@@ -268,6 +269,22 @@ export async function ensureOwnedGamesSynced(steamId: string, options?: { forceR
   }
 
   const games = await getOwnedGames(steamId)
+
+  // Guard against transient Steam API failures: if GetOwnedGames returned
+  // empty but we already had a populated library last time, it's almost
+  // certainly a blip (rate limit, 5xx, network flap) and NOT the user
+  // refunding every game in their catalog. persistOwnedGames' markMissing
+  // sweep would otherwise flip every owned row to owned=0, which later
+  // dumps them all into extras. Preserve the existing state and bail.
+  if (games.length === 0 && existingGames.length > 0) {
+    logger.warn(
+      { steamId, existingCount: existingGames.length },
+      "GetOwnedGames returned empty but user already had a populated library — preserving existing rows",
+    )
+    await ensureGameImages(existingGames.map((game) => game.appid))
+    return existingGames
+  }
+
   persistOwnedGames(steamId, games)
   // Resolve pinned (delisted) games after the main upsert so persistOwnedGames'
   // markMissingAsUnowned sweep can't flip them back to owned=0.

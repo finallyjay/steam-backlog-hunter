@@ -34,9 +34,22 @@ const EXTRAS_ACHIEVEMENTS_CONCURRENCY = 5
  * library stats / KPIs / insights.
  */
 export function persistExtraGames(steamId: string, lastPlayed: LastPlayedGame[]) {
-  if (lastPlayed.length === 0) return
-
   const db = getSqliteDatabase()
+
+  // Self-healing: drop any extras row whose appid is currently owned (in
+  // user_games with owned=1). Protects against the case where a previous
+  // sync wrongly added library games to extras because GetOwnedGames
+  // returned empty — a subsequent successful sync puts them back in
+  // user_games, and this cleanup removes the stale extras rows.
+  db.prepare(
+    `
+    DELETE FROM extra_games
+    WHERE steam_id = ?
+      AND appid IN (SELECT appid FROM user_games WHERE steam_id = ? AND owned = 1)
+  `,
+  ).run(steamId, steamId)
+
+  if (lastPlayed.length === 0) return
 
   // Build the skip set: owned library entries + pinned appids. Both sources
   // already live in user_games (pinned games get upserted there during
