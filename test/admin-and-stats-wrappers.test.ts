@@ -23,7 +23,7 @@ describe("isAdmin", () => {
     }))
     delete process.env.ADMIN_STEAM_ID
     const { isAdmin } = await import("@/lib/server/admin")
-    expect(isAdmin("76561198000000001")).toBe(false)
+    expect(isAdmin("76561198023709299")).toBe(false)
   })
 
   it("returns true only when the id matches exactly", async () => {
@@ -37,9 +37,9 @@ describe("isAdmin", () => {
         },
       ),
     }))
-    process.env.ADMIN_STEAM_ID = "76561198000000001"
+    process.env.ADMIN_STEAM_ID = "76561198023709299"
     const { isAdmin } = await import("@/lib/server/admin")
-    expect(isAdmin("76561198000000001")).toBe(true)
+    expect(isAdmin("76561198023709299")).toBe(true)
     expect(isAdmin("76561198000000002")).toBe(false)
   })
 })
@@ -62,7 +62,7 @@ describe("getUserStats (lib/steam-stats.ts wrapper)", () => {
       logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
     }))
     const { getUserStats } = await import("@/lib/steam-stats")
-    const stats = await getUserStats("76561198000000001")
+    const stats = await getUserStats("76561198023709299")
     expect(stats.totalGames).toBe(10)
     expect(stats.averageCompletion).toBe(42)
   })
@@ -76,7 +76,7 @@ describe("getUserStats (lib/steam-stats.ts wrapper)", () => {
       logger: { info: vi.fn(), warn: vi.fn(), error: errorSpy, debug: vi.fn() },
     }))
     const { getUserStats } = await import("@/lib/steam-stats")
-    const stats = await getUserStats("76561198000000001")
+    const stats = await getUserStats("76561198023709299")
     expect(stats).toEqual({
       totalGames: 0,
       gamesWithAchievements: 0,
@@ -106,7 +106,7 @@ describe("getUserStats (lib/steam-stats.ts wrapper)", () => {
       logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
     }))
     const { getUserStats } = await import("@/lib/steam-stats")
-    await getUserStats("76561198000000001", { forceRefresh: true })
-    expect(getStatsSpy).toHaveBeenCalledWith("76561198000000001", { forceRefresh: true })
+    await getUserStats("76561198023709299", { forceRefresh: true })
+    expect(getStatsSpy).toHaveBeenCalledWith("76561198023709299", { forceRefresh: true })
   })
 })

@@ -35,7 +35,7 @@ import { rateLimit } from "@/lib/server/rate-limit"
 import { getUserSyncStatus, synchronizeUserData } from "@/lib/server/steam-store"
 
 const mockUser = {
-  steamId: "76561198000000001",
+  steamId: "76561198023709299",
   displayName: "test",
   avatar: "",
   profileUrl: "",

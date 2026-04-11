@@ -29,12 +29,12 @@ describe("whitelist", () => {
   })
 
   it("parses ids from comma-separated env value", () => {
-    process.env.STEAM_WHITELIST_IDS = "76561198000000000, 76561198000000001, ,"
+    process.env.STEAM_WHITELIST_IDS = "76561198000000000, 76561198023709299, ,"
 
     const whitelist = getSteamWhitelist()
 
     expect(whitelist.has("76561198000000000")).toBe(true)
-    expect(whitelist.has("76561198000000001")).toBe(true)
+    expect(whitelist.has("76561198023709299")).toBe(true)
     expect(whitelist.size).toBe(2)
   })
 
@@ -45,7 +45,7 @@ describe("whitelist", () => {
   })
 
   it("allows whitelisted user", () => {
-    process.env.STEAM_WHITELIST_IDS = "76561198000000000,76561198000000001"
+    process.env.STEAM_WHITELIST_IDS = "76561198000000000,76561198023709299"
 
     expect(isSteamIdWhitelisted("76561198000000000")).toBe(true)
   })

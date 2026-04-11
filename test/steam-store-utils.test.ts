@@ -107,7 +107,7 @@ describe("upsertProfile", () => {
     const { upsertProfile, getProfileSync } = await import("@/lib/server/steam-store-utils")
     const { getSqliteDatabase } = await import("@/lib/server/sqlite")
 
-    upsertProfile("76561198000000001", {
+    upsertProfile("76561198023709299", {
       personaName: "Tester",
       avatarUrl: "https://example.com/a.jpg",
       profileUrl: "https://example.com/profile",
@@ -117,25 +117,25 @@ describe("upsertProfile", () => {
     const db = getSqliteDatabase()
     const row = db
       .prepare("SELECT persona_name, avatar_url FROM steam_profile WHERE steam_id = ?")
-      .get("76561198000000001") as { persona_name: string; avatar_url: string } | undefined
+      .get("76561198023709299") as { persona_name: string; avatar_url: string } | undefined
     expect(row?.persona_name).toBe("Tester")
     expect(row?.avatar_url).toBe("https://example.com/a.jpg")
 
     // Initial sync columns are null
-    expect(getProfileSync("76561198000000001")?.last_owned_games_sync_at).toBeNull()
+    expect(getProfileSync("76561198023709299")?.last_owned_games_sync_at).toBeNull()
   })
 
   it("preserves existing fields on update when the new value is undefined (COALESCE)", async () => {
     const { upsertProfile } = await import("@/lib/server/steam-store-utils")
     const { getSqliteDatabase } = await import("@/lib/server/sqlite")
 
-    upsertProfile("76561198000000001", { personaName: "Original", avatarUrl: "https://example.com/a.jpg" })
-    upsertProfile("76561198000000001", { personaName: "Updated" })
+    upsertProfile("76561198023709299", { personaName: "Original", avatarUrl: "https://example.com/a.jpg" })
+    upsertProfile("76561198023709299", { personaName: "Updated" })
 
     const db = getSqliteDatabase()
     const row = db
       .prepare("SELECT persona_name, avatar_url FROM steam_profile WHERE steam_id = ?")
-      .get("76561198000000001") as { persona_name: string; avatar_url: string }
+      .get("76561198023709299") as { persona_name: string; avatar_url: string }
     expect(row.persona_name).toBe("Updated")
     expect(row.avatar_url).toBe("https://example.com/a.jpg")
   })

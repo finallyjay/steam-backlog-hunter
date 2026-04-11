@@ -41,7 +41,7 @@ import { GET as steamGet } from "@/app/api/auth/steam/route"
 import { getCurrentUser } from "@/app/lib/server-auth"
 
 const mockUser = {
-  steamId: "76561198000000001",
+  steamId: "76561198023709299",
   displayName: "Tester",
   avatar: "https://example.com/a.jpg",
   profileUrl: "https://steamcommunity.com/id/tester",
@@ -70,7 +70,7 @@ describe("GET /api/auth/me", () => {
     const res = await authMeGet()
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.user?.steamId).toBe("76561198000000001")
+    expect(body.user?.steamId).toBe("76561198023709299")
   })
 })
 

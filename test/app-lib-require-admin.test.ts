@@ -29,7 +29,7 @@ import { getCurrentUser } from "@/app/lib/server-auth"
 import { isAdmin } from "@/lib/server/admin"
 
 const mockUser = {
-  steamId: "76561198000000001",
+  steamId: "76561198023709299",
   displayName: "admin",
   avatar: "",
   profileUrl: "",
@@ -60,6 +60,6 @@ describe("requireAdmin", () => {
     vi.mocked(getCurrentUser).mockResolvedValue(mockUser)
     vi.mocked(isAdmin).mockReturnValue(true)
     const result = await requireAdmin()
-    expect(result?.steamId).toBe("76561198000000001")
+    expect(result?.steamId).toBe("76561198023709299")
   })
 })

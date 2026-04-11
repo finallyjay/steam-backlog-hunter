@@ -31,7 +31,7 @@ import { requireAdmin } from "@/app/lib/require-admin"
 import { listPinnedGames, addPinnedGame, removePinnedGame } from "@/lib/server/pinned-games"
 
 const mockAdmin = {
-  steamId: "76561198000000001",
+  steamId: "76561198023709299",
   displayName: "admin",
   avatar: "",
   profileUrl: "",

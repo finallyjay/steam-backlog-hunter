@@ -39,7 +39,7 @@ import { getAchievementsForGame } from "@/lib/server/steam-achievements-sync"
 import { rateLimit } from "@/lib/server/rate-limit"
 
 const mockUser = {
-  steamId: "76561198000000001",
+  steamId: "76561198023709299",
   displayName: "test",
   avatar: "",
   profileUrl: "",

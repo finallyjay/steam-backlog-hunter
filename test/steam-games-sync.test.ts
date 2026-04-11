@@ -32,7 +32,7 @@ afterEach(() => {
   rmSync(tmpDir, { recursive: true, force: true })
 })
 
-const STEAM_ID = "76561198000000001"
+const STEAM_ID = "76561198023709299"
 
 function mockSteamApi(
   ownedGames: Array<{ appid: number; name: string; playtime_forever?: number; rtime_last_played?: number }>,

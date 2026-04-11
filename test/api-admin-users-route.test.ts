@@ -40,7 +40,7 @@ import { requireAdmin } from "@/app/lib/require-admin"
 
 const ORIGINAL_FETCH = globalThis.fetch
 
-const mockAdmin = { steamId: "76561198000000001", displayName: "admin", avatar: "", profileUrl: "" }
+const mockAdmin = { steamId: "76561198023709299", displayName: "admin", avatar: "", profileUrl: "" }
 
 describe("GET /api/admin/users", () => {
   it("returns 403 when not admin", async () => {

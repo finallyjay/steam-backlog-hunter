@@ -31,7 +31,7 @@ import { getCurrentUser } from "@/app/lib/server-auth"
 import { getAchievementsForGame, getBatchStoredAchievements } from "@/lib/server/steam-store"
 
 const mockUser = {
-  steamId: "76561198000000001",
+  steamId: "76561198023709299",
   displayName: "Tester",
   avatar: "",
   profileUrl: "",
@@ -80,7 +80,7 @@ describe("GET /api/steam/achievements", () => {
   it("returns 200 with the achievements payload on success", async () => {
     vi.mocked(getCurrentUser).mockResolvedValue(mockUser)
     vi.mocked(getAchievementsForGame).mockResolvedValue({
-      steamID: "76561198000000001",
+      steamID: "76561198023709299",
       gameName: "Portal 2",
       achievements: [],
       success: true,
@@ -94,7 +94,7 @@ describe("GET /api/steam/achievements", () => {
   it("forwards ?refresh=1 as forceRefresh=true", async () => {
     vi.mocked(getCurrentUser).mockResolvedValue(mockUser)
     vi.mocked(getAchievementsForGame).mockResolvedValue({
-      steamID: "76561198000000001",
+      steamID: "76561198023709299",
       gameName: "Portal 2",
       achievements: [],
       success: true,
@@ -106,7 +106,7 @@ describe("GET /api/steam/achievements", () => {
   it("forwards ?force=1 as forceRefresh=true (alias)", async () => {
     vi.mocked(getCurrentUser).mockResolvedValue(mockUser)
     vi.mocked(getAchievementsForGame).mockResolvedValue({
-      steamID: "76561198000000001",
+      steamID: "76561198023709299",
       gameName: "Portal 2",
       achievements: [],
       success: true,

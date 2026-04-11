@@ -30,7 +30,7 @@ vi.mock("@/lib/server/sqlite", () => ({
 import { POST, DELETE } from "@/app/api/steam/games/hide/route"
 import { getCurrentUser } from "@/app/lib/server-auth"
 
-const mockUser = { steamId: "76561198000000001", displayName: "test", avatar: "", profileUrl: "" }
+const mockUser = { steamId: "76561198023709299", displayName: "test", avatar: "", profileUrl: "" }
 
 describe("POST /api/steam/games/hide", () => {
   it("returns 401 when not authenticated", async () => {

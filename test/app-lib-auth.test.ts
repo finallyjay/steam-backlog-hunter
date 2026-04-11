@@ -33,7 +33,7 @@ import { getCurrentUser, requireAuth } from "@/app/lib/server-auth"
 import { isSteamIdWhitelisted } from "@/lib/whitelist"
 
 const mockUser = {
-  steamId: "76561198000000001",
+  steamId: "76561198023709299",
   displayName: "Tester",
   avatar: "https://example.com/a.jpg",
   profileUrl: "https://steamcommunity.com/id/tester",
@@ -65,7 +65,7 @@ describe("getCurrentUser", () => {
     cookieStore.get.mockReturnValue({ name: "steam_user", value: JSON.stringify(mockUser) })
     vi.mocked(isSteamIdWhitelisted).mockReturnValue(true)
     const user = await getCurrentUser()
-    expect(user?.steamId).toBe("76561198000000001")
+    expect(user?.steamId).toBe("76561198023709299")
   })
 
   it("clears the cookie and returns null when the id is NOT whitelisted", async () => {
@@ -88,7 +88,7 @@ describe("requireAuth", () => {
     cookieStore.get.mockReturnValue({ name: "steam_user", value: JSON.stringify(mockUser) })
     vi.mocked(isSteamIdWhitelisted).mockReturnValue(true)
     const user = await requireAuth()
-    expect(user.steamId).toBe("76561198000000001")
+    expect(user.steamId).toBe("76561198023709299")
   })
 
   it("throws 'Authentication required' when there is no session", async () => {
