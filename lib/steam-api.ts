@@ -85,13 +85,16 @@ async function steamAPIRequest(endpoint: string, params: Record<string, string>)
   }
 }
 
-/** Fetches all owned games (including free-to-play) for a Steam user. */
+/** Fetches all owned games (including free-to-play and unvetted playtests) for a Steam user. */
 export async function getOwnedGames(steamId: string): Promise<SteamGame[]> {
   try {
     const data = await steamAPIRequest("/IPlayerService/GetOwnedGames/v1/", {
       steamid: steamId,
       include_appinfo: "1",
       include_played_free_games: "1",
+      // skip_unvetted_apps=0 pulls in playtests and early-access experiments
+      // that Steam normally hides (e.g. SquadBlast Playtest, ForeVR Cornhole).
+      skip_unvetted_apps: "0",
       l: "es",
     })
 

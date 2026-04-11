@@ -3,6 +3,7 @@ import "server-only"
 import { getOwnedGames, type SteamGame } from "@/lib/steam-api"
 import { ensureGameImages } from "@/lib/server/steam-images"
 import { getSqliteDatabase } from "@/lib/server/sqlite"
+import { ensurePinnedGamesSynced } from "@/lib/server/pinned-games"
 import {
   nowIso,
   nullIfUndefined,
@@ -224,8 +225,12 @@ export async function ensureOwnedGamesSynced(steamId: string, options?: { forceR
 
   const games = await getOwnedGames(steamId)
   persistOwnedGames(steamId, games)
-  await ensureGameImages(games.map((game) => game.appid))
-  return getStoredOwnedGames(steamId)
+  // Resolve pinned (delisted) games after the main upsert so persistOwnedGames'
+  // markMissingAsUnowned sweep can't flip them back to owned=0.
+  await ensurePinnedGamesSynced(steamId, new Set(games.map((game) => game.appid)))
+  const finalGames = getStoredOwnedGames(steamId)
+  await ensureGameImages(finalGames.map((game) => game.appid))
+  return finalGames
 }
 
 /** Returns all owned games for a user, syncing from Steam if needed. */

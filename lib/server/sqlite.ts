@@ -146,10 +146,37 @@ function createBaseSchema(db: DatabaseSync) {
       FOREIGN KEY (appid) REFERENCES games(appid)
     );
 
+    CREATE TABLE IF NOT EXISTS pinned_games (
+      appid INTEGER PRIMARY KEY,
+      reason TEXT,
+      added_at TEXT NOT NULL
+    );
+
     CREATE INDEX IF NOT EXISTS idx_user_games_steam_id ON user_games(steam_id);
     CREATE INDEX IF NOT EXISTS idx_user_games_steam_id_owned ON user_games(steam_id, owned);
     CREATE INDEX IF NOT EXISTS idx_stats_snapshot_steam_id ON stats_snapshot(steam_id);
   `)
+}
+
+/**
+ * Seeds pinned_games with known delisted apps that still respond to
+ * GetPlayerAchievements. Idempotent via INSERT OR IGNORE so manual additions
+ * via the admin endpoint are preserved.
+ */
+function seedPinnedGames(db: DatabaseSync) {
+  const now = new Date().toISOString()
+  const insert = db.prepare("INSERT OR IGNORE INTO pinned_games (appid, reason, added_at) VALUES (?, ?, ?)")
+  // Delisted apps that GetOwnedGames hides but GetPlayerAchievements still
+  // honours. Users who own them get them re-added to their library.
+  const defaults: Array<[number, string]> = [
+    [274920, "FaceRig (delisted 2022)"],
+    [245550, "Free to Play (Valve documentary)"],
+    [2158860, "JBMod"],
+    [432150, "They Came From The Moon"],
+  ]
+  for (const [appid, reason] of defaults) {
+    insert.run(appid, reason, now)
+  }
 }
 
 /**
@@ -188,6 +215,7 @@ export function getSqliteDatabase() {
   database = new DatabaseSync(dbPath)
   createBaseSchema(database)
   seedAllowedUsersFromEnv(database)
+  seedPinnedGames(database)
 
   return database
 }
