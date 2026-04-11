@@ -101,7 +101,10 @@ function InsightCard({
         </div>
         <div className="h-56 min-h-0 min-w-0">
           {!loading ? (
-            <ResponsiveContainer width="100%" height="100%">
+            // Explicit pixel height avoids recharts' "width(-1) and height(-1)"
+            // warning on first render — ResponsiveContainer only needs to
+            // measure the (stable) horizontal axis of the parent.
+            <ResponsiveContainer width="100%" height={224}>
               {chartKind === "bars" ? (
                 <BarChart data={chartData} layout="vertical" margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
                   <XAxis type="number" hide />
