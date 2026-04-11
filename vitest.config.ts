@@ -32,6 +32,8 @@ export default defineConfig({
         "app/**/global-error.tsx",
         // shadcn/ui primitives are generated wrappers; upstream tests them.
         "components/ui/**",
+        // shadcn's toast hook is copied from the CLI template, not original code.
+        "hooks/use-toast.ts",
         // Type-only / re-export barrels
         "lib/types/**",
         "lib/server/steam-store.ts",
@@ -40,10 +42,10 @@ export default defineConfig({
       // coverage PR ratchets these up; CI fails if a PR regresses below
       // the current floor.
       thresholds: {
-        lines: 55,
-        statements: 54,
-        branches: 52,
-        functions: 42,
+        lines: 75,
+        statements: 73,
+        branches: 62,
+        functions: 58,
       },
     },
   },
