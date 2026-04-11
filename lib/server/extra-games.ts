@@ -24,12 +24,17 @@ export type ExtraGame = {
 
 const EXTRAS_ACHIEVEMENTS_CONCURRENCY = 5
 
-// Store API: max 200 appids per request, rate-limited ~200 req / 5min per IP.
-// Only fires on extras whose name is still missing after the achievements
-// pass (so typically live games without achievements — dedicated servers,
-// demos, betas retired after launch, etc). Batches of 200 → ≤3 calls even
-// on a 500-extras account.
-const STORE_BATCH_SIZE = 200
+// Delay between sequential store appdetails calls. The endpoint doesn't
+// accept batches (any appid count >1 returns "400 null"), so we have to
+// fan out single calls. 150ms keeps us well below Steam's rate limiter
+// (~200 req/5min community-measured) and lets a 600-game first sync
+// complete in ~90s.
+const STORE_DELAY_MS = 150
+
+// Sentinel written to games.name when the store appdetails endpoint
+// said "no", so the next hydrate pass skips the appid instead of
+// hammering it forever.
+const NAME_UNRESOLVED_SENTINEL = ""
 
 type StoreAppDetails = {
   success?: boolean
@@ -41,16 +46,18 @@ type StoreAppDetails = {
 
 /**
  * Fallback name hydrator: for any extras row whose `games.name` is still
- * NULL after the achievement sync, try the public
- * `store.steampowered.com/api/appdetails` endpoint. Covers live apps that
- * have no Steam achievements (dedicated servers, old demos, …) for which
- * GetPlayerAchievements can't give us a name.
+ * NULL after the achievement sync, probe the public
+ * `store.steampowered.com/api/appdetails` endpoint one appid at a time.
+ * Covers live apps that have no Steam achievements (dedicated servers,
+ * old demos, …) which GetPlayerAchievements can't name for us.
  *
- * Delisted apps usually return `success=false` from this endpoint — those
- * stay nameless and fall back to `App #{appid}` in the UI, same as before.
+ * Negative caching: if the store says `success=false` (delisted, no store
+ * page) we upsert an empty-string sentinel so the next run skips the
+ * appid. The UI falls back to `App #{appid}` for any game whose name is
+ * null OR empty via `game.name || fallback`.
  *
- * Swallows per-batch errors so a transient store outage never breaks the
- * parent sync pipeline.
+ * Swallows per-call errors. On 5 consecutive failures we back off entirely
+ * (Akamai/rate-limit guard).
  */
 export async function hydrateMissingExtraNames(steamId: string) {
   const db = getSqliteDatabase()
@@ -60,41 +67,63 @@ export async function hydrateMissingExtraNames(steamId: string) {
       SELECT e.appid
       FROM extra_games e
       LEFT JOIN games g ON g.appid = e.appid
-      WHERE e.steam_id = ? AND (g.name IS NULL OR g.name = '')
+      WHERE e.steam_id = ? AND g.name IS NULL
+      ORDER BY e.playtime_forever DESC
     `,
     )
     .all(steamId) as Array<{ appid: number }>
 
   if (rows.length === 0) return
 
-  const now = nowIso()
   const upsertGame = db.prepare(`
     INSERT INTO games (appid, name, created_at, updated_at)
     VALUES (?, ?, ?, ?)
     ON CONFLICT(appid) DO UPDATE SET
-      name = COALESCE(excluded.name, games.name),
+      name = excluded.name,
       updated_at = excluded.updated_at
   `)
 
-  const appIds = rows.map((r) => r.appid)
-  for (let i = 0; i < appIds.length; i += STORE_BATCH_SIZE) {
-    const batch = appIds.slice(i, i + STORE_BATCH_SIZE)
+  let consecutiveFailures = 0
+
+  for (const { appid } of rows) {
+    if (consecutiveFailures >= 5) {
+      logger.warn(
+        { steamId, remaining: rows.length, lastAppid: appid },
+        "Store appdetails returned 5 consecutive failures — backing off hydrateMissingExtraNames",
+      )
+      return
+    }
+
     try {
       const url = new URL("https://store.steampowered.com/api/appdetails")
-      url.searchParams.set("appids", batch.join(","))
+      url.searchParams.set("appids", String(appid))
       url.searchParams.set("filters", "basic")
       const response = await fetch(url.toString(), { cache: "no-store" })
-      if (!response.ok) continue
+
+      if (!response.ok) {
+        consecutiveFailures++
+        continue
+      }
+      consecutiveFailures = 0
 
       const payload = (await response.json()) as Record<string, StoreAppDetails>
-      for (const appid of batch) {
-        const entry = payload[String(appid)]
-        const name = entry?.success && entry.data?.name ? entry.data.name : null
-        if (name) upsertGame.run(appid, name, now, now)
+      const entry = payload[String(appid)]
+      const resolvedName = entry?.success && entry.data?.name ? entry.data.name : null
+      const now = nowIso()
+
+      if (resolvedName) {
+        upsertGame.run(appid, resolvedName, now, now)
+      } else {
+        // Negative cache: mark this appid as "we asked, nothing to show"
+        upsertGame.run(appid, NAME_UNRESOLVED_SENTINEL, now, now)
       }
     } catch (error) {
-      logger.warn({ err: error, batchSize: batch.length }, "Store appdetails batch failed")
+      consecutiveFailures++
+      logger.warn({ err: error, appid }, "Store appdetails call failed")
     }
+
+    // Rate-limit friendliness: stay well below the ~200 req / 5min ceiling.
+    await new Promise((resolve) => setTimeout(resolve, STORE_DELAY_MS))
   }
 }
 

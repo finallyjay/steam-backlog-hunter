@@ -31,7 +31,7 @@ export default function ExtrasPage() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     if (!q) return games
-    return games.filter((g) => (g.name ?? `app #${g.appid}`).toLowerCase().includes(q))
+    return games.filter((g) => (g.name || `app #${g.appid}`).toLowerCase().includes(q))
   }, [games, search])
 
   if (loadingUser) return <LoadingMessage />
@@ -112,7 +112,7 @@ export default function ExtrasPage() {
               <GameCard
                 key={game.appid}
                 id={game.appid}
-                name={game.name ?? `App #${game.appid}`}
+                name={game.name || `App #${game.appid}`}
                 image={game.image_landscape_url ?? getSteamHeaderImageUrl(game.appid)}
                 playtime={Number(((game.playtime_forever ?? 0) / 60).toFixed(1))}
                 href={`https://store.steampowered.com/app/${game.appid}`}
