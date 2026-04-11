@@ -190,11 +190,14 @@ export function LibraryOverview({
         break
     }
 
-    // Played filter
+    // Played filter: a game counts as "played" if Steam reports any playtime
+    // OR if at least one achievement has been unlocked. The second clause is
+    // necessary for delisted/pinned games (FaceRig, Free to Play, …) where
+    // GetPlayerAchievements still honours unlocks but there's no playtime.
     if (playedFilter === "played") {
-      filtered = filtered.filter((game) => game.playtime > 0)
+      filtered = filtered.filter((game) => game.playtime > 0 || game.unlockedAchievements > 0)
     } else if (playedFilter === "notplayed") {
-      filtered = filtered.filter((game) => game.playtime === 0)
+      filtered = filtered.filter((game) => game.playtime === 0 && game.unlockedAchievements === 0)
     }
 
     // Hide locally hidden games
