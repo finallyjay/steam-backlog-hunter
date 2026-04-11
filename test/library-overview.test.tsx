@@ -241,6 +241,43 @@ describe("LibraryOverview", () => {
     expect(screen.queryByText("Never Played")).not.toBeInTheDocument()
   })
 
+  it("counts pinned games with unlocks as 'played' even when playtime is 0", () => {
+    // Regression: FaceRig & friends have playtime=0 because GetOwnedGames
+    // doesn't return them, but we know they've been played because there
+    // are unlocked achievements. They must not fall into "not played".
+    useSteamGamesMock.mockReturnValue({
+      games: [
+        buildGame({ appid: 1, name: "FaceRig", playtime_forever: 0, unlocked_count: 37, total_count: 37 }),
+        buildGame({ appid: 2, name: "Unplayed Shelf-Dust", playtime_forever: 0, unlocked_count: 0, total_count: 10 }),
+      ],
+      loading: false,
+      isRefreshing: false,
+      lastUpdated: null,
+      error: null,
+      refetch: vi.fn(),
+    })
+    render(<LibraryOverview initialPlayed="played" />)
+    expect(screen.getByText("FaceRig")).toBeInTheDocument()
+    expect(screen.queryByText("Unplayed Shelf-Dust")).not.toBeInTheDocument()
+  })
+
+  it("excludes pinned games with unlocks from 'not played'", () => {
+    useSteamGamesMock.mockReturnValue({
+      games: [
+        buildGame({ appid: 1, name: "FaceRig", playtime_forever: 0, unlocked_count: 37, total_count: 37 }),
+        buildGame({ appid: 2, name: "Unplayed Shelf-Dust", playtime_forever: 0, unlocked_count: 0, total_count: 10 }),
+      ],
+      loading: false,
+      isRefreshing: false,
+      lastUpdated: null,
+      error: null,
+      refetch: vi.fn(),
+    })
+    render(<LibraryOverview initialPlayed="notplayed" />)
+    expect(screen.queryByText("FaceRig")).not.toBeInTheDocument()
+    expect(screen.getByText("Unplayed Shelf-Dust")).toBeInTheDocument()
+  })
+
   it("falls back to default when an invalid initial filter is passed", () => {
     useSteamGamesMock.mockReturnValue({
       games: [buildGame({ appid: 1, name: "Only Game", playtime_forever: 1 })],

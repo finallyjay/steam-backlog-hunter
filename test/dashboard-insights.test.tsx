@@ -35,7 +35,7 @@ vi.mock("@/components/ui/animated-number", () => ({
 import { DashboardInsights } from "@/components/dashboard/dashboard-insights"
 import type { SteamStatsResponse } from "@/lib/types/steam"
 
-function hookReturn(games: Array<{ playtime_forever: number }> = []) {
+function hookReturn(games: Array<{ playtime_forever: number; unlocked_count?: number }> = []) {
   return {
     games: games.map((g, i) => ({
       appid: 100 + i,
@@ -43,6 +43,7 @@ function hookReturn(games: Array<{ playtime_forever: number }> = []) {
       playtime_forever: g.playtime_forever,
       img_icon_url: "",
       img_logo_url: "",
+      unlocked_count: g.unlocked_count,
     })),
     loading: false,
     isRefreshing: false,
@@ -120,6 +121,21 @@ describe("DashboardInsights", () => {
     )
     render(<DashboardInsights stats={baseStats} />)
     expect(screen.getByText("Library State")).toBeInTheDocument()
+    expect(screen.getByText(/2 of 3 games have been launched/)).toBeInTheDocument()
+  })
+
+  it("counts pinned games with unlocks as 'played' in the library-state insight", () => {
+    // Regression: a FaceRig-style entry with 0 playtime but unlocked
+    // achievements must still be counted as played, not dumped into the
+    // 'unplayed' slice of the donut.
+    useSteamGamesMock.mockReturnValue(
+      hookReturn([
+        { playtime_forever: 0, unlocked_count: 37 }, // FaceRig — pinned
+        { playtime_forever: 0, unlocked_count: 0 }, // genuine shelf-dust
+        { playtime_forever: 100, unlocked_count: 0 }, // played, no unlocks yet
+      ]),
+    )
+    render(<DashboardInsights stats={baseStats} />)
     expect(screen.getByText(/2 of 3 games have been launched/)).toBeInTheDocument()
   })
 
