@@ -176,7 +176,14 @@ export function getBatchStoredAchievements(steamId: string, appIds: number[]): R
 export function persistAchievements(steamId: string, appId: number, achievements: SteamAchievement[]) {
   const db = getSqliteDatabase()
   const now = nowIso()
-  const unlockedCount = achievements.filter((achievement) => achievement.achieved === 1).length
+  const unlockedByApiname = new Map<string, SteamAchievement>()
+  for (const achievement of achievements) {
+    if (!achievement.apiname || achievement.achieved !== 1) continue
+    if (!unlockedByApiname.has(achievement.apiname)) {
+      unlockedByApiname.set(achievement.apiname, achievement)
+    }
+  }
+  const unlockedCount = unlockedByApiname.size
   const totalCount = achievements.length
   const perfectGame = totalCount > 0 && unlockedCount === totalCount ? 1 : 0
 
@@ -203,8 +210,7 @@ export function persistAchievements(steamId: string, appId: number, achievements
       ) VALUES (?, ?, ?, 1, ?, ?, ?)
     `)
 
-    for (const achievement of achievements) {
-      if (!achievement.apiname || achievement.achieved !== 1) continue
+    for (const achievement of unlockedByApiname.values()) {
       insert.run(steamId, appId, achievement.apiname, achievement.unlocktime ?? null, now, now)
     }
 
@@ -231,7 +237,8 @@ export function persistAchievements(steamId: string, appId: number, achievements
 export function persistBulkGameStats(steamId: string, appId: number, totalCount: number, unlockedApinames: string[]) {
   const db = getSqliteDatabase()
   const now = nowIso()
-  const unlockedCount = unlockedApinames.length
+  const uniqueApinames = Array.from(new Set(unlockedApinames.filter((name) => name.length > 0)))
+  const unlockedCount = uniqueApinames.length
   const perfectGame = totalCount > 0 && unlockedCount === totalCount ? 1 : 0
 
   db.exec("BEGIN")
@@ -257,8 +264,7 @@ export function persistBulkGameStats(steamId: string, appId: number, totalCount:
           steam_id, appid, apiname, achieved, unlock_time, created_at, updated_at
         ) VALUES (?, ?, ?, 1, NULL, ?, ?)
       `)
-      for (const apiname of unlockedApinames) {
-        if (!apiname) continue
+      for (const apiname of uniqueApinames) {
         insert.run(steamId, appId, apiname, now, now)
       }
     }

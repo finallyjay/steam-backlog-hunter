@@ -108,6 +108,23 @@ describe("persistBulkGameStats", () => {
     expect(meta).toEqual({ unlocked_count: 3, total_count: 3, perfect_game: 1 })
   })
 
+  it("dedupes duplicate apinames returned by the bulk endpoint", async () => {
+    const db = await seedOwnedGames([{ appid: 620, name: "Portal 2" }])
+    const { persistBulkGameStats } = await import("@/lib/server/steam-achievements-sync")
+
+    persistBulkGameStats(STEAM_ID, 620, 5, ["A", "B", "A", "C", "B"])
+
+    const meta = db
+      .prepare("SELECT unlocked_count, total_count FROM user_games WHERE steam_id = ? AND appid = ?")
+      .get(STEAM_ID, 620) as { unlocked_count: number; total_count: number }
+    expect(meta).toEqual({ unlocked_count: 3, total_count: 5 })
+
+    const rows = db
+      .prepare("SELECT apiname FROM user_achievements WHERE steam_id = ? AND appid = ? ORDER BY apiname")
+      .all(STEAM_ID, 620) as Array<{ apiname: string }>
+    expect(rows).toEqual([{ apiname: "A" }, { apiname: "B" }, { apiname: "C" }])
+  })
+
   it("clears stale user_achievements when re-persisting with fewer unlocks", async () => {
     const db = await seedOwnedGames([{ appid: 570, name: "Dota 2" }])
     const { persistBulkGameStats } = await import("@/lib/server/steam-achievements-sync")
