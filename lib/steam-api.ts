@@ -146,10 +146,13 @@ export async function getPlayerAchievements(steamId: string, appId: number): Pro
     // common for older titles, DLC-only entries, stats-only games, etc).
     // That's the signal the caller expects — a null return value — so don't
     // spam the console with "errors" for the normal case.
-    if (error instanceof SteamAPIError && (error.status === 400 || error.status === 403)) {
+    if (error instanceof SteamAPIError && (error.status === 400 || error.status === 403 || error.status === 500)) {
       return null
     }
-    console.error("Error fetching achievements for app:", appId, error)
+    console.warn(
+      `[steam-api] Unexpected error fetching achievements for app ${appId}:`,
+      error instanceof Error ? error.message : error,
+    )
     return null
   }
 }
