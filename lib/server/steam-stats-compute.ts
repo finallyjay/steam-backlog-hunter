@@ -4,7 +4,11 @@ import type { SteamStatsResponse } from "@/lib/types/steam"
 import { getPlayerAchievements } from "@/lib/steam-api"
 import { getSqliteDatabase } from "@/lib/server/sqlite"
 import { isStale, upsertProfile, getProfileSync, roundPercent } from "@/lib/server/steam-store-utils"
-import { ensureOwnedGamesSynced, getRecentlyPlayedGamesForUser } from "@/lib/server/steam-games-sync"
+import {
+  ensureOwnedGamesSynced,
+  getRecentlyPlayedGamesForUser,
+  getStoredOwnedGames,
+} from "@/lib/server/steam-games-sync"
 import { logger } from "@/lib/server/logger"
 import {
   ACHIEVEMENTS_STALE_MS,
@@ -144,8 +148,14 @@ export function getStoredStatsSnapshot(steamId: string) {
     .get(steamId) as StatsSnapshotRow | undefined
 }
 
-async function syncAchievementsForStats(steamId: string, forceRefresh: boolean) {
-  const ownedGames = await ensureOwnedGamesSynced(steamId, { forceRefresh })
+async function syncAchievementsForStats(
+  steamId: string,
+  forceRefresh: boolean,
+  options?: { skipOwnedGamesSync?: boolean },
+) {
+  const ownedGames = options?.skipOwnedGamesSync
+    ? getStoredOwnedGames(steamId)
+    : await ensureOwnedGamesSynced(steamId, { forceRefresh })
 
   // Incremental filter: we only hit Steam for games where unlocks could
   // plausibly have changed since our last sync. The goal is to keep a full
@@ -210,10 +220,20 @@ async function syncAchievementsForStats(steamId: string, forceRefresh: boolean) 
 /**
  * Computes aggregate stats for a user (games, achievements, playtime, completion).
  * Returns a cached snapshot if fresh, otherwise syncs achievements and recomputes.
+ *
+ * Pass `skipOwnedGamesSync: true` when the caller has already force-synced
+ * owned games earlier in the same request — avoids repeating the heavy
+ * pipeline (pinned/extras/hydrate/images) three times inside a single
+ * `synchronizeUserData` call.
  */
-export async function getStatsForUser(steamId: string, options?: { forceRefresh?: boolean }) {
+export async function getStatsForUser(
+  steamId: string,
+  options?: { forceRefresh?: boolean; skipOwnedGamesSync?: boolean },
+) {
   const forceRefresh = options?.forceRefresh ?? false
-  await ensureOwnedGamesSynced(steamId, { forceRefresh })
+  if (!options?.skipOwnedGamesSync) {
+    await ensureOwnedGamesSynced(steamId, { forceRefresh })
+  }
 
   const snapshot = getStoredStatsSnapshot(steamId)
   if (!forceRefresh && snapshot && !isStale(snapshot.computed_at, STATS_STALE_MS)) {
@@ -235,7 +255,7 @@ export async function getStatsForUser(steamId: string, options?: { forceRefresh?
     }
   }
 
-  await syncAchievementsForStats(steamId, forceRefresh)
+  await syncAchievementsForStats(steamId, forceRefresh, { skipOwnedGamesSync: options?.skipOwnedGamesSync })
   const stats = computeStatsFromDatabase(steamId)
   persistStatsSnapshot(steamId, stats)
 
@@ -255,11 +275,36 @@ export function getUserSyncStatus(steamId: string) {
   }
 }
 
-/** Force-refreshes all user data: owned games, recent games, and stats. */
+/**
+ * Force-refreshes all user data: owned games, recent games, and stats.
+ *
+ * Runs the heavy owned-games pipeline exactly once — subsequent calls
+ * (`getRecentlyPlayedGamesForUser`, `getStatsForUser`) read from the
+ * just-synced database without re-triggering extras sync,
+ * `hydrateMissingExtraNames`, etc. Emits info-level milestones so slow
+ * production syncs can be diagnosed from logs.
+ */
 export async function synchronizeUserData(steamId: string) {
+  const startedAt = Date.now()
+  logger.info({ steamId }, "Sync: start")
+
   const ownedGames = await ensureOwnedGamesSynced(steamId, { forceRefresh: true })
-  const recentGames = await getRecentlyPlayedGamesForUser(steamId, { forceRefresh: true })
-  const stats = await getStatsForUser(steamId, { forceRefresh: true })
+  logger.info(
+    { steamId, ownedGamesCount: ownedGames.length, elapsedMs: Date.now() - startedAt },
+    "Sync: owned games + extras synced",
+  )
+
+  // No forceRefresh — the call above already refreshed everything, so the
+  // staleness check inside ensureOwnedGamesSynced short-circuits and this
+  // just reads from the DB.
+  const recentGames = await getRecentlyPlayedGamesForUser(steamId)
+  logger.info({ steamId, elapsedMs: Date.now() - startedAt }, "Sync: recent games resolved")
+
+  // skipOwnedGamesSync avoids a second pass through the owned-games pipeline.
+  // forceRefresh still bypasses the stats snapshot cache so aggregates are
+  // recomputed from the just-synced data.
+  const stats = await getStatsForUser(steamId, { forceRefresh: true, skipOwnedGamesSync: true })
+  logger.info({ steamId, elapsedMs: Date.now() - startedAt }, "Sync: stats recomputed")
 
   return {
     syncedAt: new Date().toISOString(),
