@@ -8,10 +8,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const ORIGINAL_FETCH = globalThis.fetch
 const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {})
+const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {})
 
 beforeEach(() => {
   process.env.STEAM_API_KEY = "fake-key"
   consoleErrorSpy.mockClear()
+  consoleWarnSpy.mockClear()
 })
 
 afterEach(() => {
@@ -201,18 +203,19 @@ describe("getPlayerAchievements", () => {
     expect(consoleErrorSpy).not.toHaveBeenCalled()
   })
 
-  it("logs an error and returns null on 500", async () => {
+  it("returns null *silently* on 500 (broken stats) — no console noise", async () => {
     mockFetchSequence([{ ok: false, status: 500, body: {} }])
     const { getPlayerAchievements } = await import("@/lib/steam-api")
     expect(await getPlayerAchievements("76561198023709299", 620)).toBeNull()
-    expect(consoleErrorSpy).toHaveBeenCalled()
+    expect(consoleErrorSpy).not.toHaveBeenCalled()
   })
 
-  it("returns null on network error", async () => {
+  it("returns null on network error and warns (not errors)", async () => {
     mockFetchRejecting(new Error("socket hangup"))
     const { getPlayerAchievements } = await import("@/lib/steam-api")
     expect(await getPlayerAchievements("76561198023709299", 620)).toBeNull()
-    expect(consoleErrorSpy).toHaveBeenCalled()
+    expect(consoleWarnSpy).toHaveBeenCalled()
+    expect(consoleErrorSpy).not.toHaveBeenCalled()
   })
 
   it("defaults achievements to [] when the response omits the array", async () => {
