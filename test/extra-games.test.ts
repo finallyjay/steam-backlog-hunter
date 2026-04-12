@@ -477,16 +477,15 @@ describe("hydrateMissingExtraNames", () => {
     void db
   })
 
-  it("skips rows whose games.name is the empty-string sentinel (negative cache)", async () => {
+  it("retries rows whose games.name is empty string (no permanent sentinel)", async () => {
     const db = await seedExtraWithoutName(111)
     const now = new Date().toISOString()
     db.prepare(`INSERT INTO games (appid, name, created_at, updated_at) VALUES (111, '', ?, ?)`).run(now, now)
-    const fetchSpy = vi.fn()
-    globalThis.fetch = fetchSpy as unknown as typeof fetch
+    mockStoreSingle((appid) => ({ success: true, data: { name: `Resolved ${appid}` } }))
     const { hydrateMissingExtraNames } = await import("@/lib/server/extra-games")
     await hydrateMissingExtraNames(STEAM_ID)
-    expect(fetchSpy).not.toHaveBeenCalled()
-    void db
+    const row = db.prepare("SELECT name FROM games WHERE appid=111").get() as { name: string }
+    expect(row.name).toBe("Resolved 111")
   })
 
   it("upserts the real name when the store API returns success=true", async () => {
@@ -498,13 +497,19 @@ describe("hydrateMissingExtraNames", () => {
     expect(row.name).toBe("Game 111")
   })
 
-  it("writes the empty-string sentinel when the store API says success=false", async () => {
+  it("falls back to GetSchemaForGame when store returns success=false", async () => {
     const db = await seedExtraWithoutName(274920)
     mockStoreSingle(() => ({ success: false }))
+    vi.doMock("@/lib/steam-api", () => ({
+      getGameSchema: vi.fn().mockResolvedValue({ gameName: "FaceRig" }),
+      getPlayerAchievements: vi.fn().mockResolvedValue(null),
+      getOwnedGames: vi.fn().mockResolvedValue([]),
+      getLastPlayedTimes: vi.fn().mockResolvedValue([]),
+    }))
     const { hydrateMissingExtraNames } = await import("@/lib/server/extra-games")
     await hydrateMissingExtraNames(STEAM_ID)
     const row = db.prepare("SELECT name FROM games WHERE appid=274920").get() as { name: string }
-    expect(row.name).toBe("")
+    expect(row.name).toBe("FaceRig")
   })
 
   it("calls the store API once per appid (single-appid queries only)", async () => {
@@ -567,23 +572,29 @@ describe("hydrateMissingExtraNames", () => {
     void db
   })
 
-  it("backs off after 5 consecutive store API failures", async () => {
+  it("backs off after 10 consecutive store API failures", async () => {
     const db = await seedProfile()
     const now = new Date().toISOString()
-    for (let i = 1; i <= 10; i++) {
+    for (let i = 1; i <= 15; i++) {
       db.prepare(
         `INSERT INTO extra_games (steam_id, appid, playtime_forever, synced_at, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?)`,
       ).run(STEAM_ID, i, 100 - i, now, now, now)
     }
-    let calls = 0
+    let storeCalls = 0
     globalThis.fetch = vi.fn(async () => {
-      calls++
+      storeCalls++
       return { ok: false, status: 500, json: async () => ({}) } as unknown as Response
     }) as unknown as typeof fetch
+    vi.doMock("@/lib/steam-api", () => ({
+      getGameSchema: vi.fn().mockResolvedValue(null),
+      getPlayerAchievements: vi.fn().mockResolvedValue(null),
+      getOwnedGames: vi.fn().mockResolvedValue([]),
+      getLastPlayedTimes: vi.fn().mockResolvedValue([]),
+    }))
     const { hydrateMissingExtraNames } = await import("@/lib/server/extra-games")
     await hydrateMissingExtraNames(STEAM_ID)
-    expect(calls).toBe(5)
+    expect(storeCalls).toBe(10)
     void db
   })
 

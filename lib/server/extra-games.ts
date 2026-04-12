@@ -1,6 +1,6 @@
 import "server-only"
 
-import { getPlayerAchievements, type LastPlayedGame } from "@/lib/steam-api"
+import { getGameSchema, getPlayerAchievements, type LastPlayedGame } from "@/lib/steam-api"
 import { getSqliteDatabase } from "@/lib/server/sqlite"
 import { isStale, nowIso } from "@/lib/server/steam-store-utils"
 import { ACHIEVEMENTS_STALE_MS } from "@/lib/server/steam-achievements-sync"
@@ -31,11 +31,6 @@ const EXTRAS_ACHIEVEMENTS_CONCURRENCY = 5
 // complete in ~90s.
 const STORE_DELAY_MS = 150
 
-// Sentinel written to games.name when the store appdetails endpoint
-// said "no", so the next hydrate pass skips the appid instead of
-// hammering it forever.
-const NAME_UNRESOLVED_SENTINEL = ""
-
 type StoreAppDetails = {
   success?: boolean
   data?: {
@@ -56,8 +51,15 @@ type StoreAppDetails = {
  * appid. The UI falls back to `App #{appid}` for any game whose name is
  * null OR empty via `game.name || fallback`.
  *
- * Swallows per-call errors. On 5 consecutive failures we back off entirely
- * (Akamai/rate-limit guard).
+ * Swallows per-call errors. On 10 consecutive store failures we back off
+ * (Akamai/rate-limit guard). When the store API returns success=false
+ * (delisted/removed apps), falls back to GetSchemaForGame which returns
+ * gameName even for delisted titles.
+ *
+ * Does NOT write a sentinel for unresolvable apps: leaving the games row
+ * absent keeps the LEFT JOIN NULL so the next sync can retry. This avoids
+ * the old permanent-stick problem where a single transient store failure
+ * would brand an app as "App #12345" forever.
  */
 export async function hydrateMissingExtraNames(steamId: string) {
   const db = getSqliteDatabase()
@@ -67,7 +69,7 @@ export async function hydrateMissingExtraNames(steamId: string) {
       SELECT e.appid
       FROM extra_games e
       LEFT JOIN games g ON g.appid = e.appid
-      WHERE e.steam_id = ? AND g.name IS NULL
+      WHERE e.steam_id = ? AND (g.appid IS NULL OR g.name IS NULL OR g.name = '')
       ORDER BY e.playtime_forever DESC
     `,
     )
@@ -83,17 +85,20 @@ export async function hydrateMissingExtraNames(steamId: string) {
       updated_at = excluded.updated_at
   `)
 
-  let consecutiveFailures = 0
+  let consecutiveStoreFailures = 0
 
   for (const { appid } of rows) {
-    if (consecutiveFailures >= 5) {
+    if (consecutiveStoreFailures >= 10) {
       logger.warn(
         { steamId, remaining: rows.length, lastAppid: appid },
-        "Store appdetails returned 5 consecutive failures — backing off hydrateMissingExtraNames",
+        "Store appdetails returned 10 consecutive failures — backing off hydrateMissingExtraNames",
       )
       return
     }
 
+    let resolvedName: string | null = null
+
+    // Source 1: store appdetails (works for most active apps)
     try {
       const url = new URL("https://store.steampowered.com/api/appdetails")
       url.searchParams.set("appids", String(appid))
@@ -101,28 +106,35 @@ export async function hydrateMissingExtraNames(steamId: string) {
       const response = await fetch(url.toString(), { cache: "no-store" })
 
       if (!response.ok) {
-        consecutiveFailures++
-        continue
-      }
-      consecutiveFailures = 0
-
-      const payload = (await response.json()) as Record<string, StoreAppDetails>
-      const entry = payload[String(appid)]
-      const resolvedName = entry?.success && entry.data?.name ? entry.data.name : null
-      const now = nowIso()
-
-      if (resolvedName) {
-        upsertGame.run(appid, resolvedName, now, now)
+        consecutiveStoreFailures++
       } else {
-        // Negative cache: mark this appid as "we asked, nothing to show"
-        upsertGame.run(appid, NAME_UNRESOLVED_SENTINEL, now, now)
+        consecutiveStoreFailures = 0
+        const payload = (await response.json()) as Record<string, StoreAppDetails>
+        const entry = payload[String(appid)]
+        resolvedName = entry?.success && entry.data?.name ? entry.data.name : null
       }
     } catch (error) {
-      consecutiveFailures++
+      consecutiveStoreFailures++
       logger.warn({ err: error, appid }, "Store appdetails call failed")
     }
 
-    // Rate-limit friendliness: stay well below the ~200 req / 5min ceiling.
+    // Source 2: GetSchemaForGame (works for delisted apps the store rejects)
+    if (!resolvedName) {
+      try {
+        const schema = (await getGameSchema(appid)) as { gameName?: string } | null
+        if (schema?.gameName) {
+          resolvedName = schema.gameName
+        }
+      } catch {
+        // non-critical
+      }
+    }
+
+    if (resolvedName) {
+      const now = nowIso()
+      upsertGame.run(appid, resolvedName, now, now)
+    }
+
     await new Promise((resolve) => setTimeout(resolve, STORE_DELAY_MS))
   }
 }
