@@ -68,26 +68,8 @@ export function GameCard({
   if (percent >= 80) progressColor = "bg-success"
   else if (percent >= 40) progressColor = "bg-warning"
   const isCompleted = serverPerfect || (total > 0 && unlocked === total)
-  const cardContent = (
-    <div
-      data-game-id={id}
-      className={`group border-surface-4 relative flex items-stretch gap-4 overflow-hidden rounded-lg border px-4 py-4 transition-all duration-300 ${isCompleted ? "bg-success/10 hover:border-success/40" : "hover:border-accent/45 bg-surface-1 hover:bg-surface-2"}`}
-    >
-      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-      {onHide && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.preventDefault()
-            e.stopPropagation()
-            onHide(Number(id))
-          }}
-          className="bg-background/80 text-muted-foreground hover:text-foreground pointer-events-none absolute top-2 right-2 z-10 rounded-md p-1.5 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100"
-          aria-label={`Hide ${name}`}
-        >
-          <EyeOff className="h-3.5 w-3.5" />
-        </button>
-      )}
+  const mainContent = (
+    <div className="flex items-stretch gap-4">
       <img
         src={imageSrc}
         alt={`Cover art for ${name}`}
@@ -137,19 +119,38 @@ export function GameCard({
             <div className="h-2" />
           )}
         </div>
-        {actions && (
-          <div className="mt-2 flex items-center gap-2" onClick={(e) => e.preventDefault()}>
-            {actions}
-          </div>
-        )}
       </div>
     </div>
   )
-  return href ? (
-    <Link href={href} className="block">
-      {cardContent}
-    </Link>
-  ) : (
-    cardContent
+
+  return (
+    <div
+      data-game-id={id}
+      className={`group border-surface-4 relative overflow-hidden rounded-lg border px-4 py-4 transition-all duration-300 ${isCompleted ? "bg-success/10 hover:border-success/40" : "hover:border-accent/45 bg-surface-1 hover:bg-surface-2"}`}
+    >
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+      {onHide && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            onHide(Number(id))
+          }}
+          className="bg-background/80 text-muted-foreground hover:text-foreground pointer-events-none absolute top-2 right-2 z-10 rounded-md p-1.5 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100"
+          aria-label={`Hide ${name}`}
+        >
+          <EyeOff className="h-3.5 w-3.5" />
+        </button>
+      )}
+      {href ? (
+        <Link href={href} className="block">
+          {mainContent}
+        </Link>
+      ) : (
+        mainContent
+      )}
+      {actions && <div className="border-surface-4/50 mt-3 flex items-center gap-2 border-t pt-3">{actions}</div>}
+    </div>
   )
 }
