@@ -148,7 +148,30 @@ export function getStoredStatsSnapshot(steamId: string) {
     .get(steamId) as StatsSnapshotRow | undefined
 }
 
+// Dedupe concurrent achievement syncs for the same user. Without this,
+// POST /api/steam/sync and GET /api/steam/stats fired from the same UI
+// click both enter syncAchievementsForStats in parallel, doubling Steam
+// API calls and error logs.
+const achievementsSyncInflight = new Map<string, Promise<void>>()
+
 async function syncAchievementsForStats(
+  steamId: string,
+  forceRefresh: boolean,
+  options?: { skipOwnedGamesSync?: boolean },
+) {
+  const existing = achievementsSyncInflight.get(steamId)
+  if (existing) return existing
+
+  const promise = doSyncAchievementsForStats(steamId, forceRefresh, options)
+  achievementsSyncInflight.set(steamId, promise)
+  try {
+    return await promise
+  } finally {
+    achievementsSyncInflight.delete(steamId)
+  }
+}
+
+async function doSyncAchievementsForStats(
   steamId: string,
   forceRefresh: boolean,
   options?: { skipOwnedGamesSync?: boolean },
