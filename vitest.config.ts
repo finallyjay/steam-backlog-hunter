@@ -32,6 +32,10 @@ export default defineConfig({
         "app/**/global-error.tsx",
         // shadcn/ui primitives are generated wrappers; upstream tests them.
         "components/ui/**",
+        // Interactive modal + client-layout: composition of hooks behind a
+        // fullscreen overlay; meaningful coverage needs a browser (Playwright).
+        "components/first-sync-modal.tsx",
+        "app/client-layout.tsx",
         // shadcn's toast hook is copied from the CLI template, not original code.
         "hooks/use-toast.ts",
         // Type-only / re-export barrels

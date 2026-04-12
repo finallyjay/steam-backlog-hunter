@@ -1,16 +1,60 @@
 "use client"
 
+import { useCallback, useEffect, useState } from "react"
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { useCurrentUser } from "@/hooks/use-current-user"
 import { usePathname } from "next/navigation"
 import { Skeleton } from "@/components/ui/skeleton"
 import { usePageTitle } from "@/components/ui/page-title-context"
 import { Toaster } from "@/components/ui/toaster"
+import { FirstSyncModal } from "@/components/first-sync-modal"
+
+type SyncStatusResponse = {
+  lastOwnedGamesSyncAt: string | null
+  lastRecentGamesSyncAt: string | null
+  lastStatsSyncAt: string | null
+}
+
+function useFirstSyncCheck(user: { steamId: string } | null) {
+  const [needsSync, setNeedsSync] = useState(false)
+  const [checked, setChecked] = useState(false)
+
+  useEffect(() => {
+    if (!user) {
+      setChecked(true)
+      return
+    }
+    let cancelled = false
+    async function check() {
+      try {
+        const res = await fetch("/api/steam/sync", { cache: "no-store" })
+        if (!res.ok || cancelled) return
+        const data = (await res.json()) as SyncStatusResponse
+        if (!data.lastOwnedGamesSyncAt) {
+          setNeedsSync(true)
+        }
+      } catch {
+        // ignore
+      } finally {
+        if (!cancelled) setChecked(true)
+      }
+    }
+    void check()
+    return () => {
+      cancelled = true
+    }
+  }, [user])
+
+  const dismiss = useCallback(() => setNeedsSync(false), [])
+  return { needsSync, checked, dismiss }
+}
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const { user, loading } = useCurrentUser()
   const { title } = usePageTitle()
+  const { needsSync, checked, dismiss } = useFirstSyncCheck(user)
+  const isAuthPage = pathname !== "/"
 
   return (
     <>
@@ -20,8 +64,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       >
         Skip to content
       </a>
+      {isAuthPage && needsSync && checked && <FirstSyncModal onComplete={dismiss} />}
       {/* Show header on all pages except the root (login) */}
-      {pathname !== "/" &&
+      {isAuthPage &&
         (loading ? (
           <div className="bg-card/50 sticky top-0 z-40 border-b backdrop-blur-sm">
             <div className="container mx-auto px-4 py-4">
