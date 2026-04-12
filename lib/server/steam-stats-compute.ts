@@ -195,8 +195,12 @@ async function doSyncAchievementsForStats(
     const stored = getStoredAchievements(steamId, game.appid)
 
     // Known-broken: first sync reported 0 achievements (stats-only game,
-    // retired game, private profile, etc). Don't keep retrying.
-    if (stored?.achievements_synced_at && (stored.total_count ?? 0) === 0) return false
+    // retired game, private profile, etc). Don't keep retrying — UNLESS
+    // Steam explicitly said the game has community stats, in which case a
+    // zero count likely came from a transient API failure (500/timeout)
+    // and we should retry on the next sync.
+    if (stored?.achievements_synced_at && (stored.total_count ?? 0) === 0 && game.has_community_visible_stats !== true)
+      return false
 
     // Never synced → always include (covers first sync and new purchases).
     if (!stored?.achievements_synced_at) return true
