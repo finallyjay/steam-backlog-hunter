@@ -260,19 +260,14 @@ export function persistLastPlayedTimes(steamId: string, games: LastPlayedGame[])
   }
 }
 
-export async function ensureOwnedGamesSynced(steamId: string, options?: { forceRefresh?: boolean }) {
-  const forceRefresh = options?.forceRefresh ?? false
-  upsertProfile(steamId)
+// Per-user in-flight promise for the heavy owned-games pipeline. Any
+// concurrent caller (POST /api/steam/sync + a GET /api/steam/games fired
+// by the UI on the same click) joins the same Promise instead of kicking
+// off a second extras/hydrate/images pass. Cleared in a finally so a
+// failed sync doesn't poison subsequent attempts.
+const heavyOwnedGamesSyncInflight = new Map<string, Promise<SteamGame[]>>()
 
-  const syncInfo = getProfileSync(steamId)
-  const shouldRefresh = forceRefresh || isStale(syncInfo?.last_owned_games_sync_at, OWNED_GAMES_STALE_MS)
-  const existingGames = getStoredOwnedGames(steamId)
-
-  if (!shouldRefresh && existingGames.length > 0) {
-    await ensureGameImages(existingGames.map((game) => game.appid))
-    return existingGames
-  }
-
+async function runHeavyOwnedGamesSync(steamId: string, existingGames: SteamGame[]): Promise<SteamGame[]> {
   const games = await getOwnedGames(steamId)
 
   // Guard against transient Steam API failures: if GetOwnedGames returned
@@ -323,6 +318,34 @@ export async function ensureOwnedGamesSynced(steamId: string, options?: { forceR
   const imageAppIds = Array.from(new Set([...finalGames.map((g) => g.appid), ...extraAppIds]))
   await ensureGameImages(imageAppIds)
   return finalGames
+}
+
+export async function ensureOwnedGamesSynced(steamId: string, options?: { forceRefresh?: boolean }) {
+  const forceRefresh = options?.forceRefresh ?? false
+  upsertProfile(steamId)
+
+  const syncInfo = getProfileSync(steamId)
+  const shouldRefresh = forceRefresh || isStale(syncInfo?.last_owned_games_sync_at, OWNED_GAMES_STALE_MS)
+  const existingGames = getStoredOwnedGames(steamId)
+
+  if (!shouldRefresh && existingGames.length > 0) {
+    await ensureGameImages(existingGames.map((game) => game.appid))
+    return existingGames
+  }
+
+  // Dedupe concurrent heavy syncs for the same user. Without this, a POST
+  // /api/steam/sync and a GET /api/steam/games fired from the same UI click
+  // both see the DB as unsynced and each runs the full pipeline in parallel.
+  const existing = heavyOwnedGamesSyncInflight.get(steamId)
+  if (existing) return existing
+
+  const promise = runHeavyOwnedGamesSync(steamId, existingGames)
+  heavyOwnedGamesSyncInflight.set(steamId, promise)
+  try {
+    return await promise
+  } finally {
+    heavyOwnedGamesSyncInflight.delete(steamId)
+  }
 }
 
 /** Returns all owned games for a user, syncing from Steam if needed. */
