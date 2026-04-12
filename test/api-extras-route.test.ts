@@ -22,11 +22,17 @@ vi.mock("@/app/lib/server-auth", () => ({
 
 vi.mock("@/lib/server/extra-games", () => ({
   getExtraGamesForUser: vi.fn(),
+  getHiddenGamesForUser: vi.fn(),
 }))
 
+import { NextRequest } from "next/server"
 import { GET } from "@/app/api/steam/extras/route"
 import { getCurrentUser } from "@/app/lib/server-auth"
 import { getExtraGamesForUser } from "@/lib/server/extra-games"
+
+function makeRequest(query = "") {
+  return new NextRequest(`http://localhost/api/steam/extras${query}`)
+}
 
 const mockUser = {
   steamId: "76561198023709299",
@@ -47,7 +53,7 @@ afterEach(() => {
 describe("GET /api/steam/extras", () => {
   it("returns 401 when unauthenticated", async () => {
     vi.mocked(getCurrentUser).mockResolvedValue(null)
-    const res = await GET()
+    const res = await GET(makeRequest())
     expect(res.status).toBe(401)
   })
 
@@ -70,7 +76,7 @@ describe("GET /api/steam/extras", () => {
         synced_at: "2026-04-11T10:00:00.000Z",
       },
     ])
-    const res = await GET()
+    const res = await GET(makeRequest())
     expect(res.status).toBe(200)
     const body = (await res.json()) as { games: Array<{ appid: number }> }
     expect(body.games).toHaveLength(1)
@@ -83,7 +89,7 @@ describe("GET /api/steam/extras", () => {
     vi.mocked(getExtraGamesForUser).mockImplementation(() => {
       throw new Error("db closed")
     })
-    const res = await GET()
+    const res = await GET(makeRequest())
     expect(res.status).toBe(500)
   })
 })
