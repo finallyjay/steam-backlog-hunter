@@ -384,6 +384,7 @@ export function getExtraGamesForUser(steamId: string): ExtraGame[] {
       FROM extra_games e
       LEFT JOIN games g ON g.appid = e.appid
       WHERE e.steam_id = ?
+        AND NOT EXISTS (SELECT 1 FROM hidden_games hg WHERE hg.steam_id = e.steam_id AND hg.appid = e.appid)
       ORDER BY e.playtime_forever DESC, e.rtime_last_played DESC
     `,
     )
@@ -396,4 +397,45 @@ export function getExtraAppIds(steamId: string): number[] {
   const db = getSqliteDatabase()
   const rows = db.prepare(`SELECT appid FROM extra_games WHERE steam_id = ?`).all(steamId) as Array<{ appid: number }>
   return rows.map((r) => r.appid)
+}
+
+export type HiddenGame = {
+  appid: number
+  name: string | null
+  image_landscape_url: string | null
+  image_portrait_url: string | null
+  image_icon_url: string | null
+  playtime_forever: number | null
+  hidden_at: string
+  source: "library" | "extras"
+}
+
+/** Returns all hidden games for a user, from both library and extras. */
+export function getHiddenGamesForUser(steamId: string): HiddenGame[] {
+  const db = getSqliteDatabase()
+  const rows = db
+    .prepare(
+      `
+      SELECT
+        hg.appid,
+        g.name,
+        g.image_landscape_url,
+        g.image_portrait_url,
+        g.image_icon_url,
+        COALESCE(ug.playtime_forever, eg.playtime_forever) AS playtime_forever,
+        hg.hidden_at,
+        CASE
+          WHEN ug.steam_id IS NOT NULL THEN 'library'
+          ELSE 'extras'
+        END AS source
+      FROM hidden_games hg
+      LEFT JOIN games g ON g.appid = hg.appid
+      LEFT JOIN user_games ug ON ug.steam_id = hg.steam_id AND ug.appid = hg.appid AND ug.owned = 1
+      LEFT JOIN extra_games eg ON eg.steam_id = hg.steam_id AND eg.appid = hg.appid
+      WHERE hg.steam_id = ?
+      ORDER BY hg.hidden_at DESC
+    `,
+    )
+    .all(steamId) as HiddenGame[]
+  return rows
 }

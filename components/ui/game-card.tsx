@@ -19,6 +19,7 @@ interface GameCardProps {
   serverUnlocked?: number
   serverPerfect?: boolean
   onHide?: (appId: number) => void
+  actions?: React.ReactNode
 }
 
 const FALLBACK_STAGES = ["primary", "header", "legacy", "capsule", "generic", "placeholder"] as const
@@ -53,6 +54,7 @@ export function GameCard({
   serverUnlocked = 0,
   serverPerfect = false,
   onHide,
+  actions,
 }: GameCardProps) {
   const [imageSrc, setImageSrc] = useState(image || "/placeholder-landscape.svg")
   const [fallbackIndex, setFallbackIndex] = useState(0)
@@ -135,6 +137,11 @@ export function GameCard({
             <div className="h-2" />
           )}
         </div>
+        {actions && (
+          <div className="mt-2 flex items-center gap-2" onClick={(e) => e.preventDefault()}>
+            {actions}
+          </div>
+        )}
       </div>
     </div>
   )

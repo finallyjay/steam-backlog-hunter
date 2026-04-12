@@ -317,6 +317,45 @@ export function useSteamExtras() {
   return { games, loading, error, refetch: load }
 }
 
+export type SteamHiddenGame = {
+  appid: number
+  name: string | null
+  image_landscape_url: string | null
+  image_portrait_url: string | null
+  image_icon_url: string | null
+  playtime_forever: number | null
+  hidden_at: string
+  source: "library" | "extras"
+}
+
+export function useSteamHiddenGames() {
+  const [games, setGames] = useState<SteamHiddenGame[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const response = await fetch("/api/steam/extras?hidden=1")
+      if (!response.ok) throw new Error("Failed to fetch hidden games")
+      const data = (await response.json()) as { games: SteamHiddenGame[] }
+      setGames(data.games)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unknown error")
+      setGames([])
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  return { games, loading, error, refetch: load }
+}
+
 export function useSteamAchievements(appId: number | null) {
   const [achievements, setAchievements] = useState<SteamAchievementView[]>([])
   const [loading, setLoading] = useState(false)

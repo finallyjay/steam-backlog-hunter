@@ -623,3 +623,68 @@ describe("getExtraAppIds", () => {
     expect(new Set(getExtraAppIds(STEAM_ID))).toEqual(new Set([111, 222]))
   })
 })
+
+describe("getHiddenGamesForUser", () => {
+  it("returns empty when nothing is hidden", async () => {
+    await seedProfile()
+    const { getHiddenGamesForUser } = await import("@/lib/server/extra-games")
+    expect(getHiddenGamesForUser(STEAM_ID)).toEqual([])
+  })
+
+  it("returns hidden extras with source='extras'", async () => {
+    const db = await seedProfile()
+    const now = new Date().toISOString()
+    db.prepare("INSERT INTO games (appid, name, created_at, updated_at) VALUES (?, ?, ?, ?)").run(111, "Test", now, now)
+    db.prepare(
+      "INSERT INTO extra_games (steam_id, appid, playtime_forever, synced_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+    ).run(STEAM_ID, 111, 60, now, now, now)
+    db.prepare("INSERT INTO hidden_games (steam_id, appid, hidden_at) VALUES (?, ?, ?)").run(STEAM_ID, 111, now)
+
+    const { getHiddenGamesForUser } = await import("@/lib/server/extra-games")
+    const hidden = getHiddenGamesForUser(STEAM_ID)
+    expect(hidden).toHaveLength(1)
+    expect(hidden[0].appid).toBe(111)
+    expect(hidden[0].name).toBe("Test")
+    expect(hidden[0].source).toBe("extras")
+  })
+
+  it("returns hidden library games with source='library'", async () => {
+    const db = await seedProfile()
+    const now = new Date().toISOString()
+    db.prepare("INSERT INTO games (appid, name, created_at, updated_at) VALUES (?, ?, ?, ?)").run(
+      222,
+      "Library Game",
+      now,
+      now,
+    )
+    db.prepare(
+      "INSERT INTO user_games (steam_id, appid, playtime_forever, owned, created_at, updated_at) VALUES (?, ?, ?, 1, ?, ?)",
+    ).run(STEAM_ID, 222, 120, now, now)
+    db.prepare("INSERT INTO hidden_games (steam_id, appid, hidden_at) VALUES (?, ?, ?)").run(STEAM_ID, 222, now)
+
+    const { getHiddenGamesForUser } = await import("@/lib/server/extra-games")
+    const hidden = getHiddenGamesForUser(STEAM_ID)
+    expect(hidden).toHaveLength(1)
+    expect(hidden[0].appid).toBe(222)
+    expect(hidden[0].source).toBe("library")
+  })
+})
+
+describe("getExtraGamesForUser filters hidden", () => {
+  it("excludes hidden extras from the result", async () => {
+    const db = await seedProfile()
+    const now = new Date().toISOString()
+    db.prepare(
+      "INSERT INTO extra_games (steam_id, appid, playtime_forever, synced_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+    ).run(STEAM_ID, 111, 60, now, now, now)
+    db.prepare(
+      "INSERT INTO extra_games (steam_id, appid, playtime_forever, synced_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+    ).run(STEAM_ID, 222, 120, now, now, now)
+    db.prepare("INSERT INTO hidden_games (steam_id, appid, hidden_at) VALUES (?, ?, ?)").run(STEAM_ID, 111, now)
+
+    const { getExtraGamesForUser } = await import("@/lib/server/extra-games")
+    const extras = getExtraGamesForUser(STEAM_ID)
+    expect(extras).toHaveLength(1)
+    expect(extras[0].appid).toBe(222)
+  })
+})
