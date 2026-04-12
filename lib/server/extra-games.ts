@@ -3,7 +3,7 @@ import "server-only"
 import { getPlayerAchievements, type LastPlayedGame } from "@/lib/steam-api"
 import { getSqliteDatabase } from "@/lib/server/sqlite"
 import { isStale, nowIso } from "@/lib/server/steam-store-utils"
-import { ensureSchema, ACHIEVEMENTS_STALE_MS } from "@/lib/server/steam-achievements-sync"
+import { ACHIEVEMENTS_STALE_MS } from "@/lib/server/steam-achievements-sync"
 import { logger } from "@/lib/server/logger"
 
 export type ExtraGame = {
@@ -293,7 +293,7 @@ export function persistExtraAchievements(
  * fresh and rtime_last_played hasn't advanced. 7-day staleness floor for
  * rare edge cases where achievements unlock without moving rtime.
  *
- * Runs per-game GetPlayerAchievements + ensureSchema with concurrency=5.
+ * Runs per-game GetPlayerAchievements with concurrency=5.
  * Swallows per-game failures so a single broken entry can't abort the whole
  * extras sync.
  */
@@ -337,10 +337,13 @@ export async function syncExtraAchievements(steamId: string) {
       if (index >= stale.length) return
       const row = stale[index]
       try {
-        const [playerAchievements] = await Promise.all([
-          getPlayerAchievements(steamId, row.appid),
-          ensureSchema(row.appid),
-        ])
+        // No ensureSchema() here on purpose: the extras UI only shows
+        // aggregate unlock counts (serverTotal / serverUnlocked), never
+        // per-achievement metadata. Skipping the schema sync avoids a
+        // FOREIGN KEY failure on game_achievements(appid)→games(appid) for
+        // extras whose appid isn't in `games` yet, which on a fresh database
+        // was preventing every extras sync from persisting anything.
+        const playerAchievements = await getPlayerAchievements(steamId, row.appid)
         if (!playerAchievements) {
           // Mark as known-broken so we don't retry every sync.
           persistExtraAchievements(steamId, row.appid, "", [])
