@@ -1,22 +1,55 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
-import { AlertCircle, Search, Sparkles } from "lucide-react"
+import { AlertCircle, Database, EyeOff, LifeBuoy, RotateCcw, Search, Sparkles } from "lucide-react"
 
 import { useCurrentUser } from "@/hooks/use-current-user"
-import { useSteamExtras } from "@/hooks/use-steam-data"
+import { useSteamExtras, useSteamHiddenGames } from "@/hooks/use-steam-data"
 import { PageContainer } from "@/components/ui/page-container"
 import { LoadingMessage } from "@/components/ui/loading-message"
 import { GameCard } from "@/components/ui/game-card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { getSteamHeaderImageUrl } from "@/lib/steam-api"
 
+type Tab = "extras" | "hidden"
+
+function ExtraGameActions({ appid }: { appid: number }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <a
+        href={`https://steamdb.info/app/${appid}/`}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={(e) => e.stopPropagation()}
+        className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors hover:bg-white/5"
+      >
+        <Database className="h-3 w-3" />
+        <span>SteamDB</span>
+      </a>
+      <a
+        href={`https://help.steampowered.com/en/wizard/HelpWithGameIssue/?appid=${appid}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={(e) => e.stopPropagation()}
+        className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors hover:bg-white/5"
+      >
+        <LifeBuoy className="h-3 w-3" />
+        <span>Support</span>
+      </a>
+    </div>
+  )
+}
+
 export default function ExtrasPage() {
   const { user, loading: loadingUser } = useCurrentUser()
   const router = useRouter()
-  const { games, loading: loadingGames, error } = useSteamExtras()
+  const { games: extras, loading: loadingExtras, error: extrasError, refetch: refetchExtras } = useSteamExtras()
+  const { games: hidden, loading: loadingHidden, error: hiddenError, refetch: refetchHidden } = useSteamHiddenGames()
+  const [tab, setTab] = useState<Tab>("extras")
   const [search, setSearch] = useState("")
+  const [locallyHidden, setLocallyHidden] = useState<Set<number>>(new Set())
+  const [locallyRestored, setLocallyRestored] = useState<Set<number>>(new Set())
 
   useEffect(() => {
     window.scrollTo(0, 0)
@@ -28,11 +61,66 @@ export default function ExtrasPage() {
     }
   }, [loadingUser, router, user])
 
-  const filtered = useMemo(() => {
+  const handleHide = useCallback(async (appId: number) => {
+    try {
+      const res = await fetch("/api/steam/games/hide", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ appId }),
+      })
+      if (res.ok) {
+        setLocallyHidden((prev) => new Set([...prev, appId]))
+      }
+    } catch {
+      // ignore
+    }
+  }, [])
+
+  const handleRestore = useCallback(async (appId: number) => {
+    try {
+      const res = await fetch("/api/steam/games/hide", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ appId }),
+      })
+      if (res.ok) {
+        setLocallyRestored((prev) => new Set([...prev, appId]))
+      }
+    } catch {
+      // ignore
+    }
+  }, [])
+
+  useEffect(() => {
+    if (tab === "hidden" && (locallyHidden.size > 0 || locallyRestored.size > 0)) {
+      void refetchHidden()
+      setLocallyRestored(new Set())
+    }
+    if (tab === "extras" && locallyHidden.size > 0) {
+      void refetchExtras()
+      setLocallyHidden(new Set())
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab])
+
+  const filteredExtras = useMemo(() => {
+    const visible = extras.filter((g) => !locallyHidden.has(g.appid))
     const q = search.trim().toLowerCase()
-    if (!q) return games
-    return games.filter((g) => (g.name || `app #${g.appid}`).toLowerCase().includes(q))
-  }, [games, search])
+    if (!q) return visible
+    return visible.filter((g) => (g.name || `app #${g.appid}`).toLowerCase().includes(q))
+  }, [extras, search, locallyHidden])
+
+  const filteredHidden = useMemo(() => {
+    const visible = hidden.filter((g) => !locallyRestored.has(g.appid))
+    const q = search.trim().toLowerCase()
+    if (!q) return visible
+    return visible.filter((g) => (g.name || `app #${g.appid}`).toLowerCase().includes(q))
+  }, [hidden, search, locallyRestored])
+
+  const loading = tab === "extras" ? loadingExtras : loadingHidden
+  const error = tab === "extras" ? extrasError : hiddenError
+  const totalCount = tab === "extras" ? extras.length - locallyHidden.size : hidden.length - locallyRestored.size
+  const filteredCount = tab === "extras" ? filteredExtras.length : filteredHidden.length
 
   if (loadingUser) return <LoadingMessage />
   if (!user) return null
@@ -55,6 +143,30 @@ export default function ExtrasPage() {
           </div>
         </div>
 
+        <div className="border-surface-4 flex gap-1 rounded-lg border p-1">
+          <button
+            type="button"
+            onClick={() => setTab("extras")}
+            className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${tab === "extras" ? "bg-surface-3 text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-surface-2"}`}
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            Extras
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("hidden")}
+            className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${tab === "hidden" ? "bg-surface-3 text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-surface-2"}`}
+          >
+            <EyeOff className="h-3.5 w-3.5" />
+            Hidden
+            {hidden.length > 0 && (
+              <span className="bg-surface-4 text-muted-foreground rounded-full px-1.5 py-0.5 text-xs">
+                {hidden.length}
+              </span>
+            )}
+          </button>
+        </div>
+
         <div className="flex items-center justify-between gap-4">
           <div className="border-surface-4 bg-surface-1 focus-within:border-accent flex h-9 min-w-0 flex-1 items-center gap-2 rounded-lg border px-3">
             <Search className="text-muted-foreground h-4 w-4 shrink-0" />
@@ -62,14 +174,14 @@ export default function ExtrasPage() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search extras…"
+              placeholder={tab === "extras" ? "Search extras\u2026" : "Search hidden games\u2026"}
               className="text-foreground placeholder:text-muted-foreground h-full w-full bg-transparent text-sm focus:outline-none"
             />
           </div>
           <p className="text-muted-foreground shrink-0 text-sm">
-            {loadingGames
-              ? "Loading…"
-              : `${filtered.length}${filtered.length !== games.length ? ` of ${games.length}` : ""} games`}
+            {loading
+              ? "Loading\u2026"
+              : `${filteredCount}${filteredCount !== totalCount ? ` of ${totalCount}` : ""} games`}
           </p>
         </div>
 
@@ -79,11 +191,13 @@ export default function ExtrasPage() {
           <div className="border-destructive/40 bg-destructive/5 flex items-start gap-3 rounded-lg border px-4 py-3">
             <AlertCircle className="text-destructive mt-0.5 h-4 w-4 shrink-0" />
             <div className="text-sm">
-              <p className="text-destructive font-medium">Could not load extras</p>
+              <p className="text-destructive font-medium">
+                Could not load {tab === "extras" ? "extras" : "hidden games"}
+              </p>
               <p className="text-muted-foreground">{error}</p>
             </div>
           </div>
-        ) : loadingGames ? (
+        ) : loading ? (
           <div className="space-y-4">
             {Array.from({ length: 4 }).map((_, i) => (
               <div
@@ -99,28 +213,73 @@ export default function ExtrasPage() {
               </div>
             ))}
           </div>
-        ) : filtered.length === 0 ? (
+        ) : tab === "extras" ? (
+          filteredExtras.length === 0 ? (
+            <div className="border-surface-4 bg-surface-1 rounded-lg border px-6 py-10 text-center">
+              <p className="text-muted-foreground">No extras yet.</p>
+              <p className="text-muted-foreground mt-1 text-sm">
+                After syncing, games Steam remembers you played but no longer own will show up here.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {filteredExtras.map((game) => (
+                <GameCard
+                  key={game.appid}
+                  id={game.appid}
+                  name={game.name || `App #${game.appid}`}
+                  image={game.image_landscape_url ?? getSteamHeaderImageUrl(game.appid)}
+                  playtime={Number(((game.playtime_forever ?? 0) / 60).toFixed(1))}
+                  href={`https://store.steampowered.com/app/${game.appid}`}
+                  achievements={[]}
+                  achievementsLoading={false}
+                  serverTotal={game.total_count ?? 0}
+                  serverUnlocked={game.unlocked_count ?? 0}
+                  serverPerfect={game.perfect_game === 1}
+                  onHide={handleHide}
+                  actions={<ExtraGameActions appid={game.appid} />}
+                />
+              ))}
+            </div>
+          )
+        ) : filteredHidden.length === 0 ? (
           <div className="border-surface-4 bg-surface-1 rounded-lg border px-6 py-10 text-center">
-            <p className="text-muted-foreground">No extras yet.</p>
+            <p className="text-muted-foreground">No hidden games.</p>
             <p className="text-muted-foreground mt-1 text-sm">
-              After syncing, games Steam remembers you played but no longer own will show up here.
+              Games you hide from the library or extras will appear here so you can restore them.
             </p>
           </div>
         ) : (
           <div className="space-y-4">
-            {filtered.map((game) => (
+            {filteredHidden.map((game) => (
               <GameCard
                 key={game.appid}
                 id={game.appid}
                 name={game.name || `App #${game.appid}`}
                 image={game.image_landscape_url ?? getSteamHeaderImageUrl(game.appid)}
-                playtime={Number(((game.playtime_forever ?? 0) / 60).toFixed(1))}
+                playtime={game.playtime_forever != null ? Number((game.playtime_forever / 60).toFixed(1)) : undefined}
                 href={`https://store.steampowered.com/app/${game.appid}`}
                 achievements={[]}
                 achievementsLoading={false}
-                serverTotal={game.total_count ?? 0}
-                serverUnlocked={game.unlocked_count ?? 0}
-                serverPerfect={game.perfect_game === 1}
+                actions={
+                  <div className="flex items-center gap-2">
+                    <span className="bg-surface-3 text-muted-foreground rounded-full px-2 py-0.5 text-xs">
+                      {game.source === "library" ? "Library" : "Extras"}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        e.preventDefault()
+                        void handleRestore(game.appid)
+                      }}
+                      className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors hover:bg-white/5"
+                    >
+                      <RotateCcw className="h-3 w-3" />
+                      <span>Restore</span>
+                    </button>
+                  </div>
+                }
               />
             ))}
           </div>
