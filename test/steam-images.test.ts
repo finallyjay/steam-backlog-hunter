@@ -58,7 +58,6 @@ async function seedGame(appId: number, overrides: Record<string, string | null> 
 }
 
 function readGame(appId: number) {
-   
   return async () => {
     const { getSqliteDatabase } = await import("@/lib/server/sqlite")
     return getSqliteDatabase()
@@ -92,7 +91,7 @@ describe("ensureGameImages", () => {
 
   it("persists HEAD-probed urls when the primary CDN returns 200", async () => {
     await seedGame(620)
-    const fetchSpy = vi.fn(async (url: unknown) => ({
+    const fetchSpy = vi.fn(async () => ({
       ok: true,
       status: 200,
       json: async () => ({}),
