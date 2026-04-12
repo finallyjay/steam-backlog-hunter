@@ -230,7 +230,7 @@ export default function ExtrasPage() {
                   name={game.name || `App #${game.appid}`}
                   image={game.image_landscape_url ?? getSteamHeaderImageUrl(game.appid)}
                   playtime={Number(((game.playtime_forever ?? 0) / 60).toFixed(1))}
-                  href={`https://store.steampowered.com/app/${game.appid}`}
+                  href={`/extras/${game.appid}`}
                   achievements={[]}
                   achievementsLoading={false}
                   serverTotal={game.total_count ?? 0}

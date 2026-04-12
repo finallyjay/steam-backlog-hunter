@@ -1,6 +1,8 @@
 import "server-only"
 
 import { getGameSchema, getPlayerAchievements, type LastPlayedGame } from "@/lib/steam-api"
+import { ensureSchema } from "@/lib/server/steam-achievements-sync"
+import type { SteamAchievementView } from "@/lib/types/steam"
 import { getSqliteDatabase } from "@/lib/server/sqlite"
 import { isStale, nowIso } from "@/lib/server/steam-store-utils"
 import { ACHIEVEMENTS_STALE_MS } from "@/lib/server/steam-achievements-sync"
@@ -450,4 +452,105 @@ export function getHiddenGamesForUser(steamId: string): HiddenGame[] {
     )
     .all(steamId) as HiddenGame[]
   return rows
+}
+
+/** Returns a single extra game for a user, or null if not found. */
+export function getStoredExtraGame(steamId: string, appId: number): ExtraGame | null {
+  const db = getSqliteDatabase()
+  const row = db
+    .prepare(
+      `
+      SELECT
+        e.appid,
+        g.name,
+        g.image_landscape_url,
+        g.image_portrait_url,
+        g.image_icon_url,
+        e.playtime_forever,
+        e.rtime_first_played,
+        e.rtime_last_played,
+        e.unlocked_count,
+        e.total_count,
+        e.perfect_game,
+        e.achievements_synced_at,
+        e.synced_at
+      FROM extra_games e
+      LEFT JOIN games g ON g.appid = e.appid
+      WHERE e.steam_id = ? AND e.appid = ?
+    `,
+    )
+    .get(steamId, appId) as ExtraGame | undefined
+  return row ?? null
+}
+
+/**
+ * Reads enriched achievements for an extra game. Calls ensureSchema
+ * on-demand to populate game_achievements (names, icons) if missing,
+ * then joins with extra_game_achievements for unlock status.
+ */
+export async function getExtraAchievementsList(steamId: string, appId: number): Promise<SteamAchievementView[] | null> {
+  const db = getSqliteDatabase()
+
+  const meta = db
+    .prepare(`SELECT achievements_synced_at FROM extra_games WHERE steam_id = ? AND appid = ?`)
+    .get(steamId, appId) as { achievements_synced_at: string | null } | undefined
+  if (!meta?.achievements_synced_at) return null
+
+  // Ensure games row exists so ensureSchema's FK on game_achievements won't fail
+  const gamesRow = db.prepare(`SELECT 1 FROM games WHERE appid = ?`).get(appId)
+  if (!gamesRow) {
+    const now = nowIso()
+    db.prepare(`INSERT OR IGNORE INTO games (appid, name, created_at, updated_at) VALUES (?, '', ?, ?)`).run(
+      appId,
+      now,
+      now,
+    )
+  }
+
+  await ensureSchema(appId)
+
+  const rows = db
+    .prepare(
+      `
+      SELECT
+        ga.appid,
+        ga.apiname,
+        ga.display_name,
+        ga.description,
+        ga.icon,
+        ga.icon_gray,
+        COALESCE(ea.achieved, 0) AS achieved,
+        COALESCE(ea.unlock_time, 0) AS unlock_time
+      FROM game_achievements ga
+      LEFT JOIN extra_game_achievements ea
+        ON ea.appid = ga.appid
+        AND ea.apiname = ga.apiname
+        AND ea.steam_id = ?
+      WHERE ga.appid = ?
+      ORDER BY ga.apiname
+    `,
+    )
+    .all(steamId, appId) as Array<{
+    appid: number
+    apiname: string
+    display_name: string | null
+    description: string | null
+    icon: string | null
+    icon_gray: string | null
+    achieved: number
+    unlock_time: number | null
+  }>
+
+  if (rows.length === 0) return null
+
+  return rows.map((row) => ({
+    apiname: row.apiname,
+    achieved: row.achieved,
+    unlocktime: row.unlock_time ?? 0,
+    name: row.display_name ?? row.apiname,
+    description: row.description ?? "",
+    displayName: row.display_name ?? row.apiname,
+    icon: row.icon ?? "",
+    icongray: row.icon_gray ?? "",
+  }))
 }
