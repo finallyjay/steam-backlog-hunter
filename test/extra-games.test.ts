@@ -699,3 +699,81 @@ describe("getExtraGamesForUser filters hidden", () => {
     expect(extras[0].appid).toBe(222)
   })
 })
+
+describe("getStoredExtraGame", () => {
+  it("returns null when extra does not exist", async () => {
+    await seedProfile()
+    const { getStoredExtraGame } = await import("@/lib/server/extra-games")
+    expect(getStoredExtraGame(STEAM_ID, 999)).toBeNull()
+  })
+
+  it("returns the extra game with joined game metadata", async () => {
+    const db = await seedProfile()
+    const now = new Date().toISOString()
+    db.prepare("INSERT INTO games (appid, name, created_at, updated_at) VALUES (?, ?, ?, ?)").run(111, "Test", now, now)
+    db.prepare(
+      "INSERT INTO extra_games (steam_id, appid, playtime_forever, synced_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+    ).run(STEAM_ID, 111, 60, now, now, now)
+
+    const { getStoredExtraGame } = await import("@/lib/server/extra-games")
+    const game = getStoredExtraGame(STEAM_ID, 111)
+    expect(game).not.toBeNull()
+    expect(game!.appid).toBe(111)
+    expect(game!.name).toBe("Test")
+    expect(game!.playtime_forever).toBe(60)
+  })
+})
+
+describe("getExtraAchievementsList", () => {
+  it("returns null when extra has no achievements_synced_at", async () => {
+    const db = await seedProfile()
+    const now = new Date().toISOString()
+    db.prepare(
+      "INSERT INTO extra_games (steam_id, appid, playtime_forever, synced_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+    ).run(STEAM_ID, 111, 60, now, now, now)
+
+    vi.doMock("@/lib/steam-api", () => ({
+      getGameSchema: vi.fn().mockResolvedValue(null),
+      getPlayerAchievements: vi.fn().mockResolvedValue(null),
+      getOwnedGames: vi.fn().mockResolvedValue([]),
+      getLastPlayedTimes: vi.fn().mockResolvedValue([]),
+    }))
+    const { getExtraAchievementsList } = await import("@/lib/server/extra-games")
+    expect(await getExtraAchievementsList(STEAM_ID, 111)).toBeNull()
+    void db
+  })
+
+  it("returns enriched achievements when schema and extras data exist", async () => {
+    const db = await seedProfile()
+    const now = new Date().toISOString()
+    db.prepare("INSERT INTO games (appid, name, created_at, updated_at) VALUES (?, ?, ?, ?)").run(111, "Test", now, now)
+    db.prepare(
+      "INSERT INTO extra_games (steam_id, appid, playtime_forever, achievements_synced_at, total_count, unlocked_count, synced_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    ).run(STEAM_ID, 111, 60, now, 2, 1, now, now, now)
+    db.prepare(
+      "INSERT INTO game_achievements (appid, apiname, display_name, description, icon, icon_gray, hidden, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)",
+    ).run(111, "ACH_1", "First Blood", "Get first kill", "icon1.jpg", "gray1.jpg", now, now)
+    db.prepare(
+      "INSERT INTO game_achievements (appid, apiname, display_name, description, icon, icon_gray, hidden, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)",
+    ).run(111, "ACH_2", "Winner", "Win a match", "icon2.jpg", "gray2.jpg", now, now)
+    db.prepare(
+      "INSERT INTO extra_game_achievements (steam_id, appid, apiname, achieved, unlock_time, created_at, updated_at) VALUES (?, ?, ?, 1, 1700000000, ?, ?)",
+    ).run(STEAM_ID, 111, "ACH_1", now, now)
+
+    vi.doMock("@/lib/steam-api", () => ({
+      getGameSchema: vi.fn().mockResolvedValue(null),
+      getPlayerAchievements: vi.fn().mockResolvedValue(null),
+      getOwnedGames: vi.fn().mockResolvedValue([]),
+      getLastPlayedTimes: vi.fn().mockResolvedValue([]),
+    }))
+    const { getExtraAchievementsList } = await import("@/lib/server/extra-games")
+    const achs = await getExtraAchievementsList(STEAM_ID, 111)
+    expect(achs).not.toBeNull()
+    expect(achs).toHaveLength(2)
+    const ach1 = achs!.find((a) => a.apiname === "ACH_1")!
+    expect(ach1.achieved).toBe(1)
+    expect(ach1.displayName).toBe("First Blood")
+    const ach2 = achs!.find((a) => a.apiname === "ACH_2")!
+    expect(ach2.achieved).toBe(0)
+  })
+})
