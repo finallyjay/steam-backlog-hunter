@@ -7,7 +7,7 @@
     "dev": "next dev",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "lint": "pnpm exec eslint . && pnpm typecheck",
+    "lint": "pnpm exec oxlint && pnpm typecheck",
     "test": "pnpm exec vitest run",
     "test:coverage": "pnpm exec vitest run --coverage",
     "typecheck": "pnpm exec next typegen && pnpm exec tsc --noEmit",
@@ -17,7 +17,7 @@
   "lint-staged": {
     "*.{ts,tsx,js,mjs}": [
       "prettier --write",
-      "eslint --fix"
+      "oxlint --fix"
     ],
     "*.{json,md,css}": [
       "prettier --write"
@@ -69,12 +69,10 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitest/coverage-v8": "^4.0.18",
-    "eslint": "^9.39.2",
-    "eslint-config-next": "^16.1.6",
-    "eslint-config-prettier": "^10.1.8",
     "husky": "^9.1.7",
     "jsdom": "^28.1.0",
     "lint-staged": "^16.4.0",
+    "oxlint": "^1.60.0",
     "postcss": "^8.5.6",
     "prettier": "^3.8.1",
     "prettier-plugin-tailwindcss": "^0.7.2",
