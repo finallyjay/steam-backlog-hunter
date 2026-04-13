@@ -2,9 +2,9 @@
 
 import { useState, useMemo, useCallback, useEffect, useRef } from "react"
 import { Trophy, PieChart, ArrowUpDown, Play, Search } from "lucide-react"
-import Select from "react-select"
 
 import { GameCard } from "@/components/ui/game-card"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useSteamAchievementsBatch, useSteamGames } from "@/hooks/use-steam-data"
 import { getSteamHeaderImageUrl } from "@/lib/steam-api"
@@ -16,95 +16,34 @@ type GamesState = "all" | "started" | "perfect" | "notstarted"
 type PlayedFilter = "all" | "played" | "notplayed"
 type AchievementScope = "with" | "without" | "all"
 
-type Option = { value: string; label: string }
-
 const VALID_ORDERS: GamesOrder[] = ["completed", "alphabetical", "achievementsAsc", "achievementsDesc"]
 const VALID_STATES: GamesState[] = ["all", "started", "perfect", "notstarted"]
 
-const STATE_OPTIONS: Option[] = [
+const STATE_OPTIONS: { value: GamesState; label: string }[] = [
+  { value: "all", label: "All states" },
   { value: "started", label: "In Progress" },
   { value: "perfect", label: "Perfect" },
   { value: "notstarted", label: "Not Started" },
 ]
 
-const PLAYED_OPTIONS: Option[] = [
+const PLAYED_OPTIONS: { value: PlayedFilter; label: string }[] = [
+  { value: "all", label: "All" },
   { value: "played", label: "Played" },
   { value: "notplayed", label: "Not Played" },
 ]
 
-const ACHIEVEMENT_OPTIONS: Option[] = [
+const ACHIEVEMENT_OPTIONS: { value: AchievementScope; label: string }[] = [
+  { value: "all", label: "All games" },
   { value: "with", label: "With achievements" },
   { value: "without", label: "Without achievements" },
 ]
 
-const ORDER_OPTIONS: Option[] = [
+const ORDER_OPTIONS: { value: GamesOrder; label: string }[] = [
   { value: "completed", label: "Completion %" },
   { value: "alphabetical", label: "A-Z" },
   { value: "achievementsDesc", label: "Most achievements" },
   { value: "achievementsAsc", label: "Fewest achievements" },
 ]
-
-const selectStyles = {
-  control: (base: Record<string, unknown>, state: { isFocused: boolean }) => ({
-    ...base,
-    backgroundColor: "rgba(255,255,255,0.04)",
-    borderColor: state.isFocused ? "var(--color-accent)" : "rgba(255,255,255,0.1)",
-    borderRadius: "0.5rem",
-    minHeight: "2rem",
-    fontSize: "0.875rem",
-    boxShadow: "none",
-    cursor: "pointer",
-    "&:hover": { borderColor: "rgba(255,255,255,0.2)" },
-  }),
-  menu: (base: Record<string, unknown>) => ({
-    ...base,
-    backgroundColor: "var(--color-popover)",
-    border: "1px solid rgba(255,255,255,0.1)",
-    borderRadius: "0.5rem",
-    zIndex: 50,
-  }),
-  option: (base: Record<string, unknown>, state: { isSelected: boolean; isFocused: boolean }) => ({
-    ...base,
-    backgroundColor: state.isSelected
-      ? "var(--color-accent)"
-      : state.isFocused
-        ? "rgba(255,255,255,0.08)"
-        : "transparent",
-    color: state.isSelected ? "var(--color-accent-foreground)" : "var(--color-foreground)",
-    fontSize: "0.875rem",
-    cursor: "pointer",
-    borderRadius: "0.375rem",
-    margin: "2px 4px",
-    width: "calc(100% - 8px)",
-    "&:active": { backgroundColor: "rgba(255,255,255,0.12)" },
-  }),
-  singleValue: (base: Record<string, unknown>) => ({
-    ...base,
-    color: "var(--color-foreground)",
-  }),
-  placeholder: (base: Record<string, unknown>) => ({
-    ...base,
-    color: "var(--color-muted-foreground)",
-  }),
-  indicatorSeparator: () => ({ display: "none" }),
-  dropdownIndicator: (base: Record<string, unknown>) => ({
-    ...base,
-    color: "var(--color-muted-foreground)",
-    padding: "0 6px",
-    "&:hover": { color: "var(--color-foreground)" },
-  }),
-  clearIndicator: (base: Record<string, unknown>) => ({
-    ...base,
-    color: "var(--color-muted-foreground)",
-    padding: "0 4px",
-    cursor: "pointer",
-    "&:hover": { color: "var(--color-foreground)" },
-  }),
-  input: (base: Record<string, unknown>) => ({
-    ...base,
-    color: "var(--color-foreground)",
-  }),
-}
 
 const VALID_ACHIEVEMENT_SCOPES: AchievementScope[] = ["with", "without", "all"]
 
@@ -243,15 +182,11 @@ export function LibraryOverview({
   const totalCount = gamesWithStats.length
   const filteredCount = visibleGames.length
 
-  const selectedState = state === "all" ? null : (STATE_OPTIONS.find((o) => o.value === state) ?? null)
-  const selectedPlayed = playedFilter === "all" ? null : (PLAYED_OPTIONS.find((o) => o.value === playedFilter) ?? null)
-  const selectedAchievement = ACHIEVEMENT_OPTIONS.find((o) => o.value === achievementScope) ?? ACHIEVEMENT_OPTIONS[0]
-  const selectedOrder = ORDER_OPTIONS.find((o) => o.value === order) ?? ORDER_OPTIONS[0]
   const showCompletionFilter = playedFilter !== "notplayed"
   const showAchievementFilter = state === "all" || playedFilter === "notplayed"
 
-  const handlePlayedChange = (opt: Option | null) => {
-    const newPlayed = opt ? (opt.value as PlayedFilter) : "all"
+  const handlePlayedChange = (value: string) => {
+    const newPlayed = value as PlayedFilter
     setPlayedFilter(newPlayed)
     if (newPlayed === "notplayed") {
       setState("all")
@@ -259,12 +194,22 @@ export function LibraryOverview({
     resetPage()
   }
 
-  const handleStateChange = (opt: Option | null) => {
-    const newState = opt ? (opt.value as GamesState) : "all"
+  const handleStateChange = (value: string) => {
+    const newState = value as GamesState
     setState(newState)
     if (newState !== "all") {
       setAchievementScope("all")
     }
+    resetPage()
+  }
+
+  const handleAchievementChange = (value: string) => {
+    setAchievementScope(value as AchievementScope)
+    resetPage()
+  }
+
+  const handleOrderChange = (value: string) => {
+    setOrder(value as GamesOrder)
     resetPage()
   }
 
@@ -277,16 +222,18 @@ export function LibraryOverview({
               <Play className="h-3 w-3" />
               Played
             </label>
-            <Select
-              value={selectedPlayed}
-              onChange={handlePlayedChange}
-              options={PLAYED_OPTIONS}
-              isClearable
-              isSearchable={false}
-              placeholder="All"
-              styles={selectStyles}
-              menuPlacement="auto"
-            />
+            <Select value={playedFilter} onValueChange={handlePlayedChange}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PLAYED_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {showCompletionFilter && (
@@ -295,16 +242,18 @@ export function LibraryOverview({
                 <PieChart className="h-3 w-3" />
                 Completion
               </label>
-              <Select
-                value={selectedState}
-                onChange={handleStateChange}
-                options={STATE_OPTIONS}
-                isClearable
-                isSearchable={false}
-                placeholder="All states"
-                styles={selectStyles}
-                menuPlacement="auto"
-              />
+              <Select value={state} onValueChange={handleStateChange}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {STATE_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           )}
 
@@ -314,19 +263,18 @@ export function LibraryOverview({
                 <Trophy className="h-3 w-3" />
                 Achievements
               </label>
-              <Select
-                value={achievementScope === "all" ? null : selectedAchievement}
-                onChange={(opt) => {
-                  setAchievementScope(opt ? (opt.value as AchievementScope) : "all")
-                  resetPage()
-                }}
-                options={ACHIEVEMENT_OPTIONS}
-                isClearable
-                isSearchable={false}
-                placeholder="All games"
-                styles={selectStyles}
-                menuPlacement="auto"
-              />
+              <Select value={achievementScope} onValueChange={handleAchievementChange}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ACHIEVEMENT_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           )}
         </div>
@@ -336,17 +284,18 @@ export function LibraryOverview({
             <ArrowUpDown className="h-3 w-3" />
             Sort by
           </label>
-          <Select
-            value={selectedOrder}
-            onChange={(opt) => {
-              setOrder(opt ? (opt.value as GamesOrder) : "completed")
-              resetPage()
-            }}
-            options={ORDER_OPTIONS}
-            isSearchable={false}
-            styles={selectStyles}
-            menuPlacement="auto"
-          />
+          <Select value={order} onValueChange={handleOrderChange}>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {ORDER_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 

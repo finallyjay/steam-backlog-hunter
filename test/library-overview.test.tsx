@@ -13,38 +13,65 @@ vi.mock("@/hooks/use-steam-data", () => ({
   invalidateSteamData: vi.fn(),
 }))
 
-// react-select is heavy and its internal keyboard accessibility tree is
-// painful to drive via fireEvent. Replace it with a plain native <select>
-// that mirrors the value/options contract the component uses.
-vi.mock("react-select", () => ({
-  default: ({
-    value,
-    onChange,
-    options,
-    placeholder,
-  }: {
-    value: { value: string; label: string } | null
-    onChange: (opt: { value: string; label: string } | null) => void
-    options: Array<{ value: string; label: string }>
-    placeholder?: string
-  }) => (
-    <select
-      aria-label={placeholder}
-      value={value?.value ?? ""}
-      onChange={(e) => {
-        const next = options.find((opt) => opt.value === e.target.value) ?? null
-        onChange(next)
-      }}
-    >
-      <option value="">{placeholder}</option>
-      {options.map((opt) => (
-        <option key={opt.value} value={opt.value}>
-          {opt.label}
-        </option>
-      ))}
-    </select>
-  ),
-}))
+// shadcn Select wraps Radix, which uses Portal/ResizeObserver — both painful
+// in jsdom. Replace the composition with plain native <select>/<option>
+// elements so existing tests can drive value changes (or just rely on
+// initial-value props) without needing to open the dropdown.
+vi.mock("@/components/ui/select", () => {
+  const React = require("react") as typeof import("react")
+  const SelectContext = React.createContext<{
+    value: string
+    onValueChange: (value: string) => void
+  }>({ value: "", onValueChange: () => {} })
+
+  return {
+    Select: ({
+      value,
+      onValueChange,
+      children,
+    }: {
+      value: string
+      onValueChange: (value: string) => void
+      children: React.ReactNode
+    }) => {
+      // Collect all SelectItem children into native <option>s so the
+      // underlying <select> stays a single accessible control.
+      const options: React.ReactElement[] = []
+      const walk = (node: React.ReactNode) => {
+        React.Children.forEach(node, (child) => {
+          if (!React.isValidElement(child)) return
+          const el = child as React.ReactElement<{
+            value?: string
+            children?: React.ReactNode
+          }>
+          if (typeof el.props.value === "string") {
+            options.push(
+              <option key={el.props.value} value={el.props.value}>
+                {el.props.children as React.ReactNode}
+              </option>,
+            )
+          } else if (el.props.children) {
+            walk(el.props.children)
+          }
+        })
+      }
+      walk(children)
+      return (
+        <SelectContext.Provider value={{ value, onValueChange }}>
+          <select value={value} onChange={(e) => onValueChange(e.target.value)}>
+            {options}
+          </select>
+        </SelectContext.Provider>
+      )
+    },
+    SelectTrigger: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+    SelectValue: () => null,
+    SelectContent: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+    SelectItem: ({ value, children }: { value: string; children: React.ReactNode }) => (
+      <option value={value}>{children}</option>
+    ),
+  }
+})
 
 import { LibraryOverview } from "@/components/dashboard/library-overview"
 
