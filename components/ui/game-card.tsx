@@ -3,8 +3,9 @@
 import Link from "next/link"
 import { useState } from "react"
 import { Clock, EyeOff, Trophy } from "lucide-react"
+import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
-import { formatPlaytime } from "@/lib/utils"
+import { cn, formatPlaytime } from "@/lib/utils"
 import type { SteamAchievementView } from "@/lib/types/steam"
 
 interface GameCardProps {
@@ -24,6 +25,11 @@ interface GameCardProps {
 
 const FALLBACK_STAGES = ["primary", "header", "legacy", "capsule", "generic", "placeholder"] as const
 type FallbackStage = (typeof FALLBACK_STAGES)[number]
+
+// Sized to match Steam's 460×215 header capsule at w-48 (192px), with a
+// slight min-height so fallback placeholders don't collapse the row.
+const GAME_CARD_IMAGE_CLASSES =
+  "border-surface-4 h-auto min-h-[5.9rem] w-48 rounded-2xl border bg-slate-900/70 object-cover shadow-lg"
 
 function getFallbackUrl(id: number | string, stage: FallbackStage): string {
   switch (stage) {
@@ -73,7 +79,7 @@ export function GameCard({
       <img
         src={imageSrc}
         alt={`Cover art for ${name}`}
-        className="border-surface-4 h-auto min-h-[5.9rem] w-48 rounded-2xl border bg-slate-900/70 object-cover shadow-lg"
+        className={GAME_CARD_IMAGE_CLASSES}
         onError={() => {
           const nextIndex = fallbackIndex + 1
           if (nextIndex < FALLBACK_STAGES.length) {
@@ -124,9 +130,14 @@ export function GameCard({
   )
 
   return (
-    <div
+    <Card
       data-game-id={id}
-      className={`group border-surface-4 relative overflow-hidden rounded-lg border px-4 py-4 transition-all duration-300 ${isCompleted ? "bg-success/10 hover:border-success/40" : "hover:border-accent/45 bg-surface-1 hover:bg-surface-2"}`}
+      className={cn(
+        "group relative gap-0 overflow-hidden rounded-lg px-4 py-4 shadow-none backdrop-blur-none transition-all duration-300",
+        isCompleted
+          ? "bg-success/10 hover:border-success/40"
+          : "bg-surface-1 hover:border-accent/45 hover:bg-surface-2",
+      )}
     >
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
       {onHide && (
@@ -145,12 +156,12 @@ export function GameCard({
       )}
       {href ? (
         <Link href={href} className="block">
-          {mainContent}
+          <CardContent className="px-0">{mainContent}</CardContent>
         </Link>
       ) : (
-        mainContent
+        <CardContent className="px-0">{mainContent}</CardContent>
       )}
-      {actions && <div className="border-surface-4/50 mt-3 flex items-center gap-2 border-t pt-3">{actions}</div>}
-    </div>
+      {actions && <CardFooter className="border-surface-4/50 mt-3 gap-2 border-t px-0 pt-3">{actions}</CardFooter>}
+    </Card>
   )
 }
