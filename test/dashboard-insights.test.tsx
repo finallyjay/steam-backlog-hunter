@@ -107,7 +107,8 @@ describe("DashboardInsights", () => {
       ]),
     )
     render(<DashboardInsights stats={baseStats} />)
-    const playtimeButton = screen.getByRole("button", { name: /Playtime/i })
+    // ToggleGroup with type="single" renders items as role="radio".
+    const playtimeButton = screen.getByRole("radio", { name: /Playtime/i })
     fireEvent.click(playtimeButton)
     expect(screen.getByText("<1h")).toBeInTheDocument()
     expect(screen.getByText("1-5h")).toBeInTheDocument()
@@ -146,7 +147,7 @@ describe("DashboardInsights", () => {
 
   it("shows the playtime-bands placeholder when the library is empty", () => {
     render(<DashboardInsights stats={baseStats} />)
-    fireEvent.click(screen.getByRole("button", { name: /Playtime/i }))
+    fireEvent.click(screen.getByRole("radio", { name: /Playtime/i }))
     expect(screen.getByText(/Load the full library to reveal playtime bands/i)).toBeInTheDocument()
   })
 

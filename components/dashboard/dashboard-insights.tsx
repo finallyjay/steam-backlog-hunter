@@ -5,8 +5,8 @@ import { useMemo, useState } from "react"
 import { Pie, PieChart, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis } from "recharts"
 import { PieChart as PieChartIcon, Trophy } from "lucide-react"
 
-import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { AnimatedNumber } from "@/components/ui/animated-number"
 import { useSteamGames } from "@/hooks/use-steam-data"
 import type { SteamStatsResponse } from "@/lib/types/steam"
@@ -272,32 +272,25 @@ export function DashboardInsights({ stats, loading = false }: DashboardInsightsP
                 <Trophy className="text-accent h-5 w-5" />
                 <CardTitle>All Library</CardTitle>
               </div>
-              <div className="flex gap-1">
-                <Button
-                  variant={libraryMetric === "state" ? "default" : "ghost"}
-                  size="sm"
-                  onClick={() => setLibraryMetric("state")}
-                  className={
-                    libraryMetric === "state"
-                      ? "bg-accent text-accent-foreground hover:bg-accent/90 h-7 px-2.5 text-xs"
-                      : "text-muted-foreground hover:text-foreground border-surface-3 bg-surface-1 hover:bg-surface-3 h-7 border px-2.5 text-xs"
-                  }
-                >
+              <ToggleGroup
+                type="single"
+                value={libraryMetric}
+                onValueChange={(value) => {
+                  // Radix returns "" when the user clicks the active item;
+                  // ignore that to keep one option always selected.
+                  if (value) setLibraryMetric(value as LibraryMetric)
+                }}
+                variant="outline"
+                size="sm"
+                aria-label="Library metric"
+              >
+                <ToggleGroupItem value="state" className="h-7 px-2.5 text-xs">
                   State
-                </Button>
-                <Button
-                  variant={libraryMetric === "playtime" ? "default" : "ghost"}
-                  size="sm"
-                  onClick={() => setLibraryMetric("playtime")}
-                  className={
-                    libraryMetric === "playtime"
-                      ? "bg-accent text-accent-foreground hover:bg-accent/90 h-7 px-2.5 text-xs"
-                      : "text-muted-foreground hover:text-foreground border-surface-3 bg-surface-1 hover:bg-surface-3 h-7 border px-2.5 text-xs"
-                  }
-                >
+                </ToggleGroupItem>
+                <ToggleGroupItem value="playtime" className="h-7 px-2.5 text-xs">
                   Playtime
-                </Button>
-              </div>
+                </ToggleGroupItem>
+              </ToggleGroup>
             </div>
           </CardHeader>
           <CardContent>
