@@ -1,0 +1,11 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "semi": false,
+  "singleQuote": false,
+  "tabWidth": 2,
+  "trailingComma": "all",
+  "printWidth": 120,
+  "sortTailwindcss": {},
+  "sortPackageJson": false,
+  "ignorePatterns": [".next", "node_modules", "coverage", "pnpm-lock.yaml", "next-env.d.ts"]
+}
