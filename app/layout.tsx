@@ -1,10 +1,27 @@
 import ClientLayout from "./client-layout"
 import { PageTitleProvider } from "@/components/ui/page-title-context"
 import type { Metadata } from "next"
-import { GeistSans } from "geist/font/sans"
-import { GeistMono } from "geist/font/mono"
+import { VT323, Space_Mono } from "next/font/google"
 import "./globals.css"
-// Removed unused client-only imports (they cause errors in server components)
+
+// PHASE C LOCAL SPIKE — retro arcade / CRT theme.
+// Space Mono becomes the body default (wired through --font-sans and --font-mono
+// so every shadcn component and body text inherits it). VT323 is a display face
+// reserved for headings, exposed as --font-display and applied in globals.css
+// via an @layer base rule on h1/h2/h3.
+const spaceMono = Space_Mono({
+  subsets: ["latin"],
+  weight: ["400", "700"],
+  variable: "--font-space-mono",
+  display: "swap",
+})
+
+const vt323 = VT323({
+  subsets: ["latin"],
+  weight: ["400"],
+  variable: "--font-vt323",
+  display: "swap",
+})
 
 export const metadata: Metadata = {
   title: "Steam Backlog Hunter",
@@ -35,7 +52,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
-      <body className={`dark font-sans ${GeistSans.variable} ${GeistMono.variable}`}>
+      <body className={`dark font-sans ${vt323.variable} ${spaceMono.variable}`}>
         <PageTitleProvider>
           <ClientLayout>{children}</ClientLayout>
         </PageTitleProvider>

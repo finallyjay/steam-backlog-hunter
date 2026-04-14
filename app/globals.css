@@ -42,45 +42,54 @@
 }
 
 .dark {
-  --background: oklch(0.17 0.025 250);
-  --foreground: oklch(0.95 0.01 220);
-  --card: oklch(0.24 0.02 242 / 76%);
-  --card-foreground: oklch(0.95 0.01 220);
-  --popover: oklch(0.2 0.02 245 / 95%);
-  --popover-foreground: oklch(0.95 0.01 220);
-  --primary: oklch(0.72 0.12 205);
-  --primary-foreground: oklch(0.16 0.03 245);
-  --secondary: oklch(0.3 0.025 245);
-  --secondary-foreground: oklch(0.95 0.01 220);
-  --muted: oklch(0.27 0.02 245 / 75%);
-  --muted-foreground: oklch(0.75 0.015 220);
-  --accent: oklch(0.73 0.13 205);
-  --accent-foreground: oklch(0.15 0.03 245);
-  --destructive: oklch(0.66 0.18 28);
-  --destructive-foreground: oklch(0.96 0.005 230);
-  --border: oklch(0.38 0.03 245 / 80%);
-  --input: oklch(0.24 0.02 242 / 92%);
-  --ring: oklch(0.72 0.12 205 / 55%);
-  --chart-1: oklch(0.72 0.13 205);
-  --chart-2: oklch(0.74 0.11 155);
-  --chart-3: oklch(0.77 0.14 76);
-  --chart-4: oklch(0.7 0.1 280);
-  --chart-5: oklch(0.71 0.16 28);
-  --surface-1: oklch(1 0 0 / 4%);
-  --surface-2: oklch(1 0 0 / 6%);
-  --surface-3: oklch(1 0 0 / 8%);
-  --surface-4: oklch(1 0 0 / 10%);
-  --success: oklch(0.79 0.14 163);
-  --success-foreground: oklch(0.96 0.005 230);
-  --warning: oklch(0.83 0.14 85);
-  --warning-foreground: oklch(0.2 0.04 85);
-  --danger: oklch(0.66 0.18 28);
-  --danger-foreground: oklch(0.96 0.005 230);
+  /* PHASE C LOCAL SPIKE — retro arcade / CRT theme.
+     DO NOT MERGE. Reverts live in git history for this branch.
+     Colors inspired by late-90s arcade cabinets, CRT monitors, and
+     demoscene intros: neon cyan + magenta + yellow on deep violet-black. */
+  --background: oklch(0.08 0.03 290);
+  --foreground: oklch(0.96 0.05 200);
+  --card: oklch(0.13 0.04 290 / 92%);
+  --card-foreground: oklch(0.96 0.05 200);
+  --popover: oklch(0.11 0.04 290 / 96%);
+  --popover-foreground: oklch(0.96 0.05 200);
+  --primary: oklch(0.85 0.2 200);
+  --primary-foreground: oklch(0.08 0.03 290);
+  --secondary: oklch(0.2 0.05 290);
+  --secondary-foreground: oklch(0.96 0.05 200);
+  --muted: oklch(0.18 0.04 290 / 80%);
+  --muted-foreground: oklch(0.7 0.08 210);
+  --accent: oklch(0.85 0.2 200);
+  --accent-foreground: oklch(0.08 0.03 290);
+  --destructive: oklch(0.72 0.28 345);
+  --destructive-foreground: oklch(0.08 0.03 290);
+  --border: oklch(0.32 0.14 290);
+  --input: oklch(0.13 0.04 290 / 90%);
+  --ring: oklch(0.85 0.2 200 / 70%);
+  /* Chart palette: cyan, magenta, yellow, green, orange — classic arcade neon wheel */
+  --chart-1: oklch(0.85 0.2 200);
+  --chart-2: oklch(0.72 0.28 345);
+  --chart-3: oklch(0.92 0.2 95);
+  --chart-4: oklch(0.82 0.22 145);
+  --chart-5: oklch(0.76 0.22 35);
+  /* Surface layers tinted cyan instead of neutral white */
+  --surface-1: oklch(0.85 0.2 200 / 5%);
+  --surface-2: oklch(0.85 0.2 200 / 8%);
+  --surface-3: oklch(0.85 0.2 200 / 12%);
+  --surface-4: oklch(0.85 0.2 200 / 18%);
+  --success: oklch(0.82 0.22 145);
+  --success-foreground: oklch(0.08 0.03 290);
+  --warning: oklch(0.92 0.2 95);
+  --warning-foreground: oklch(0.08 0.03 290);
+  --danger: oklch(0.72 0.28 345);
+  --danger-foreground: oklch(0.08 0.03 290);
 }
 
 @theme inline {
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* Arcade theme: body uses Space Mono everywhere, including what would
+     otherwise be a sans serif. VT323 is reserved for display headings
+     via an @layer base rule below. */
+  --font-sans: var(--font-space-mono);
+  --font-mono: var(--font-space-mono);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -105,10 +114,12 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
-  --radius-sm: 0.75rem;
-  --radius-md: 1rem;
-  --radius-lg: 1.2rem;
-  --radius-xl: 1.4rem;
+  /* Arcade theme: sharp corners everywhere. Radii kept at 0 or near-0 so
+     shadcn components inherit the aesthetic without touching component code. */
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 2px;
+  --radius-xl: 2px;
   --color-surface-1: var(--surface-1);
   --color-surface-2: var(--surface-2);
   --color-surface-3: var(--surface-3);
@@ -131,29 +142,58 @@
   }
   body {
     @apply bg-background text-foreground antialiased;
+    /* Arcade theme background: deep violet-black with a subtle cyan/magenta
+       radial tension to hint at CRT phosphor bloom. */
     background-image:
-      radial-gradient(circle at top left, rgba(84, 174, 255, 0.18), transparent 26%),
-      radial-gradient(circle at top right, rgba(72, 255, 190, 0.12), transparent 22%),
-      linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 22%),
-      linear-gradient(135deg, #111827 0%, #162033 35%, #0f172a 100%);
+      radial-gradient(circle at top left, rgba(0, 240, 255, 0.1), transparent 30%),
+      radial-gradient(circle at bottom right, rgba(255, 42, 160, 0.08), transparent 35%),
+      linear-gradient(180deg, #0a0418 0%, #05020c 50%, #0a0418 100%);
     background-attachment: fixed;
   }
 
+  /* CRT scanline overlay — horizontal lines every 3px, fixed to the viewport,
+     pointer-events none so clicks pass through. The low opacity keeps it from
+     fighting with the actual content. */
   body::before {
     content: "";
     position: fixed;
     inset: 0;
     pointer-events: none;
-    background-image:
-      linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-    background-size: 40px 40px;
-    mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.5), transparent 88%);
-    opacity: 0.22;
+    z-index: 40;
+    background-image: repeating-linear-gradient(
+      180deg,
+      rgba(0, 240, 255, 0.035) 0px,
+      rgba(0, 240, 255, 0.035) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+  }
+
+  /* Subtle vignette so the edges of the viewport feel like a CRT bezel. */
+  body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 39;
+    background: radial-gradient(ellipse at center, transparent 55%, rgba(5, 2, 12, 0.65) 100%);
   }
 
   ::selection {
-    background: rgba(97, 206, 255, 0.35);
+    background: rgba(0, 240, 255, 0.35);
     color: inherit;
+  }
+
+  /* Arcade theme: VT323 on big display headings, with a soft cyan glow.
+     Body inherits Space Mono from --font-sans. */
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-vt323), "VT323", monospace;
+    font-weight: 400;
+    letter-spacing: 0.02em;
+    text-shadow:
+      0 0 10px rgba(0, 240, 255, 0.45),
+      0 0 22px rgba(0, 240, 255, 0.18);
   }
 }
