@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { AnimatedNumber } from "@/components/ui/animated-number"
 import { CompletionRing } from "@/components/ui/completion-ring"
 import { surfaceCardVariants } from "@/components/ui/surface-card"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { AlertTriangle, ExternalLink } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { SteamUser } from "@/lib/auth"
@@ -219,37 +220,45 @@ export function UserProfile({ user, stats, statsLoading = false, syncLabel }: Us
               </div>
               <div className="flex items-center gap-2">
                 {yearsOfService != null && user.timecreated && (
-                  <div className="group relative">
-                    <img
-                      src={`${BADGE_CDN}/02_years/steamyears${yearsOfService}_80.png`}
-                      alt={`${yearsOfService} years of service`}
-                      className="h-10 w-10"
-                    />
-                    <span className="bg-popover text-popover-foreground border-surface-4 pointer-events-none absolute top-1/2 left-full z-10 ml-2 hidden -translate-y-1/2 rounded-md border px-3 py-2 text-sm whitespace-nowrap shadow-lg group-hover:block">
+                  <Tooltip>
+                    <TooltipTrigger
+                      type="button"
+                      className="focus-visible:ring-accent inline-flex rounded-md outline-none focus-visible:ring-2"
+                    >
+                      <img
+                        src={`${BADGE_CDN}/02_years/steamyears${yearsOfService}_80.png`}
+                        alt={`${yearsOfService} years of service`}
+                        className="h-10 w-10"
+                      />
+                    </TooltipTrigger>
+                    <TooltipContent>
                       Member since{" "}
                       {new Date(user.timecreated * 1000).toLocaleDateString("en-US", {
                         month: "long",
                         year: "numeric",
                       })}{" "}
                       · {yearsOfService} years of service
-                    </span>
-                  </div>
+                    </TooltipContent>
+                  </Tooltip>
                 )}
                 {(() => {
                   const collector = user.badges?.find((b) => b.badgeid === 13)
                   if (!collector) return null
                   const tier = getBadgeTier(collector.level, GAME_COLLECTOR_TIERS)
                   return (
-                    <div className="group relative">
-                      <img
-                        src={`${BADGE_CDN}/13_gamecollector/${tier}_80.png?v=4`}
-                        alt={`Game Collector level ${collector.level}`}
-                        className="h-10 w-10"
-                      />
-                      <span className="bg-popover text-popover-foreground border-surface-4 pointer-events-none absolute top-1/2 left-full z-10 ml-2 hidden -translate-y-1/2 rounded-md border px-3 py-2 text-sm whitespace-nowrap shadow-lg group-hover:block">
-                        Game Collector · {collector.level} games owned
-                      </span>
-                    </div>
+                    <Tooltip>
+                      <TooltipTrigger
+                        type="button"
+                        className="focus-visible:ring-accent inline-flex rounded-md outline-none focus-visible:ring-2"
+                      >
+                        <img
+                          src={`${BADGE_CDN}/13_gamecollector/${tier}_80.png?v=4`}
+                          alt={`Game Collector level ${collector.level}`}
+                          className="h-10 w-10"
+                        />
+                      </TooltipTrigger>
+                      <TooltipContent>Game Collector · {collector.level} games owned</TooltipContent>
+                    </Tooltip>
                   )
                 })()}
               </div>

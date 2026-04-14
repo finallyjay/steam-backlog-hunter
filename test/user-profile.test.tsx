@@ -15,6 +15,16 @@ vi.mock("@/components/ui/animated-number", () => ({
   AnimatedNumber: ({ value }: { value: number }) => <>{value}</>,
 }))
 
+// Stub Radix Tooltip — tests render UserProfile in isolation, so there's no
+// TooltipProvider in the tree. Pass-through TooltipTrigger as a button so
+// the wrapped <img> still ends up in the DOM with its alt text intact.
+vi.mock("@/components/ui/tooltip", () => ({
+  TooltipProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  Tooltip: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  TooltipTrigger: ({ children, ...props }: React.ComponentProps<"button">) => <button {...props}>{children}</button>,
+  TooltipContent: () => null,
+}))
+
 import { UserProfile } from "@/components/dashboard/user-profile"
 import type { SteamUser } from "@/lib/auth"
 import type { SteamStatsResponse } from "@/lib/types/steam"
