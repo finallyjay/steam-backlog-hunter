@@ -4,6 +4,8 @@ import { accessSync, constants, mkdirSync } from "node:fs"
 import { DatabaseSync } from "node:sqlite"
 import { dirname, join } from "node:path"
 
+import { PLACEHOLDER_NAME_SQL_MATCH_BARE } from "@/lib/server/placeholder-names"
+
 let database: DatabaseSync | null = null
 
 function getDatabasePath() {
@@ -295,50 +297,102 @@ function applyAdditiveMigrations(db: DatabaseSync) {
   addColumnIfMissing(db, "extra_games", "perfect_game", "INTEGER NOT NULL DEFAULT 0")
   // Provenance of games.name. See CREATE TABLE comment above.
   addColumnIfMissing(db, "games", "name_source", "TEXT NOT NULL DEFAULT 'auto'")
-  resetPlaceholderGameNames(db)
+  runVersionedMigrations(db)
 }
 
 /**
- * Idempotent self-healing sweep: any `games` row whose `name` matches one
- * of Valve's internal placeholders (ValveTestAppX, UntitledApp,
- * InvitedPartnerAppX) is reset so the extras hydrate chain can re-resolve
- * the real title via the Steam Support wizard on the next sync. Manual
- * admin names (`name_source='manual'`) are preserved.
+ * Version-gated migrations tracked via SQLite's built-in
+ * `PRAGMA user_version`. Each migration runs once per database and
+ * bumps the stored version. Fresh installs jump straight to the
+ * latest version on first open; upgraded installs replay every
+ * migration whose index is greater than the currently stored
+ * version, in order.
  *
- * Also clears the corresponding `extra_games` achievement cache
- * (`achievements_synced_at = NULL`, counts → NULL) so the sync path
- * re-runs through the new schema fallback and gets the correct total
- * achievement count the next time it fires.
- *
- * Runs on every DB open. Cheap UPDATE, no-op once no placeholder names
- * remain.
+ * Adding a new migration: append an entry to MIGRATIONS below and
+ * bump its index. Never modify or reorder existing entries — this
+ * is an append-only history.
  */
-function resetPlaceholderGameNames(db: DatabaseSync) {
-  const PLACEHOLDER_WHERE =
-    "(name GLOB 'ValveTestApp[0-9]*' OR name = 'UntitledApp' OR name GLOB 'InvitedPartnerApp[0-9]*')"
+const MIGRATIONS: Array<{ version: number; name: string; run: (db: DatabaseSync) => void }> = [
+  {
+    version: 1,
+    name: "reset-placeholder-game-names",
+    /**
+     * Any `games` row whose `name` matches one of Valve's internal
+     * placeholders (ValveTestAppX, UntitledApp, GreenlightAppX,
+     * InvitedPartnerAppX) is reset so the extras hydrate chain can
+     * re-resolve the real title via the Steam Support wizard on the
+     * next sync. Manual admin names (`name_source='manual'`) are
+     * preserved. Also clears the corresponding `extra_games`
+     * achievement cache so the sync path re-runs through the schema
+     * fallback and gets the correct total.
+     */
+    run(db) {
+      db.exec(`
+        UPDATE extra_games
+        SET achievements_synced_at = NULL,
+            unlocked_count = NULL,
+            total_count = NULL,
+            perfect_game = 0
+        WHERE appid IN (SELECT appid FROM games WHERE ${PLACEHOLDER_NAME_SQL_MATCH_BARE});
+      `)
+      db.exec(`
+        UPDATE games
+        SET name = '',
+            updated_at = COALESCE(updated_at, '1970-01-01T00:00:00Z')
+        WHERE ${PLACEHOLDER_NAME_SQL_MATCH_BARE}
+          AND (name_source IS NULL OR name_source != 'manual');
+      `)
+    },
+  },
+  {
+    version: 2,
+    name: "reset-stale-broken-extras",
+    /**
+     * Before v0.10.3, syncExtraAchievements stored total_count=0 with
+     * achievements_synced_at set as a "known-broken" sentinel whenever
+     * GetPlayerAchievements refused the request (for unowned-but-played
+     * games — DC Universe Online, Metro 2033, Starbound, etc). v0.10.3
+     * added a schema fallback that can populate those games correctly,
+     * but the stale filter in syncExtraAchievements skips any row where
+     * achievements_synced_at is set AND total_count=0, so the new code
+     * path never reached the already-marked-broken rows.
+     *
+     * This migration clears the sentinel on every such row exactly
+     * once, so the next sync re-runs them through the new fallback.
+     * Genuinely achievement-less apps (tools, SDKs, servers) will
+     * re-settle at total=0 after one extra schema probe; the games
+     * that are recoverable via schema will populate their real total.
+     */
+    run(db) {
+      db.exec(`
+        UPDATE extra_games
+        SET achievements_synced_at = NULL,
+            unlocked_count = NULL,
+            total_count = NULL,
+            perfect_game = 0
+        WHERE achievements_synced_at IS NOT NULL
+          AND (total_count IS NULL OR total_count = 0);
+      `)
+    },
+  },
+]
 
-  // Clear cached achievement counts on any extras that reference a
-  // placeholder-named row. Must run BEFORE the games UPDATE so the
-  // subquery still sees the placeholder names.
-  db.exec(`
-    UPDATE extra_games
-    SET achievements_synced_at = NULL,
-        unlocked_count = NULL,
-        total_count = NULL,
-        perfect_game = 0
-    WHERE appid IN (SELECT appid FROM games WHERE ${PLACEHOLDER_WHERE});
-  `)
+function runVersionedMigrations(db: DatabaseSync) {
+  const row = db.prepare("PRAGMA user_version").get() as { user_version: number }
+  const currentVersion = row?.user_version ?? 0
 
-  // Reset placeholder names to empty so hydrateMissingExtraNames'
-  // WHERE — which matches both empty AND placeholder rows — picks
-  // them up on the next sync. Preserve admin-set manual names.
-  db.exec(`
-    UPDATE games
-    SET name = '',
-        updated_at = COALESCE(updated_at, '1970-01-01T00:00:00Z')
-    WHERE ${PLACEHOLDER_WHERE}
-      AND (name_source IS NULL OR name_source != 'manual');
-  `)
+  for (const migration of MIGRATIONS) {
+    if (migration.version <= currentVersion) continue
+    db.exec("BEGIN")
+    try {
+      migration.run(db)
+      db.exec(`PRAGMA user_version = ${migration.version}`)
+      db.exec("COMMIT")
+    } catch (error) {
+      db.exec("ROLLBACK")
+      throw error
+    }
+  }
 }
 
 export function getSqliteDatabase() {

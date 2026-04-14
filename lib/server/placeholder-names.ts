@@ -13,23 +13,40 @@ import "server-only"
  *
  * Observed examples in the wild:
  *   ValveTestApp43110      (Metro 2033)
- *   UntitledApp            (generic placeholder)
+ *   UntitledApp / UntitledApp0   (generic placeholder, bare or numbered)
+ *   GreenlightApp0         (Greenlight-era submission)
  *   InvitedPartnerApp102   (partner-submitted entries)
+ *
+ * Each prefix allows either the exact base text or the base followed
+ * by any run of digits (`\d*` in regex, `[0-9]*` in SQLite GLOB).
+ * Non-digit suffixes are rejected so we don't misfire on real titles
+ * that happen to start with one of the prefixes (e.g. a hypothetical
+ * "GreenlightApplication").
  *
  * Patterns duplicated in SQL form because SQLite's GLOB syntax is a
  * subset of regex — keeps the WHERE clauses below readable and in
  * sync with this list.
  */
 
-export const PLACEHOLDER_NAME_PATTERNS: RegExp[] = [/^ValveTestApp\d+$/, /^UntitledApp$/, /^InvitedPartnerApp\d+$/]
+const PLACEHOLDER_PREFIXES = ["ValveTestApp", "UntitledApp", "GreenlightApp", "InvitedPartnerApp"] as const
+
+export const PLACEHOLDER_NAME_PATTERNS: RegExp[] = PLACEHOLDER_PREFIXES.map((prefix) => new RegExp(`^${prefix}\\d*$`))
 
 /**
- * SQL fragment — expand into a WHERE clause with `OR` joins. Uses
- * GLOB (case-sensitive) because Valve returns these names verbatim.
- * Keep in sync with PLACEHOLDER_NAME_PATTERNS above.
+ * SQL fragment — drop into a WHERE clause as a prefixed OR group.
+ * Matches each prefix either exactly or followed by a run of digits.
+ * Kept in one string so every caller uses the same pattern set.
  */
 export const PLACEHOLDER_NAME_SQL_MATCH =
-  "(g.name GLOB 'ValveTestApp[0-9]*' OR g.name = 'UntitledApp' OR g.name GLOB 'InvitedPartnerApp[0-9]*')"
+  "(" + PLACEHOLDER_PREFIXES.map((p) => `g.name = '${p}' OR g.name GLOB '${p}[0-9]*'`).join(" OR ") + ")"
+
+/**
+ * Same fragment as {@link PLACEHOLDER_NAME_SQL_MATCH} but without the
+ * `g.` alias — for queries that reference `games` unqualified
+ * (e.g. migration UPDATEs that don't use a JOIN).
+ */
+export const PLACEHOLDER_NAME_SQL_MATCH_BARE =
+  "(" + PLACEHOLDER_PREFIXES.map((p) => `name = '${p}' OR name GLOB '${p}[0-9]*'`).join(" OR ") + ")"
 
 /**
  * Returns true when `name` is one of Valve's internal placeholders

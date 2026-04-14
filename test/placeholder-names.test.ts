@@ -4,19 +4,21 @@ import { describe, expect, it } from "vitest"
 import { isPlaceholderName } from "@/lib/server/placeholder-names"
 
 describe("isPlaceholderName", () => {
-  it("matches ValveTestApp followed by digits", () => {
-    expect(isPlaceholderName("ValveTestApp43110")).toBe(true)
-    expect(isPlaceholderName("ValveTestApp1")).toBe(true)
-    expect(isPlaceholderName("ValveTestApp203190")).toBe(true)
-  })
-
-  it("matches UntitledApp exactly", () => {
+  it("matches each prefix exactly (no trailing digits)", () => {
+    expect(isPlaceholderName("ValveTestApp")).toBe(true)
     expect(isPlaceholderName("UntitledApp")).toBe(true)
+    expect(isPlaceholderName("GreenlightApp")).toBe(true)
+    expect(isPlaceholderName("InvitedPartnerApp")).toBe(true)
   })
 
-  it("matches InvitedPartnerApp followed by digits", () => {
+  it("matches each prefix followed by any run of digits", () => {
+    expect(isPlaceholderName("ValveTestApp43110")).toBe(true)
+    expect(isPlaceholderName("ValveTestApp0")).toBe(true)
+    expect(isPlaceholderName("UntitledApp0")).toBe(true)
+    expect(isPlaceholderName("UntitledApp42")).toBe(true)
+    expect(isPlaceholderName("GreenlightApp0")).toBe(true)
+    expect(isPlaceholderName("GreenlightApp1234")).toBe(true)
     expect(isPlaceholderName("InvitedPartnerApp102")).toBe(true)
-    expect(isPlaceholderName("InvitedPartnerApp9")).toBe(true)
   })
 
   it("does not match real game names", () => {
@@ -26,12 +28,11 @@ describe("isPlaceholderName", () => {
     expect(isPlaceholderName("Half-Life: Alyx")).toBe(false)
   })
 
-  it("does not match variants with trailing text (case-sensitive by design)", () => {
-    expect(isPlaceholderName("ValveTestApp")).toBe(false) // no digits
+  it("does not match variants with trailing non-digit text (case-sensitive)", () => {
     expect(isPlaceholderName("ValveTestApp43110 (Beta)")).toBe(false)
     expect(isPlaceholderName("valvetestapp43110")).toBe(false) // lowercase — different binary
-    expect(isPlaceholderName("UntitledApp2")).toBe(false) // UntitledApp doesn't take a numeric suffix
-    expect(isPlaceholderName("InvitedPartnerApp")).toBe(false)
+    expect(isPlaceholderName("ValveTestAppA")).toBe(false) // letter suffix
+    expect(isPlaceholderName("GreenlightApplication")).toBe(false) // real word happens to share prefix
   })
 
   it("returns false for empty, null or undefined", () => {
