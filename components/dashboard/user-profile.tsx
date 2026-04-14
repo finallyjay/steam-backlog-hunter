@@ -170,19 +170,19 @@ export function UserProfile({ user, stats, statsLoading = false, syncLabel }: Us
   return (
     <Card className="border-surface-4 overflow-hidden bg-[linear-gradient(135deg,rgba(88,198,255,0.14),transparent_35%),linear-gradient(180deg,rgba(255,255,255,0.04),transparent)]">
       <CardHeader className="pb-0">
-        <div className="flex items-start justify-between">
+        <div className="flex items-start justify-between gap-4">
           {/* as="div" because the inner <h2> for the display name is the
               real semantic heading. We don't want CardTitle defaulting to
               <h3> and creating a nested-heading conflict. */}
-          <CardTitle as="div" className="flex items-start gap-4">
+          <CardTitle as="div" className="flex min-w-0 flex-1 items-start gap-4">
             <img
               src={user.avatar || "/placeholder.svg"}
               alt={`${user.displayName}'s Steam avatar`}
-              className="border-surface-4 h-14 w-14 rounded-2xl border shadow-lg"
+              className="border-surface-4 h-14 w-14 shrink-0 rounded-2xl border shadow-lg"
             />
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-2.5">
-                <h2 className="text-2xl font-semibold tracking-tight">{user.displayName}</h2>
+            <div className="min-w-0 flex-1 space-y-1.5">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <h2 className="truncate text-2xl font-semibold tracking-tight">{user.displayName}</h2>
                 {user.steamLevel != null &&
                   (() => {
                     const badge = getSteamLevelBadge(user.steamLevel)
@@ -191,7 +191,7 @@ export function UserProfile({ user, stats, statsLoading = false, syncLabel }: Us
                     if (badge.type === "circle") {
                       return (
                         <span
-                          className="inline-flex items-center justify-center rounded-full text-[13px] font-bold text-white tabular-nums"
+                          className="inline-flex shrink-0 items-center justify-center rounded-full text-[13px] font-bold text-white tabular-nums"
                           style={{
                             width: DISPLAY_SIZE,
                             height: DISPLAY_SIZE,
@@ -204,7 +204,7 @@ export function UserProfile({ user, stats, statsLoading = false, syncLabel }: Us
                     }
                     return (
                       <span
-                        className="relative inline-flex items-center justify-center text-[13px] font-bold text-white tabular-nums"
+                        className="relative inline-flex shrink-0 items-center justify-center text-[13px] font-bold text-white tabular-nums"
                         style={{ width: DISPLAY_SIZE, height: DISPLAY_SIZE, textShadow: "1px 1px #1a1a1a" }}
                       >
                         <span
@@ -267,7 +267,11 @@ export function UserProfile({ user, stats, statsLoading = false, syncLabel }: Us
               </div>
             </div>
           </CardTitle>
-          {!statsLoading && stats && <CompletionRing percent={stats.averageCompletion} />}
+          {!statsLoading && stats && (
+            <div className="shrink-0">
+              <CompletionRing percent={stats.averageCompletion} />
+            </div>
+          )}
         </div>
       </CardHeader>
 
@@ -311,7 +315,7 @@ export function UserProfile({ user, stats, statsLoading = false, syncLabel }: Us
             {syncLabel && <span className="text-muted-foreground text-sm">{syncLabel}</span>}
           </div>
 
-          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             {summaryItems.map((item) => (
               <Link
                 key={item.label}
