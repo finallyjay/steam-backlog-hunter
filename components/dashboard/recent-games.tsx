@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Play } from "lucide-react"
 import { GameCard } from "@/components/ui/game-card"
+import { SurfaceCard } from "@/components/ui/surface-card"
 import { useSteamGames, useSteamAchievementsBatch } from "@/hooks/use-steam-data"
 import { useMemo, useState, useCallback } from "react"
 import { getSteamHeaderImageUrl } from "@/lib/steam-api"
@@ -99,12 +100,12 @@ export function RecentGames() {
       <CardContent>
         <div className="space-y-4">
           {visibleGames.length === 0 ? (
-            <div className="border-surface-4 bg-surface-1 rounded-lg border px-6 py-10 text-center">
+            <SurfaceCard variant="empty">
               <p className="text-muted-foreground">No recently played games.</p>
               <p className="text-muted-foreground mt-1 text-sm">
                 Hit the Sync button in the header to load your Steam data.
               </p>
-            </div>
+            </SurfaceCard>
           ) : (
             visibleGames.map((game) => {
               const achievements = achievementsMap[game.appid] || []

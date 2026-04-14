@@ -10,6 +10,7 @@ import { PageContainer } from "@/components/ui/page-container"
 import { LoadingMessage } from "@/components/ui/loading-message"
 import { GameCard } from "@/components/ui/game-card"
 import { Skeleton } from "@/components/ui/skeleton"
+import { SurfaceCard } from "@/components/ui/surface-card"
 import { getSteamHeaderImageUrl } from "@/lib/steam-api"
 
 type Tab = "extras" | "hidden"
@@ -215,12 +216,12 @@ export default function ExtrasPage() {
           </div>
         ) : tab === "extras" ? (
           filteredExtras.length === 0 ? (
-            <div className="border-surface-4 bg-surface-1 rounded-lg border px-6 py-10 text-center">
+            <SurfaceCard variant="empty">
               <p className="text-muted-foreground">No extras yet.</p>
               <p className="text-muted-foreground mt-1 text-sm">
                 After syncing, games Steam remembers you played but no longer own will show up here.
               </p>
-            </div>
+            </SurfaceCard>
           ) : (
             <div className="space-y-4">
               {filteredExtras.map((game) => (
@@ -243,12 +244,12 @@ export default function ExtrasPage() {
             </div>
           )
         ) : filteredHidden.length === 0 ? (
-          <div className="border-surface-4 bg-surface-1 rounded-lg border px-6 py-10 text-center">
+          <SurfaceCard variant="empty">
             <p className="text-muted-foreground">No hidden games.</p>
             <p className="text-muted-foreground mt-1 text-sm">
               Games you hide from the library or extras will appear here so you can restore them.
             </p>
-          </div>
+          </SurfaceCard>
         ) : (
           <div className="space-y-4">
             {filteredHidden.map((game) => (

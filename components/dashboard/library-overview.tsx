@@ -6,6 +6,7 @@ import { Trophy, PieChart, ArrowUpDown, Play, Search } from "lucide-react"
 import { GameCard } from "@/components/ui/game-card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
+import { SurfaceCard } from "@/components/ui/surface-card"
 import { useSteamAchievementsBatch, useSteamGames } from "@/hooks/use-steam-data"
 import { getSteamHeaderImageUrl } from "@/lib/steam-api"
 import { buildGamesWithStats, mapOwnedGamesToGameCards, sortGames } from "@/lib/games-mapping"
@@ -348,12 +349,12 @@ export function LibraryOverview({
       ) : error ? (
         <p className="text-destructive py-8 text-center">{error}</p>
       ) : visibleGames.length === 0 ? (
-        <div className="border-surface-4 bg-surface-1 rounded-lg border px-6 py-10 text-center">
+        <SurfaceCard variant="empty">
           <p className="text-muted-foreground">No games match the current filters.</p>
           <p className="text-muted-foreground mt-1 text-sm">
             Hit the Sync button in the header to load your Steam data.
           </p>
-        </div>
+        </SurfaceCard>
       ) : (
         <div className="space-y-4">
           {displayedGames.map((game: SteamGameCardModel, i: number) => {
