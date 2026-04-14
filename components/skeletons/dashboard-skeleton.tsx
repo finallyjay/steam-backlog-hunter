@@ -52,11 +52,11 @@ function InsightCardSkeleton() {
       </CardHeader>
       <CardContent>
         <div className="grid gap-5">
-          <div className="border-surface-3 bg-surface-1 rounded-lg border p-4">
+          <SurfaceCard>
             <Skeleton className="mb-2 h-4 w-32" />
             <Skeleton className="mb-3 h-3 w-48" />
             <Skeleton className="mx-auto h-44 w-44 rounded-full" />
-          </div>
+          </SurfaceCard>
           <div className="space-y-3">
             {Array.from({ length: 3 }).map((_, i) => (
               <div key={i} className="bg-surface-1 flex items-center justify-between rounded-lg px-3 py-2.5">

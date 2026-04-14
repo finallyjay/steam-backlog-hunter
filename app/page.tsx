@@ -2,6 +2,7 @@
 
 import { useEffect } from "react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { SurfaceCard } from "@/components/ui/surface-card"
 import { AlertCircle, Trophy, BarChart3, Target } from "lucide-react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { useCurrentUser } from "@/hooks/use-current-user"
@@ -121,21 +122,21 @@ export default function HomePage() {
         </div>
 
         <div className="grid grid-cols-3 gap-4">
-          <div className="border-surface-4 bg-surface-1 space-y-2 rounded-lg border p-4">
+          <SurfaceCard className="space-y-2">
             <Trophy className="text-accent mx-auto h-5 w-5" />
             <p className="text-foreground text-xs font-medium">Achievements</p>
             <p className="text-muted-foreground text-2xs leading-snug">Pending, unlocked, and completion per game.</p>
-          </div>
-          <div className="border-surface-4 bg-surface-1 space-y-2 rounded-lg border p-4">
+          </SurfaceCard>
+          <SurfaceCard className="space-y-2">
             <BarChart3 className="text-accent mx-auto h-5 w-5" />
             <p className="text-foreground text-xs font-medium">Analytics</p>
             <p className="text-muted-foreground text-2xs leading-snug">Playtime, perfect games, and library stats.</p>
-          </div>
-          <div className="border-surface-4 bg-surface-1 space-y-2 rounded-lg border p-4">
+          </SurfaceCard>
+          <SurfaceCard className="space-y-2">
             <Target className="text-accent mx-auto h-5 w-5" />
             <p className="text-foreground text-xs font-medium">Completion</p>
             <p className="text-muted-foreground text-2xs leading-snug">Games closest to 100% from recent play.</p>
-          </div>
+          </SurfaceCard>
         </div>
 
         <p className="text-muted-foreground text-xs">Not affiliated with Valve Corporation.</p>
