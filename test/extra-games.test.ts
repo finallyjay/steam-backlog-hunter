@@ -582,9 +582,16 @@ describe("hydrateMissingExtraNames", () => {
       ).run(STEAM_ID, i, 100 - i, now, now, now)
     }
     let storeCalls = 0
-    globalThis.fetch = vi.fn(async () => {
-      storeCalls++
-      return { ok: false, status: 500, json: async () => ({}) } as unknown as Response
+    // hydrateMissingExtraNames now fetches two hosts per iteration: the
+    // store appdetails endpoint (counts toward the back-off) and the
+    // community page fallback (independent host, doesn't count). Only
+    // increment storeCalls for the store URL so the back-off assertion
+    // stays meaningful. Use URL.hostname for an exact host match — CodeQL
+    // flags substring matching as incomplete URL sanitization.
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const host = new URL(String(input)).hostname
+      if (host === "store.steampowered.com") storeCalls++
+      return { ok: false, status: 500, json: async () => ({}), text: async () => "" } as unknown as Response
     }) as unknown as typeof fetch
     vi.doMock("@/lib/steam-api", () => ({
       getGameSchema: vi.fn().mockResolvedValue(null),
@@ -614,6 +621,126 @@ describe("hydrateMissingExtraNames", () => {
     const { hydrateMissingExtraNames } = await import("@/lib/server/extra-games")
     await hydrateMissingExtraNames(STEAM_ID)
     expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  // ---- Source 3: community-page HTML fallback ----
+
+  function mockStoreFailAndCommunity(communityHtmlByAppId: Record<number, string>) {
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const u = new URL(String(input))
+      // Use exact hostname matching — CodeQL flags substring URL checks
+      // as incomplete sanitization.
+      if (u.hostname === "store.steampowered.com") {
+        // Force the store fallback to return success=false so the chain
+        // proceeds to schema (mocked to null) and then to community.
+        const appid = u.searchParams.get("appids") ?? "0"
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ [appid]: { success: false } }),
+          text: async () => "",
+        } as unknown as Response
+      }
+      if (u.hostname === "steamcommunity.com") {
+        const m = u.pathname.match(/\/app\/(\d+)/)
+        const appid = m ? Number(m[1]) : 0
+        const html = communityHtmlByAppId[appid] ?? ""
+        return { ok: true, status: 200, json: async () => ({}), text: async () => html } as unknown as Response
+      }
+      return { ok: false, status: 404, json: async () => ({}), text: async () => "" } as unknown as Response
+    }) as unknown as typeof fetch
+  }
+
+  it("falls back to the community page when both store and schema return nothing", async () => {
+    const db = await seedExtraWithoutName(502090)
+    mockStoreFailAndCommunity({
+      502090: "<html><head><title>Steam Community :: Invisible Mind</title></head></html>",
+    })
+    vi.doMock("@/lib/steam-api", () => ({
+      getGameSchema: vi.fn().mockResolvedValue(null),
+      getPlayerAchievements: vi.fn().mockResolvedValue(null),
+      getOwnedGames: vi.fn().mockResolvedValue([]),
+      getLastPlayedTimes: vi.fn().mockResolvedValue([]),
+    }))
+    const { hydrateMissingExtraNames } = await import("@/lib/server/extra-games")
+    await hydrateMissingExtraNames(STEAM_ID)
+    const row = db.prepare("SELECT name FROM games WHERE appid=502090").get() as { name: string } | undefined
+    expect(row?.name).toBe("Invisible Mind")
+  })
+
+  it("ignores the community page 'Error' sentinel for unknown appids", async () => {
+    const db = await seedExtraWithoutName(999000)
+    mockStoreFailAndCommunity({
+      999000: "<html><head><title>Steam Community :: Error</title></head></html>",
+    })
+    vi.doMock("@/lib/steam-api", () => ({
+      getGameSchema: vi.fn().mockResolvedValue(null),
+      getPlayerAchievements: vi.fn().mockResolvedValue(null),
+      getOwnedGames: vi.fn().mockResolvedValue([]),
+      getLastPlayedTimes: vi.fn().mockResolvedValue([]),
+    }))
+    const { hydrateMissingExtraNames } = await import("@/lib/server/extra-games")
+    await hydrateMissingExtraNames(STEAM_ID)
+    const row = db.prepare("SELECT name FROM games WHERE appid=999000").get() as { name: string } | undefined
+    expect(row).toBeUndefined()
+  })
+
+  it("ignores the 'Welcome to Steam' fallback page for nonexistent appids", async () => {
+    const db = await seedExtraWithoutName(999001)
+    mockStoreFailAndCommunity({
+      999001: "<html><head><title>Welcome to Steam</title></head></html>",
+    })
+    vi.doMock("@/lib/steam-api", () => ({
+      getGameSchema: vi.fn().mockResolvedValue(null),
+      getPlayerAchievements: vi.fn().mockResolvedValue(null),
+      getOwnedGames: vi.fn().mockResolvedValue([]),
+      getLastPlayedTimes: vi.fn().mockResolvedValue([]),
+    }))
+    const { hydrateMissingExtraNames } = await import("@/lib/server/extra-games")
+    await hydrateMissingExtraNames(STEAM_ID)
+    const row = db.prepare("SELECT name FROM games WHERE appid=999001").get() as { name: string } | undefined
+    expect(row).toBeUndefined()
+  })
+
+  it("decodes basic HTML entities in community-page titles", async () => {
+    const db = await seedExtraWithoutName(123456)
+    mockStoreFailAndCommunity({
+      123456: "<html><head><title>Steam Community :: Tom Clancy&#39;s Splinter Cell</title></head></html>",
+    })
+    vi.doMock("@/lib/steam-api", () => ({
+      getGameSchema: vi.fn().mockResolvedValue(null),
+      getPlayerAchievements: vi.fn().mockResolvedValue(null),
+      getOwnedGames: vi.fn().mockResolvedValue([]),
+      getLastPlayedTimes: vi.fn().mockResolvedValue([]),
+    }))
+    const { hydrateMissingExtraNames } = await import("@/lib/server/extra-games")
+    await hydrateMissingExtraNames(STEAM_ID)
+    const row = db.prepare("SELECT name FROM games WHERE appid=123456").get() as { name: string } | undefined
+    expect(row?.name).toBe("Tom Clancy's Splinter Cell")
+  })
+
+  it("does not call the community fallback when the store already returned a name", async () => {
+    const db = await seedExtraWithoutName(100200)
+    let communityCalled = false
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const u = new URL(String(input))
+      if (u.hostname === "steamcommunity.com") {
+        communityCalled = true
+        return { ok: true, status: 200, json: async () => ({}), text: async () => "" } as unknown as Response
+      }
+      const appid = u.searchParams.get("appids") ?? "0"
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ [appid]: { success: true, data: { name: "Resolved by store" } } }),
+        text: async () => "",
+      } as unknown as Response
+    }) as unknown as typeof fetch
+    const { hydrateMissingExtraNames } = await import("@/lib/server/extra-games")
+    await hydrateMissingExtraNames(STEAM_ID)
+    expect(communityCalled).toBe(false)
+    const row = db.prepare("SELECT name FROM games WHERE appid=100200").get() as { name: string }
+    expect(row.name).toBe("Resolved by store")
   })
 })
 

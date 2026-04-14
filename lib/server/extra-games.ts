@@ -42,6 +42,50 @@ type StoreAppDetails = {
 }
 
 /**
+ * Last-resort name resolver: scrape the HTML title of the Steam community
+ * page for the given appid. Used for delisted achievement-less apps that
+ * neither store appdetails nor GetSchemaForGame can name (server builds,
+ * soundtracks, demos, experimental indie titles, …). Returns null on any
+ * failure or sentinel response.
+ *
+ * Example: app 502090 ("Invisible Mind") is delisted with no schema, so the
+ * structured endpoints return nothing. The community page still serves a
+ * `<title>Steam Community :: Invisible Mind</title>` for it.
+ */
+async function fetchCommunityGameName(appId: number): Promise<string | null> {
+  try {
+    const response = await fetch(`https://steamcommunity.com/app/${appId}`, {
+      cache: "no-store",
+      redirect: "follow",
+    })
+    if (!response.ok) return null
+    const html = await response.text()
+    const match = html.match(/<title>Steam Community :: ([^<]+)<\/title>/)
+    if (!match) return null
+    const name = decodeBasicHtmlEntities(match[1].trim())
+    // Sentinel values Steam returns for unknown/invalid appids on this URL.
+    if (name === "Error") return null
+    return name
+  } catch {
+    return null
+  }
+}
+
+function decodeBasicHtmlEntities(s: string): string {
+  // Order matters: &amp; must be replaced LAST so we don't double-decode
+  // strings that contain a literal &amp; followed by another entity (e.g.
+  // "&amp;#39;" should resolve to "&#39;", not "'"). CodeQL flags the
+  // naive ordering as a double-unescape vulnerability.
+  return s
+    .replaceAll("&#39;", "'")
+    .replaceAll("&apos;", "'")
+    .replaceAll("&quot;", '"')
+    .replaceAll("&lt;", "<")
+    .replaceAll("&gt;", ">")
+    .replaceAll("&amp;", "&")
+}
+
+/**
  * Fallback name hydrator: for any extras row whose `games.name` is still
  * NULL after the achievement sync, probe the public
  * `store.steampowered.com/api/appdetails` endpoint one appid at a time.
@@ -129,6 +173,17 @@ export async function hydrateMissingExtraNames(steamId: string) {
         }
       } catch {
         // non-critical
+      }
+    }
+
+    // Source 3: community page HTML (covers delisted achievement-less apps
+    // that neither store nor schema can name — e.g. dedicated servers,
+    // soundtracks, demos, one-off experimental indies). Different host so
+    // failures don't count toward the store back-off counter.
+    if (!resolvedName) {
+      const communityName = await fetchCommunityGameName(appid)
+      if (communityName) {
+        resolvedName = communityName
       }
     }
 
