@@ -9,6 +9,7 @@ import { useSteamExtras, useSteamHiddenGames } from "@/hooks/use-steam-data"
 import { PageContainer } from "@/components/ui/page-container"
 import { LoadingMessage } from "@/components/ui/loading-message"
 import { GameCard } from "@/components/ui/game-card"
+import { InputFrame } from "@/components/ui/input-frame"
 import { Skeleton } from "@/components/ui/skeleton"
 import { SurfaceCard } from "@/components/ui/surface-card"
 import { getSteamHeaderImageUrl } from "@/lib/steam-api"
@@ -169,7 +170,7 @@ export default function ExtrasPage() {
         </div>
 
         <div className="flex items-center justify-between gap-4">
-          <div className="border-surface-4 bg-surface-1 focus-within:border-accent flex h-9 min-w-0 flex-1 items-center gap-2 rounded-lg border px-3">
+          <InputFrame className="min-w-0 flex-1">
             <Search className="text-muted-foreground h-4 w-4 shrink-0" />
             <input
               type="text"
@@ -178,7 +179,7 @@ export default function ExtrasPage() {
               placeholder={tab === "extras" ? "Search extras\u2026" : "Search hidden games\u2026"}
               className="text-foreground placeholder:text-muted-foreground h-full w-full bg-transparent text-sm focus:outline-none"
             />
-          </div>
+          </InputFrame>
           <p className="text-muted-foreground shrink-0 text-sm">
             {loading
               ? "Loading\u2026"
