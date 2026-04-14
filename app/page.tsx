@@ -2,9 +2,70 @@
 
 import { useEffect } from "react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Gamepad2, AlertCircle, Trophy, BarChart3, Target } from "lucide-react"
+import { AlertCircle, Trophy, BarChart3, Target } from "lucide-react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { useCurrentUser } from "@/hooks/use-current-user"
+
+// Hero illustration: three offset progress rings (90% / 60% / 25%) using
+// the project's chart color tokens. Visualizes the app's purpose
+// (achievement completion tracking) with the same palette users see on
+// the dashboard donut/bar charts after sign-in.
+//
+// Stroke-dasharray math: dash = circumference * percent, gap = remainder.
+// Circumference = 2 * π * r — values rounded.
+function HeroOrbits() {
+  return (
+    <div className="relative mx-auto h-32 w-32">
+      <div className="bg-accent/15 absolute inset-2 rounded-full blur-2xl" />
+      <svg viewBox="0 0 200 200" className="relative h-32 w-32" aria-hidden="true">
+        {/* Outer ring — chart-1 (cyan), 90% complete */}
+        <circle cx="100" cy="100" r="78" fill="none" className="stroke-chart-1/20" strokeWidth="1.5" />
+        <circle
+          cx="100"
+          cy="100"
+          r="78"
+          fill="none"
+          className="stroke-chart-1"
+          strokeWidth="2.5"
+          strokeDasharray="441 49"
+          strokeLinecap="round"
+          transform="rotate(-90 100 100)"
+        />
+
+        {/* Mid ring — chart-2 (mint), 60%, slightly offset */}
+        <circle cx="92" cy="105" r="58" fill="none" className="stroke-chart-2/20" strokeWidth="1.5" />
+        <circle
+          cx="92"
+          cy="105"
+          r="58"
+          fill="none"
+          className="stroke-chart-2"
+          strokeWidth="2.5"
+          strokeDasharray="219 146"
+          strokeLinecap="round"
+          transform="rotate(-30 92 105)"
+        />
+
+        {/* Inner ring — chart-3 (gold), 25%, more offset */}
+        <circle cx="108" cy="92" r="38" fill="none" className="stroke-chart-3/20" strokeWidth="1.5" />
+        <circle
+          cx="108"
+          cy="92"
+          r="38"
+          fill="none"
+          className="stroke-chart-3"
+          strokeWidth="2.5"
+          strokeDasharray="60 179"
+          strokeLinecap="round"
+          transform="rotate(45 108 92)"
+        />
+
+        {/* Center pulsing dot */}
+        <circle cx="100" cy="100" r="5" className="fill-accent animate-pulse" />
+      </svg>
+    </div>
+  )
+}
 
 export default function HomePage() {
   const searchParams = useSearchParams()
@@ -25,10 +86,8 @@ export default function HomePage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-4 py-16">
       <div className="w-full max-w-md space-y-10 text-center">
-        <div className="space-y-5">
-          <div className="bg-accent/15 text-accent border-surface-4 mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border shadow-[0_0_40px_-12px_rgba(88,198,255,0.5)]">
-            <Gamepad2 className="h-7 w-7" />
-          </div>
+        <div className="space-y-6">
+          <HeroOrbits />
           <div className="space-y-2">
             <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Steam Backlog Hunter</h1>
             <p className="text-muted-foreground mx-auto max-w-sm text-base">
