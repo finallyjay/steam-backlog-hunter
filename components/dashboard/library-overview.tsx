@@ -317,7 +317,8 @@ export function LibraryOverview({
               }, 300)
             }}
             placeholder="Search games..."
-            className="text-foreground placeholder:text-muted-foreground h-full w-full bg-transparent text-sm focus:outline-none"
+            aria-label="Search games"
+            className="text-foreground placeholder:text-muted-foreground h-full w-full bg-transparent text-sm outline-none"
           />
         </InputFrame>
         <p className="text-muted-foreground shrink-0 text-sm">

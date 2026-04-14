@@ -73,6 +73,7 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
                 className="text-muted-foreground hover:text-foreground sm:hidden"
                 onClick={() => setMobileMenuOpen((prev) => !prev)}
                 aria-expanded={mobileMenuOpen}
+                aria-controls="mobile-nav"
                 aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
               >
                 {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -123,6 +124,7 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
       </header>
       {mobileMenuOpen && (
         <nav
+          id="mobile-nav"
           aria-label="Mobile navigation"
           className="border-surface-4 bg-background/95 sticky top-[57px] z-50 border-b backdrop-blur-xl sm:hidden"
         >

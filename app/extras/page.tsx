@@ -177,7 +177,8 @@ export default function ExtrasPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={tab === "extras" ? "Search extras\u2026" : "Search hidden games\u2026"}
-              className="text-foreground placeholder:text-muted-foreground h-full w-full bg-transparent text-sm focus:outline-none"
+              aria-label={tab === "extras" ? "Search extras" : "Search hidden games"}
+              className="text-foreground placeholder:text-muted-foreground h-full w-full bg-transparent text-sm outline-none"
             />
           </InputFrame>
           <p className="text-muted-foreground shrink-0 text-sm">

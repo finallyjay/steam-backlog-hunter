@@ -132,13 +132,18 @@ function InsightChartFrame({
   insight: string
   children: React.ReactNode
 }) {
+  // <figure> + <figcaption> gives screen readers a real semantic chart with
+  // a caption — Recharts SVGs themselves are unlabeled, so without this
+  // wrapper AT users get nothing meaningful from the donut/bars.
   return (
     <SurfaceCard>
-      <div className="mb-3">
-        <p className="text-foreground text-sm font-semibold">{title}</p>
-        <p className="text-muted-foreground text-sm">{insight}</p>
-      </div>
-      <div className="h-56 min-h-0 min-w-0">{children}</div>
+      <figure className="m-0">
+        <figcaption className="mb-3">
+          <p className="text-foreground text-sm font-semibold">{title}</p>
+          <p className="text-muted-foreground text-sm">{insight}</p>
+        </figcaption>
+        <div className="h-56 min-h-0 min-w-0">{children}</div>
+      </figure>
     </SurfaceCard>
   )
 }

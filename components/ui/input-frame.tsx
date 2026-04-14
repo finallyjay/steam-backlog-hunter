@@ -21,7 +21,11 @@ function InputFrame({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="input-frame"
       className={cn(
-        "border-surface-4 bg-surface-1 focus-within:border-accent flex h-9 items-center gap-2 rounded-lg border px-3 transition-colors",
+        // focus-within:ring-2 gives the inner <input> a real WCAG 1.4.11
+        // focus indicator. The hosted input typically kills its own outline
+        // via `outline-none`, and the 1px accent border alone isn't a
+        // strong enough cue. The ring on the parent frame replaces it.
+        "border-surface-4 bg-surface-1 focus-within:border-accent focus-within:ring-accent/50 flex h-9 items-center gap-2 rounded-lg border px-3 transition-colors focus-within:ring-2",
         className,
       )}
       {...props}

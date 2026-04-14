@@ -91,7 +91,12 @@ export function FirstSyncModal({ onComplete }: { onComplete: () => void }) {
   const timeLabel = minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="first-sync-modal-title"
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm"
+    >
       <div className="border-surface-4 bg-card mx-4 w-full max-w-md space-y-6 rounded-2xl border p-8 text-center shadow-2xl">
         <div className="flex justify-center">
           {phase === "done" ? (
@@ -110,8 +115,14 @@ export function FirstSyncModal({ onComplete }: { onComplete: () => void }) {
         </div>
 
         <div className="space-y-2">
-          <h2 className="text-xl font-semibold tracking-tight">First-time sync</h2>
-          <p className="text-muted-foreground text-sm">{PHASE_LABELS[phase]}</p>
+          <h2 id="first-sync-modal-title" className="text-xl font-semibold tracking-tight">
+            First-time sync
+          </h2>
+          {/* aria-live so AT users hear phase changes during the multi-minute
+              wait. Polite (not assertive) so it doesn't interrupt. */}
+          <p className="text-muted-foreground text-sm" aria-live="polite">
+            {PHASE_LABELS[phase]}
+          </p>
         </div>
 
         {phase !== "done" && phase !== "error" && (
