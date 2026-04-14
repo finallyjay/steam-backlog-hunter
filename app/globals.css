@@ -119,6 +119,10 @@
   --color-warning-foreground: var(--warning-foreground);
   --color-danger: var(--danger);
   --color-danger-foreground: var(--danger-foreground);
+  /* Below text-xs (0.75rem) — for sub-xs captions and eyebrow labels. */
+  --text-2xs: 0.68rem;
+  /* Letter-spacing used by uppercase eyebrow labels. */
+  --tracking-eyebrow: 0.18em;
 }
 
 @layer base {

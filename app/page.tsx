@@ -56,7 +56,7 @@ export default function HomePage() {
               className="mx-auto transition-opacity group-hover:opacity-80"
             />
           </button>
-          <p className="text-muted-foreground text-[0.7rem]">
+          <p className="text-muted-foreground text-2xs">
             Authenticates via Steam OpenID. Only your public profile and game data are accessed.
           </p>
         </div>
@@ -65,21 +65,17 @@ export default function HomePage() {
           <div className="border-surface-4 bg-surface-1 space-y-2 rounded-lg border p-4">
             <Trophy className="text-accent mx-auto h-5 w-5" />
             <p className="text-foreground text-xs font-medium">Achievements</p>
-            <p className="text-muted-foreground text-[0.68rem] leading-snug">
-              Pending, unlocked, and completion per game.
-            </p>
+            <p className="text-muted-foreground text-2xs leading-snug">Pending, unlocked, and completion per game.</p>
           </div>
           <div className="border-surface-4 bg-surface-1 space-y-2 rounded-lg border p-4">
             <BarChart3 className="text-accent mx-auto h-5 w-5" />
             <p className="text-foreground text-xs font-medium">Analytics</p>
-            <p className="text-muted-foreground text-[0.68rem] leading-snug">
-              Playtime, perfect games, and library stats.
-            </p>
+            <p className="text-muted-foreground text-2xs leading-snug">Playtime, perfect games, and library stats.</p>
           </div>
           <div className="border-surface-4 bg-surface-1 space-y-2 rounded-lg border p-4">
             <Target className="text-accent mx-auto h-5 w-5" />
             <p className="text-foreground text-xs font-medium">Completion</p>
-            <p className="text-muted-foreground text-[0.68rem] leading-snug">Games closest to 100% from recent play.</p>
+            <p className="text-muted-foreground text-2xs leading-snug">Games closest to 100% from recent play.</p>
           </div>
         </div>
 
