@@ -42,9 +42,29 @@ export default function DashboardPage() {
     <PageContainer>
       <h1 className="sr-only">Dashboard</h1>
       <div className="grid gap-8">
-        <UserProfile user={user} stats={stats} statsLoading={statsLoading} syncLabel={syncLabel ?? "Not synced yet"} />
-        <DashboardInsights stats={stats} loading={statsLoading} />
-        <RecentGames />
+        <div
+          className="animate-in fade-in slide-in-from-bottom-4 fill-mode-both"
+          style={{ animationDuration: "500ms", animationDelay: "0ms" }}
+        >
+          <UserProfile
+            user={user}
+            stats={stats}
+            statsLoading={statsLoading}
+            syncLabel={syncLabel ?? "Not synced yet"}
+          />
+        </div>
+        <div
+          className="animate-in fade-in slide-in-from-bottom-4 fill-mode-both"
+          style={{ animationDuration: "500ms", animationDelay: "80ms" }}
+        >
+          <DashboardInsights stats={stats} loading={statsLoading} />
+        </div>
+        <div
+          className="animate-in fade-in slide-in-from-bottom-4 fill-mode-both"
+          style={{ animationDuration: "500ms", animationDelay: "160ms" }}
+        >
+          <RecentGames />
+        </div>
       </div>
     </PageContainer>
   )

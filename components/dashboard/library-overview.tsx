@@ -356,22 +356,32 @@ export function LibraryOverview({
         </div>
       ) : (
         <div className="space-y-4">
-          {displayedGames.map((game: SteamGameCardModel) => (
-            <GameCard
-              key={game.id}
-              id={game.id}
-              name={game.name}
-              image={game.image}
-              playtime={game.playtime}
-              achievements={game.achievements}
-              achievementsLoading={achievementsLoading}
-              href={`/game/${game.id}`}
-              serverTotal={game.totalAchievements}
-              serverUnlocked={game.unlockedAchievements}
-              serverPerfect={game.completed}
-              onHide={handleHideGame}
-            />
-          ))}
+          {displayedGames.map((game: SteamGameCardModel, i: number) => {
+            // Cap the entrance stagger to the first 12 cards — beyond that
+            // the animation cost on big libraries outweighs the polish.
+            const animateEntrance = i < 12
+            return (
+              <div
+                key={game.id}
+                className={animateEntrance ? "animate-in fade-in slide-in-from-bottom-2 fill-mode-both" : undefined}
+                style={animateEntrance ? { animationDelay: `${i * 25}ms`, animationDuration: "350ms" } : undefined}
+              >
+                <GameCard
+                  id={game.id}
+                  name={game.name}
+                  image={game.image}
+                  playtime={game.playtime}
+                  achievements={game.achievements}
+                  achievementsLoading={achievementsLoading}
+                  href={`/game/${game.id}`}
+                  serverTotal={game.totalAchievements}
+                  serverUnlocked={game.unlockedAchievements}
+                  serverPerfect={game.completed}
+                  onHide={handleHideGame}
+                />
+              </div>
+            )
+          })}
           {hasMore ? (
             <div ref={sentinelRef} className="h-1" />
           ) : filteredCount > PAGE_SIZE ? (
