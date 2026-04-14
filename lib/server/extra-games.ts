@@ -167,7 +167,7 @@ export async function hydrateMissingExtraNames(steamId: string) {
     // Source 2: GetSchemaForGame (works for delisted apps the store rejects)
     if (!resolvedName) {
       try {
-        const schema = (await getGameSchema(appid)) as { gameName?: string } | null
+        const schema = await getGameSchema(appid)
         if (schema?.gameName) {
           resolvedName = schema.gameName
         }

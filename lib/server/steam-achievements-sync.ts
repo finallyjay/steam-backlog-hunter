@@ -1,6 +1,6 @@
 import "server-only"
 
-import { getGameSchema, getPlayerAchievements, type SteamAchievement } from "@/lib/steam-api"
+import { getGameSchema, getPlayerAchievements, type GameSchema, type SteamAchievement } from "@/lib/steam-api"
 import type { SteamAchievementView } from "@/lib/types/steam"
 import { getSqliteDatabase } from "@/lib/server/sqlite"
 import { nowIso, isStale } from "@/lib/server/steam-store-utils"
@@ -39,21 +39,6 @@ function mapJoinRowToView(row: AchievementJoinRow): SteamAchievementView {
     displayName: row.display_name ?? row.apiname,
     icon: row.icon ?? "",
     icongray: row.icon_gray ?? "",
-  }
-}
-
-type SchemaAchievement = {
-  name: string
-  displayName?: string
-  description?: string
-  icon?: string
-  icongray?: string
-  hidden?: number
-}
-
-type GameSchema = {
-  availableGameStats?: {
-    achievements?: SchemaAchievement[]
   }
 }
 
@@ -289,7 +274,7 @@ export async function ensureSchema(appId: number, options?: { forceRefresh?: boo
     return
   }
 
-  const schema = (await getGameSchema(appId)) as GameSchema | null
+  const schema = await getGameSchema(appId)
   persistSchema(appId, schema)
 }
 

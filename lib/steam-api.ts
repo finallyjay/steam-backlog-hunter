@@ -42,6 +42,36 @@ export interface PlayerStats {
   success: boolean
 }
 
+/** Single achievement entry as returned by ISteamUserStats/GetSchemaForGame. */
+export interface SchemaAchievement {
+  name: string
+  displayName?: string
+  description?: string
+  icon?: string
+  icongray?: string
+  hidden?: number
+  defaultvalue?: number
+}
+
+/**
+ * Game schema as returned by ISteamUserStats/GetSchemaForGame, after the
+ * `{ game: ... }` envelope is unwrapped. Used for both achievement metadata
+ * (display names, icons) and as a name-resolution fallback for delisted apps
+ * via `gameName`.
+ */
+export interface GameSchema {
+  gameName?: string
+  gameVersion?: string
+  availableGameStats?: {
+    achievements?: SchemaAchievement[]
+    stats?: Array<{
+      name: string
+      defaultvalue?: number
+      displayName?: string
+    }>
+  }
+}
+
 const STEAM_API_BASE = "https://api.steampowered.com"
 
 class SteamAPIError extends Error {
@@ -192,13 +222,13 @@ export async function getLastPlayedTimes(steamId: string): Promise<LastPlayedGam
 }
 
 /** Fetches the game schema (achievement and stat definitions) from the Steam API. */
-export async function getGameSchema(appId: number): Promise<unknown> {
+export async function getGameSchema(appId: number): Promise<GameSchema | null> {
   try {
     const data = await steamAPIRequest("/ISteamUserStats/GetSchemaForGame/v2/", {
       appid: appId.toString(),
     })
 
-    return data.game || null
+    return (data.game as GameSchema | undefined) ?? null
   } catch (error) {
     // Same story as getPlayerAchievements: 400/403 just means the app has no
     // publishable schema. Let the caller treat it as an empty schema without
