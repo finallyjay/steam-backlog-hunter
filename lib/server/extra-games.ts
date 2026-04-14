@@ -7,6 +7,7 @@ import { getSqliteDatabase } from "@/lib/server/sqlite"
 import { isStale, nowIso } from "@/lib/server/steam-store-utils"
 import { ACHIEVEMENTS_STALE_MS } from "@/lib/server/steam-achievements-sync"
 import { populateGamesFromSteamCatalog } from "@/lib/server/steam-app-catalog"
+import { isPlaceholderName, PLACEHOLDER_NAME_SQL_MATCH } from "@/lib/server/placeholder-names"
 import { logger } from "@/lib/server/logger"
 
 export type ExtraGame = {
@@ -167,7 +168,12 @@ export async function hydrateMissingExtraNames(steamId: string) {
       FROM extra_games e
       LEFT JOIN games g ON g.appid = e.appid
       WHERE e.steam_id = ?
-        AND (g.appid IS NULL OR g.name IS NULL OR g.name = '')
+        AND (
+          g.appid IS NULL
+          OR g.name IS NULL
+          OR g.name = ''
+          OR ${PLACEHOLDER_NAME_SQL_MATCH}
+        )
         AND (g.name_source IS NULL OR g.name_source != 'manual')
       ORDER BY e.playtime_forever DESC
     `,
@@ -212,7 +218,12 @@ export async function hydrateMissingExtraNames(steamId: string) {
         consecutiveStoreFailures = 0
         const payload = (await response.json()) as Record<string, StoreAppDetails>
         const entry = payload[String(appid)]
-        resolvedName = entry?.success && entry.data?.name ? entry.data.name : null
+        const candidate = entry?.success && entry.data?.name ? entry.data.name : null
+        // Drop placeholder names so later sources get a chance to
+        // produce the real title.
+        if (candidate && !isPlaceholderName(candidate)) {
+          resolvedName = candidate
+        }
       }
     } catch (error) {
       consecutiveStoreFailures++
@@ -223,7 +234,7 @@ export async function hydrateMissingExtraNames(steamId: string) {
     if (!resolvedName) {
       try {
         const schema = await getGameSchema(appid)
-        if (schema?.gameName) {
+        if (schema?.gameName && !isPlaceholderName(schema.gameName)) {
           resolvedName = schema.gameName
         }
       } catch {
@@ -242,7 +253,10 @@ export async function hydrateMissingExtraNames(steamId: string) {
     if (!resolvedName && consecutiveSupportFailures < 5) {
       const result = await fetchSupportGameName(appid)
       if (result.kind === "ok") {
-        resolvedName = result.name
+        // Support's HTML title is normally human-readable but apply
+        // the same safety filter in case Valve ever starts echoing
+        // internal placeholders through it too.
+        if (!isPlaceholderName(result.name)) resolvedName = result.name
         consecutiveSupportFailures = 0
       } else if (result.kind === "empty") {
         consecutiveSupportFailures = 0
@@ -260,7 +274,7 @@ export async function hydrateMissingExtraNames(steamId: string) {
     if (!resolvedName && consecutiveCommunityFailures < 5) {
       const result = await fetchCommunityGameName(appid)
       if (result.kind === "ok") {
-        resolvedName = result.name
+        if (!isPlaceholderName(result.name)) resolvedName = result.name
         consecutiveCommunityFailures = 0
       } else if (result.kind === "empty") {
         consecutiveCommunityFailures = 0
@@ -393,9 +407,12 @@ export function persistExtraAchievements(
   db.exec("BEGIN")
   try {
     // Cache the game name on the shared games table so the UI can show it.
-    // This is the authoritative name source for delisted games — far more
-    // reliable than the public store appdetails API.
-    if (gameName) {
+    // Valve's Web API occasionally returns internal placeholder names
+    // (ValveTestAppX, UntitledApp, InvitedPartnerAppX) for unowned-but-
+    // played games; those are skipped so hydrateMissingExtraNames can
+    // resolve the real name via Steam Support instead of our cache
+    // permanently sticking to the placeholder.
+    if (gameName && !isPlaceholderName(gameName)) {
       db.prepare(
         `
         INSERT INTO games (appid, name, created_at, updated_at)
@@ -495,12 +512,49 @@ export async function syncExtraAchievements(steamId: string) {
         // extras whose appid isn't in `games` yet, which on a fresh database
         // was preventing every extras sync from persisting anything.
         const playerAchievements = await getPlayerAchievements(steamId, row.appid)
-        if (!playerAchievements) {
-          // Mark as known-broken so we don't retry every sync.
-          persistExtraAchievements(steamId, row.appid, "", [])
+        if (playerAchievements) {
+          persistExtraAchievements(
+            steamId,
+            row.appid,
+            playerAchievements.gameName,
+            playerAchievements.achievements ?? [],
+          )
           continue
         }
-        persistExtraAchievements(steamId, row.appid, playerAchievements.gameName, playerAchievements.achievements ?? [])
+
+        // Fallback: GetPlayerAchievements refuses unowned-but-played
+        // games with "Profile is not public" (even when the profile is
+        // public — it's how Valve signals "you don't own this"). In
+        // that case the schema endpoint still returns the full list of
+        // defined achievements, so we can at least record the total
+        // count. The user's actual unlocked count is unknowable via
+        // the Web API here, so it stays at 0 — the UI shows "0/N (0%)"
+        // instead of a bare "-", which is strictly more honest than
+        // the previous "known-broken" sentinel.
+        //
+        // Schema responses for these apps frequently carry a placeholder
+        // gameName like "ValveTestApp43110" — persistExtraAchievements
+        // filters those out so the hydrate chain can resolve the real
+        // name later via Steam Support.
+        const schema = await getGameSchema(row.appid)
+        const schemaAchievements = schema?.availableGameStats?.achievements ?? []
+        if (schemaAchievements.length > 0) {
+          persistExtraAchievements(
+            steamId,
+            row.appid,
+            schema?.gameName ?? "",
+            // Synthesize a placeholder achievement row per schema entry
+            // with achieved=0 — persistExtraAchievements counts length
+            // as total and only increments unlocked on achieved === 1.
+            schemaAchievements.map((a) => ({ apiname: a.name, achieved: 0 })),
+          )
+          continue
+        }
+
+        // Neither endpoint knows the game — mark as broken (0/0) so we
+        // don't retry on every sync. Matches the pre-fix behaviour for
+        // genuinely achievement-less apps (tools, SDKs, servers).
+        persistExtraAchievements(steamId, row.appid, "", [])
       } catch (error) {
         logger.warn({ err: error, appId: row.appid }, "Per-extras achievements sync failed — will retry on next sync")
       }
