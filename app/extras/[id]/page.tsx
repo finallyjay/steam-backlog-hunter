@@ -11,6 +11,7 @@ import { EmptyState } from "@/components/ui/empty-state"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { getSteamHeaderImageUrl } from "@/lib/steam-api"
 import { formatPlaytime } from "@/lib/utils"
 import type { SteamAchievementView } from "@/lib/types/steam"
@@ -111,13 +112,58 @@ export default function ExtraGameDetailPage() {
   if (loadingUser) return <LoadingMessage />
   if (!user) return null
 
-  const displayList = activeTab === "pending" ? pending : unlocked
-
   let progressColor = "bg-danger"
   if (percent >= 80) progressColor = "bg-success"
   else if (percent >= 40) progressColor = "bg-warning"
 
   const gameName = game?.name || `App #${appId}`
+
+  // Shared renderer for both tab panels. Extras doesn't need a loading/error
+  // branch here because total > 0 gates the whole Tabs block.
+  const renderAchievementPanel = (list: SteamAchievementView[], emptyMessage: string) => {
+    if (list.length === 0) {
+      return <EmptyState message={emptyMessage} />
+    }
+    return (
+      <ul className="grid gap-3">
+        {list.map((ach) => (
+          <li
+            key={ach.apiname}
+            className={`border-surface-4 flex items-center gap-4 rounded-lg border p-4 transition-colors ${
+              ach.achieved ? "bg-surface-1" : "bg-white/2 opacity-70"
+            }`}
+          >
+            <img
+              src={(ach.achieved ? ach.icon : ach.icongray) || ach.icon || "/placeholder-icon.svg"}
+              alt={`Icon for ${ach.displayName} achievement`}
+              className="h-12 w-12 rounded-lg"
+            />
+            <div className="min-w-0 flex-1">
+              <div className="truncate font-semibold">{ach.displayName}</div>
+              {ach.description && <div className="text-muted-foreground text-sm">{ach.description}</div>}
+            </div>
+            {ach.achieved && ach.unlocktime ? (
+              <div className="text-muted-foreground text-right text-xs">
+                <div>
+                  {new Date(ach.unlocktime * 1000).toLocaleDateString(undefined, {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                  })}
+                </div>
+                <div>
+                  {new Date(ach.unlocktime * 1000).toLocaleTimeString(undefined, {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </div>
+              </div>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+    )
+  }
 
   return (
     <div className="from-background to-muted min-h-screen bg-gradient-to-br">
@@ -195,86 +241,24 @@ export default function ExtraGameDetailPage() {
             </div>
 
             {total > 0 && (
-              <>
-                <div className="mb-4">
-                  <div className="bg-card/80 border-surface-4 inline-flex gap-2 rounded-lg border p-2">
-                    <Button
-                      variant={activeTab === "pending" ? "default" : "ghost"}
-                      size="sm"
-                      onClick={() => setActiveTab("pending")}
-                      className={
-                        activeTab === "pending"
-                          ? "bg-accent hover:bg-accent/90 text-foreground"
-                          : "text-muted-foreground hover:text-foreground hover:bg-surface-3"
-                      }
-                    >
-                      <Lock className="h-4 w-4" />
-                      Pending ({pending.length})
-                    </Button>
-                    <Button
-                      variant={activeTab === "unlocked" ? "default" : "ghost"}
-                      size="sm"
-                      onClick={() => setActiveTab("unlocked")}
-                      className={
-                        activeTab === "unlocked"
-                          ? "bg-accent hover:bg-accent/90 text-foreground"
-                          : "text-muted-foreground hover:text-foreground hover:bg-surface-3"
-                      }
-                    >
-                      <Trophy className="h-4 w-4" />
-                      Unlocked ({unlocked.length})
-                    </Button>
-                  </div>
-                </div>
-
-                {displayList.length === 0 ? (
-                  <EmptyState
-                    message={
-                      activeTab === "pending"
-                        ? "No pending achievements for this game!"
-                        : "No unlocked achievements yet."
-                    }
-                  />
-                ) : (
-                  <ul className="grid gap-3">
-                    {displayList.map((ach) => (
-                      <li
-                        key={ach.apiname}
-                        className={`border-surface-4 flex items-center gap-4 rounded-lg border p-4 transition-colors ${
-                          ach.achieved ? "bg-surface-1" : "bg-white/2 opacity-70"
-                        }`}
-                      >
-                        <img
-                          src={(ach.achieved ? ach.icon : ach.icongray) || ach.icon || "/placeholder-icon.svg"}
-                          alt={`Icon for ${ach.displayName} achievement`}
-                          className="h-12 w-12 rounded-lg"
-                        />
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate font-semibold">{ach.displayName}</div>
-                          {ach.description && <div className="text-muted-foreground text-sm">{ach.description}</div>}
-                        </div>
-                        {ach.achieved && ach.unlocktime ? (
-                          <div className="text-muted-foreground text-right text-xs">
-                            <div>
-                              {new Date(ach.unlocktime * 1000).toLocaleDateString(undefined, {
-                                year: "numeric",
-                                month: "short",
-                                day: "numeric",
-                              })}
-                            </div>
-                            <div>
-                              {new Date(ach.unlocktime * 1000).toLocaleTimeString(undefined, {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })}
-                            </div>
-                          </div>
-                        ) : null}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </>
+              <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as AchievementTab)}>
+                <TabsList>
+                  <TabsTrigger value="pending">
+                    <Lock className="h-4 w-4" />
+                    Pending ({pending.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="unlocked">
+                    <Trophy className="h-4 w-4" />
+                    Unlocked ({unlocked.length})
+                  </TabsTrigger>
+                </TabsList>
+                <TabsContent value="pending">
+                  {renderAchievementPanel(pending, "No pending achievements for this game!")}
+                </TabsContent>
+                <TabsContent value="unlocked">
+                  {renderAchievementPanel(unlocked, "No unlocked achievements yet.")}
+                </TabsContent>
+              </Tabs>
             )}
 
             {total === 0 && !loading && (

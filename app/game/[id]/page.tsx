@@ -12,6 +12,7 @@ import { usePageTitle } from "@/components/ui/page-title-context"
 import type { SteamAchievementView } from "@/lib/types/steam"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ExternalLink, Lock, RefreshCw, Trophy } from "lucide-react"
 import { formatPlaytime } from "@/lib/utils"
 
@@ -99,11 +100,75 @@ export default function GameDetailPage() {
     return null
   }
 
-  const displayList = activeTab === "pending" ? pending : unlocked
-
   let progressColor = "bg-danger"
   if (percent >= 80) progressColor = "bg-success"
   else if (percent >= 40) progressColor = "bg-warning"
+
+  // Shared panel renderer so the loading/error/empty/list logic lives in one
+  // place across both tabs. Radix only mounts the active panel, but the
+  // helper keeps the TabsContent blocks compact and DRY.
+  const renderAchievementPanel = (list: SteamAchievementView[], emptyMessage: string) => {
+    if (loadingAchievements) {
+      return (
+        <div className="grid gap-4">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="bg-card flex items-center gap-4 rounded p-4 shadow">
+              <Skeleton className="h-12 w-12 rounded" />
+              <div className="min-w-0 flex-1 space-y-2">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-3 w-24" />
+              </div>
+            </div>
+          ))}
+        </div>
+      )
+    }
+    if (errorAchievements && !syncedAchievements) {
+      return <EmptyState message="Could not load achievements." />
+    }
+    if (list.length === 0) {
+      return <EmptyState message={emptyMessage} />
+    }
+    return (
+      <ul className="grid gap-3">
+        {list.map((ach) => (
+          <li
+            key={ach.apiname}
+            className={`border-surface-4 flex items-center gap-4 rounded-lg border p-4 transition-colors ${
+              ach.achieved ? "bg-surface-1" : "bg-white/2 opacity-70"
+            }`}
+          >
+            <img
+              src={(ach.achieved ? ach.icon : ach.icongray) || ach.icon || "/placeholder-icon.svg"}
+              alt={`Icon for ${ach.displayName} achievement`}
+              className="h-12 w-12 rounded-lg"
+            />
+            <div className="min-w-0 flex-1">
+              <div className="truncate font-semibold">{ach.displayName}</div>
+              {ach.description && <div className="text-muted-foreground text-sm">{ach.description}</div>}
+            </div>
+            {ach.achieved && ach.unlocktime ? (
+              <div className="text-muted-foreground text-right text-xs">
+                <div>
+                  {new Date(ach.unlocktime * 1000).toLocaleDateString(undefined, {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                  })}
+                </div>
+                <div>
+                  {new Date(ach.unlocktime * 1000).toLocaleTimeString(undefined, {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </div>
+              </div>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+    )
+  }
 
   return (
     <div className="from-background to-muted min-h-screen bg-gradient-to-br">
@@ -161,100 +226,24 @@ export default function GameDetailPage() {
         )}
 
         {game && (
-          <>
-            <div className="mb-4">
-              <div className="bg-card/80 border-surface-4 inline-flex gap-2 rounded-lg border p-2">
-                <Button
-                  variant={activeTab === "pending" ? "default" : "ghost"}
-                  size="sm"
-                  onClick={() => setActiveTab("pending")}
-                  className={
-                    activeTab === "pending"
-                      ? "bg-accent hover:bg-accent/90 text-foreground"
-                      : "text-muted-foreground hover:text-foreground hover:bg-surface-3"
-                  }
-                >
-                  <Lock className="h-4 w-4" />
-                  Pending{!loadingAchievements && ` (${pending.length})`}
-                </Button>
-                <Button
-                  variant={activeTab === "unlocked" ? "default" : "ghost"}
-                  size="sm"
-                  onClick={() => setActiveTab("unlocked")}
-                  className={
-                    activeTab === "unlocked"
-                      ? "bg-accent hover:bg-accent/90 text-foreground"
-                      : "text-muted-foreground hover:text-foreground hover:bg-surface-3"
-                  }
-                >
-                  <Trophy className="h-4 w-4" />
-                  Unlocked{!loadingAchievements && ` (${unlocked.length})`}
-                </Button>
-              </div>
-            </div>
-
-            {loadingAchievements ? (
-              <div className="grid gap-4">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="bg-card flex items-center gap-4 rounded p-4 shadow">
-                    <Skeleton className="h-12 w-12 rounded" />
-                    <div className="min-w-0 flex-1 space-y-2">
-                      <Skeleton className="h-4 w-32" />
-                      <Skeleton className="h-3 w-24" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : errorAchievements && !syncedAchievements ? (
-              <EmptyState message="Could not load achievements." />
-            ) : displayList.length === 0 ? (
-              <EmptyState
-                message={
-                  activeTab === "pending"
-                    ? "You have no pending achievements for this game!"
-                    : "No unlocked achievements yet."
-                }
-              />
-            ) : (
-              <ul className="grid gap-3">
-                {displayList.map((ach) => (
-                  <li
-                    key={ach.apiname}
-                    className={`border-surface-4 flex items-center gap-4 rounded-lg border p-4 transition-colors ${
-                      ach.achieved ? "bg-surface-1" : "bg-white/2 opacity-70"
-                    }`}
-                  >
-                    <img
-                      src={(ach.achieved ? ach.icon : ach.icongray) || ach.icon || "/placeholder-icon.svg"}
-                      alt={`Icon for ${ach.displayName} achievement`}
-                      className="h-12 w-12 rounded-lg"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate font-semibold">{ach.displayName}</div>
-                      {ach.description && <div className="text-muted-foreground text-sm">{ach.description}</div>}
-                    </div>
-                    {ach.achieved && ach.unlocktime ? (
-                      <div className="text-muted-foreground text-right text-xs">
-                        <div>
-                          {new Date(ach.unlocktime * 1000).toLocaleDateString(undefined, {
-                            year: "numeric",
-                            month: "short",
-                            day: "numeric",
-                          })}
-                        </div>
-                        <div>
-                          {new Date(ach.unlocktime * 1000).toLocaleTimeString(undefined, {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </div>
-                      </div>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </>
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as AchievementTab)}>
+            <TabsList>
+              <TabsTrigger value="pending">
+                <Lock className="h-4 w-4" />
+                Pending{!loadingAchievements && ` (${pending.length})`}
+              </TabsTrigger>
+              <TabsTrigger value="unlocked">
+                <Trophy className="h-4 w-4" />
+                Unlocked{!loadingAchievements && ` (${unlocked.length})`}
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="pending">
+              {renderAchievementPanel(pending, "You have no pending achievements for this game!")}
+            </TabsContent>
+            <TabsContent value="unlocked">
+              {renderAchievementPanel(unlocked, "No unlocked achievements yet.")}
+            </TabsContent>
+          </Tabs>
         )}
       </div>
     </div>
