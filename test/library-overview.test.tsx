@@ -319,4 +319,229 @@ describe("LibraryOverview", () => {
     )
     expect(screen.getByText("Only Game")).toBeInTheDocument()
   })
+
+  it("filters by achievement scope='without' to keep only zero-achievement games", () => {
+    useSteamGamesMock.mockReturnValue({
+      games: [
+        buildGame({ appid: 1, name: "Has Achievements", unlocked_count: 1, total_count: 10 }),
+        buildGame({ appid: 2, name: "No Achievements", total_count: 0 }),
+      ],
+      loading: false,
+      isRefreshing: false,
+      lastUpdated: null,
+      error: null,
+      refetch: vi.fn(),
+    })
+    render(<LibraryOverview initialAchievements="without" />)
+    expect(screen.queryByRole("heading", { name: "Has Achievements" })).not.toBeInTheDocument()
+    expect(screen.getByText("No Achievements")).toBeInTheDocument()
+  })
+
+  it("filters to in-progress games when state='started'", () => {
+    useSteamGamesMock.mockReturnValue({
+      games: [
+        buildGame({ appid: 1, name: "Started Mid", unlocked_count: 5, total_count: 10 }),
+        buildGame({ appid: 2, name: "Perfect One", unlocked_count: 10, total_count: 10, perfect_game: true }),
+        buildGame({ appid: 3, name: "Untouched One", unlocked_count: 0, total_count: 10 }),
+      ],
+      loading: false,
+      isRefreshing: false,
+      lastUpdated: null,
+      error: null,
+      refetch: vi.fn(),
+    })
+    render(<LibraryOverview initialFilter="started" />)
+    expect(screen.getByText("Started Mid")).toBeInTheDocument()
+    expect(screen.queryByText("Perfect One")).not.toBeInTheDocument()
+    expect(screen.queryByRole("heading", { name: "Untouched One" })).not.toBeInTheDocument()
+  })
+
+  it("filters to untouched games when state='notstarted'", () => {
+    useSteamGamesMock.mockReturnValue({
+      games: [
+        buildGame({ appid: 1, name: "Started Game", unlocked_count: 3, total_count: 10 }),
+        buildGame({ appid: 2, name: "Fresh Game", unlocked_count: 0, total_count: 10 }),
+      ],
+      loading: false,
+      isRefreshing: false,
+      lastUpdated: null,
+      error: null,
+      refetch: vi.fn(),
+    })
+    render(<LibraryOverview initialFilter="notstarted" />)
+    expect(screen.queryByText("Started Game")).not.toBeInTheDocument()
+    expect(screen.getByText("Fresh Game")).toBeInTheDocument()
+  })
+
+  it("calls /api/steam/games/hide and removes the game from the list when hide is clicked", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true })
+    vi.stubGlobal("fetch", fetchMock)
+    useSteamGamesMock.mockReturnValue({
+      games: [buildGame({ appid: 730, name: "CS2", playtime_forever: 100, unlocked_count: 1, total_count: 1 })],
+      loading: false,
+      isRefreshing: false,
+      lastUpdated: null,
+      error: null,
+      refetch: vi.fn(),
+    })
+    render(<LibraryOverview />)
+    expect(screen.getByText("CS2")).toBeInTheDocument()
+
+    const hideButton = screen.getByLabelText("Hide CS2")
+    fireEvent.click(hideButton)
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/steam/games/hide",
+        expect.objectContaining({
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ appId: 730 }),
+        }),
+      )
+    })
+    await waitFor(() => {
+      expect(screen.queryByText("CS2")).not.toBeInTheDocument()
+    })
+    vi.unstubAllGlobals()
+  })
+
+  it("changing Played dropdown to 'notplayed' resets the state filter back to 'all'", () => {
+    // Start with state="perfect" + played="all". When the user selects
+    // "Not Played", the handler should reset state to "all" so the now-visible
+    // not-played games aren't double-filtered by the perfect criterion.
+    useSteamGamesMock.mockReturnValue({
+      games: [
+        buildGame({ appid: 1, name: "Perfect Played", unlocked_count: 10, total_count: 10, perfect_game: true }),
+        buildGame({ appid: 2, name: "Not Played Yet", playtime_forever: 0 }),
+      ],
+      loading: false,
+      isRefreshing: false,
+      lastUpdated: null,
+      error: null,
+      refetch: vi.fn(),
+    })
+    render(<LibraryOverview initialFilter="perfect" />)
+    expect(screen.getByText("Perfect Played")).toBeInTheDocument()
+    expect(screen.queryByText("Not Played Yet")).not.toBeInTheDocument()
+
+    // First combobox in the DOM is the Played select.
+    const selects = screen.getAllByRole("combobox")
+    fireEvent.change(selects[0], { target: { value: "notplayed" } })
+
+    // After the change, "Not Played Yet" should appear and the "Perfect" filter
+    // should have been reset (no longer scoping the list).
+    expect(screen.getByText("Not Played Yet")).toBeInTheDocument()
+    expect(screen.queryByText("Perfect Played")).not.toBeInTheDocument()
+  })
+
+  it("changing Completion dropdown to a non-'all' value resets the achievement scope to 'all'", () => {
+    // Start with achievements="without" (zero-achievement games only). When
+    // the user selects a Completion state, the handler should reset
+    // achievementScope to "all" because perfection requires achievements.
+    useSteamGamesMock.mockReturnValue({
+      games: [
+        buildGame({ appid: 1, name: "No Achievements Game", total_count: 0 }),
+        buildGame({ appid: 2, name: "In Progress Game", unlocked_count: 5, total_count: 10 }),
+      ],
+      loading: false,
+      isRefreshing: false,
+      lastUpdated: null,
+      error: null,
+      refetch: vi.fn(),
+    })
+    render(<LibraryOverview initialAchievements="without" />)
+    expect(screen.getByText("No Achievements Game")).toBeInTheDocument()
+    expect(screen.queryByText("In Progress Game")).not.toBeInTheDocument()
+
+    // Combobox order: [0] Played, [1] Completion, [2] Achievements, [3] Sort
+    const selects = screen.getAllByRole("combobox")
+    fireEvent.change(selects[1], { target: { value: "started" } })
+
+    // "In Progress" filter takes over and "without achievements" was reset.
+    expect(screen.getByText("In Progress Game")).toBeInTheDocument()
+    expect(screen.queryByText("No Achievements Game")).not.toBeInTheDocument()
+  })
+
+  it("changing the Achievements dropdown updates the visible list", () => {
+    useSteamGamesMock.mockReturnValue({
+      games: [
+        buildGame({ appid: 1, name: "Has Achievements", unlocked_count: 1, total_count: 10 }),
+        buildGame({ appid: 2, name: "No Achievements", total_count: 0 }),
+      ],
+      loading: false,
+      isRefreshing: false,
+      lastUpdated: null,
+      error: null,
+      refetch: vi.fn(),
+    })
+    render(<LibraryOverview />)
+    expect(screen.getByText("Has Achievements")).toBeInTheDocument()
+    expect(screen.getByText("No Achievements")).toBeInTheDocument()
+
+    // [0] Played, [1] Completion, [2] Achievements, [3] Sort
+    const selects = screen.getAllByRole("combobox")
+    fireEvent.change(selects[2], { target: { value: "with" } })
+
+    expect(screen.getByText("Has Achievements")).toBeInTheDocument()
+    expect(screen.queryByText("No Achievements")).not.toBeInTheDocument()
+  })
+
+  it("changing the Sort dropdown re-orders the list", () => {
+    useSteamGamesMock.mockReturnValue({
+      games: [
+        buildGame({ appid: 1, name: "Zebra", unlocked_count: 1, total_count: 10 }),
+        buildGame({ appid: 2, name: "Apple", unlocked_count: 9, total_count: 10 }),
+      ],
+      loading: false,
+      isRefreshing: false,
+      lastUpdated: null,
+      error: null,
+      refetch: vi.fn(),
+    })
+    const { container } = render(<LibraryOverview />)
+
+    // Default sort = "completed" — Apple (90%) should come before Zebra (10%).
+    const headingsBefore = Array.from(container.querySelectorAll("h3")).map((h) => h.textContent)
+    expect(headingsBefore.indexOf("Apple")).toBeLessThan(headingsBefore.indexOf("Zebra"))
+
+    // Switch to alphabetical — Apple still before Zebra by name.
+    const selects = screen.getAllByRole("combobox")
+    fireEvent.change(selects[3], { target: { value: "alphabetical" } })
+
+    const headingsAfter = Array.from(container.querySelectorAll("h3")).map((h) => h.textContent)
+    expect(headingsAfter.indexOf("Apple")).toBeLessThan(headingsAfter.indexOf("Zebra"))
+  })
+
+  it("clears the previous debounce timer when the user types again before 300ms", async () => {
+    vi.useFakeTimers()
+    useSteamGamesMock.mockReturnValue({
+      games: [
+        buildGame({ appid: 1, name: "Portal 2", playtime_forever: 100, unlocked_count: 1, total_count: 1 }),
+        buildGame({ appid: 2, name: "Team Fortress 2", playtime_forever: 100, unlocked_count: 1, total_count: 1 }),
+      ],
+      loading: false,
+      isRefreshing: false,
+      lastUpdated: null,
+      error: null,
+      refetch: vi.fn(),
+    })
+    render(<LibraryOverview />)
+    const searchInput = screen.getByPlaceholderText("Search games...")
+
+    // Type "p" — first timer starts.
+    fireEvent.change(searchInput, { target: { value: "p" } })
+    // Before 300ms elapses, type "po" — this should clearTimeout the first
+    // timer (covering the `if (searchTimerRef.current) clearTimeout(...)`
+    // branch) and start a fresh one.
+    await vi.advanceTimersByTimeAsync(100)
+    fireEvent.change(searchInput, { target: { value: "po" } })
+    await vi.advanceTimersByTimeAsync(300)
+    vi.useRealTimers()
+
+    await waitFor(() => {
+      expect(screen.queryByText("Team Fortress 2")).not.toBeInTheDocument()
+    })
+    expect(screen.getByText("Portal 2")).toBeInTheDocument()
+  })
 })
