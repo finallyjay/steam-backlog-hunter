@@ -81,7 +81,7 @@ export function GameCard({
         />
       </div>
       <div className="min-w-0 flex-1">
-        <h3 className="flex items-center gap-2 truncate text-base font-semibold tracking-tight">{name}</h3>
+        <h3 className="flex items-center gap-2 truncate text-lg font-semibold tracking-tight">{name}</h3>
         {(playtime !== undefined || !achievementsLoading) && (
           <div className="text-muted-foreground mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
             {playtime !== undefined ? (
