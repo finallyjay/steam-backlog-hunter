@@ -179,6 +179,8 @@ export function UserProfile({ user, stats, statsLoading = false, syncLabel }: Us
                 {user.steamLevel != null &&
                   (() => {
                     const badge = getSteamLevelBadge(user.steamLevel)
+                    // text-[13px] below is locked to the Steam badge sprite's pixel grid
+                    // (DISPLAY_SIZE/SPRITE_FRAME) — intentional pixel sizing, not drift.
                     if (badge.type === "circle") {
                       return (
                         <span
@@ -252,9 +254,7 @@ export function UserProfile({ user, stats, statsLoading = false, syncLabel }: Us
           </CardTitle>
           {!statsLoading && stats && (
             <div className="text-right">
-              <p className="text-muted-foreground text-[0.68rem] font-semibold tracking-[0.18em] uppercase">
-                Avg. completion
-              </p>
+              <p className="text-muted-foreground text-2xs tracking-eyebrow font-semibold uppercase">Avg. completion</p>
               <p className="mt-1 flex items-baseline justify-end text-3xl font-semibold tracking-tight">
                 <AnimatedNumber value={stats.averageCompletion} />
                 <span className="text-muted-foreground ml-1.5 self-center text-lg">%</span>
@@ -311,9 +311,7 @@ export function UserProfile({ user, stats, statsLoading = false, syncLabel }: Us
                 href={item.href}
                 className="border-surface-4 bg-surface-1 hover:border-accent/30 hover:bg-surface-2 rounded-lg border px-4 py-4 backdrop-blur-sm transition-colors"
               >
-                <p className="text-muted-foreground text-[0.68rem] font-semibold tracking-[0.18em] uppercase">
-                  {item.label}
-                </p>
+                <p className="text-muted-foreground text-2xs tracking-eyebrow font-semibold uppercase">{item.label}</p>
                 <p className="mt-2 text-2xl font-semibold tracking-tight">
                   {statsLoading ? "..." : <AnimatedNumber value={item.value} />}
                 </p>
