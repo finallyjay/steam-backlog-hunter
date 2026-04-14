@@ -42,33 +42,75 @@ type StoreAppDetails = {
   }
 }
 
+type NameFetchResult =
+  | { kind: "ok"; name: string }
+  | { kind: "empty" } // endpoint responded cleanly but had no name for this appid
+  | { kind: "rate_limited" } // 429 — caller should back off
+  | { kind: "error" } // network / 5xx / malformed — caller decides
+
+/**
+ * Name resolver: scrape the <title> of the Steam Support "Help with game"
+ * wizard, which Valve serves for every appid Steam still knows about —
+ * including the tool/demo/beta/dedicated-server/SDK subtypes that
+ * IStoreService/GetAppList systematically excludes and that
+ * `store.steampowered.com/api/appdetails` reports as `success=false`.
+ *
+ * Title format:
+ *   - Known app  → "Steam Support - <name>"
+ *   - Unknown    → "Steam Support" (no dash, no name)
+ *
+ * Different host from steamcommunity.com so it has its own rate-limit
+ * bucket. Empirically covers >85% of the orphan appids that the other
+ * sources miss (Source Dedicated Server, CS:S Beta, Rocksmith Demo,
+ * Dota 2 Test, random Prototype apps, …).
+ */
+async function fetchSupportGameName(appId: number): Promise<NameFetchResult> {
+  try {
+    const response = await fetch(`https://help.steampowered.com/en/wizard/HelpWithGame/?appid=${appId}`, {
+      cache: "no-store",
+      redirect: "follow",
+    })
+    if (response.status === 429) return { kind: "rate_limited" }
+    if (!response.ok) return { kind: "error" }
+    const html = await response.text()
+    const match = html.match(/<title>Steam Support - ([^<]+)<\/title>/)
+    if (!match) return { kind: "empty" }
+    const name = decodeBasicHtmlEntities(match[1].trim())
+    if (!name) return { kind: "empty" }
+    return { kind: "ok", name }
+  } catch {
+    return { kind: "error" }
+  }
+}
+
 /**
  * Last-resort name resolver: scrape the HTML title of the Steam community
  * page for the given appid. Used for delisted achievement-less apps that
- * neither store appdetails nor GetSchemaForGame can name (server builds,
- * soundtracks, demos, experimental indie titles, …). Returns null on any
- * failure or sentinel response.
+ * neither store appdetails, GetSchemaForGame nor the Support wizard can
+ * name. Returns an explicit `rate_limited` result on 429 so the caller can
+ * abort the community pass instead of hammering a throttled endpoint.
  *
  * Example: app 502090 ("Invisible Mind") is delisted with no schema, so the
  * structured endpoints return nothing. The community page still serves a
  * `<title>Steam Community :: Invisible Mind</title>` for it.
  */
-async function fetchCommunityGameName(appId: number): Promise<string | null> {
+async function fetchCommunityGameName(appId: number): Promise<NameFetchResult> {
   try {
     const response = await fetch(`https://steamcommunity.com/app/${appId}`, {
       cache: "no-store",
       redirect: "follow",
     })
-    if (!response.ok) return null
+    if (response.status === 429) return { kind: "rate_limited" }
+    if (!response.ok) return { kind: "error" }
     const html = await response.text()
     const match = html.match(/<title>Steam Community :: ([^<]+)<\/title>/)
-    if (!match) return null
+    if (!match) return { kind: "empty" }
     const name = decodeBasicHtmlEntities(match[1].trim())
     // Sentinel values Steam returns for unknown/invalid appids on this URL.
-    if (name === "Error") return null
-    return name
+    if (!name || name === "Error") return { kind: "empty" }
+    return { kind: "ok", name }
   } catch {
-    return null
+    return { kind: "error" }
   }
 }
 
@@ -141,6 +183,8 @@ export async function hydrateMissingExtraNames(steamId: string) {
   `)
 
   let consecutiveStoreFailures = 0
+  let consecutiveSupportFailures = 0
+  let consecutiveCommunityFailures = 0
 
   for (const { appid } of rows) {
     if (consecutiveStoreFailures >= 10) {
@@ -185,14 +229,41 @@ export async function hydrateMissingExtraNames(steamId: string) {
       }
     }
 
-    // Source 3: community page HTML (covers delisted achievement-less apps
-    // that neither store nor schema can name — e.g. dedicated servers,
-    // soundtracks, demos, one-off experimental indies). Different host so
-    // failures don't count toward the store back-off counter.
-    if (!resolvedName) {
-      const communityName = await fetchCommunityGameName(appid)
-      if (communityName) {
-        resolvedName = communityName
+    // Source 3: Steam Support "Help with game" wizard. Official Valve
+    // endpoint that names every appid Steam still tracks internally —
+    // including tool/demo/beta/dedicated-server/SDK subtypes that
+    // IStoreService/GetAppList filters out and that store appdetails
+    // rejects. Different host from steamcommunity so it has an
+    // independent rate-limit bucket. Skipped entirely once we see 5
+    // consecutive 429/error responses to avoid hammering a throttled
+    // endpoint for the rest of the run.
+    if (!resolvedName && consecutiveSupportFailures < 5) {
+      const result = await fetchSupportGameName(appid)
+      if (result.kind === "ok") {
+        resolvedName = result.name
+        consecutiveSupportFailures = 0
+      } else if (result.kind === "empty") {
+        consecutiveSupportFailures = 0
+      } else {
+        consecutiveSupportFailures++
+      }
+    }
+
+    // Source 4: community page HTML. Kept as a final fallback — in
+    // practice Steam Support already covers every case community would
+    // have caught, but this leaves us resilient if Valve ever changes the
+    // Support page template. Same 5-strike back-off as Support because
+    // steamcommunity.com is historically the most aggressively
+    // rate-limited of the three hosts.
+    if (!resolvedName && consecutiveCommunityFailures < 5) {
+      const result = await fetchCommunityGameName(appid)
+      if (result.kind === "ok") {
+        resolvedName = result.name
+        consecutiveCommunityFailures = 0
+      } else if (result.kind === "empty") {
+        consecutiveCommunityFailures = 0
+      } else {
+        consecutiveCommunityFailures++
       }
     }
 
