@@ -1,5 +1,6 @@
 import "server-only"
 
+import { PLACEHOLDER_NAME_SQL_MATCH } from "@/lib/server/placeholder-names"
 import { getSqliteDatabase } from "@/lib/server/sqlite"
 import { nowIso } from "@/lib/server/steam-store-utils"
 
@@ -63,7 +64,12 @@ export function listOrphanNames(): OrphanName[] {
         MAX(r.rtime_last_played) AS rtime_last_played
       FROM referenced r
       LEFT JOIN games g ON g.appid = r.appid
-      WHERE (g.appid IS NULL OR g.name IS NULL OR g.name = '')
+      WHERE (
+        g.appid IS NULL
+        OR g.name IS NULL
+        OR g.name = ''
+        OR ${PLACEHOLDER_NAME_SQL_MATCH}
+      )
       GROUP BY r.appid
       ORDER BY playtime_forever DESC
       `,

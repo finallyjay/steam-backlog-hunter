@@ -295,6 +295,50 @@ function applyAdditiveMigrations(db: DatabaseSync) {
   addColumnIfMissing(db, "extra_games", "perfect_game", "INTEGER NOT NULL DEFAULT 0")
   // Provenance of games.name. See CREATE TABLE comment above.
   addColumnIfMissing(db, "games", "name_source", "TEXT NOT NULL DEFAULT 'auto'")
+  resetPlaceholderGameNames(db)
+}
+
+/**
+ * Idempotent self-healing sweep: any `games` row whose `name` matches one
+ * of Valve's internal placeholders (ValveTestAppX, UntitledApp,
+ * InvitedPartnerAppX) is reset so the extras hydrate chain can re-resolve
+ * the real title via the Steam Support wizard on the next sync. Manual
+ * admin names (`name_source='manual'`) are preserved.
+ *
+ * Also clears the corresponding `extra_games` achievement cache
+ * (`achievements_synced_at = NULL`, counts → NULL) so the sync path
+ * re-runs through the new schema fallback and gets the correct total
+ * achievement count the next time it fires.
+ *
+ * Runs on every DB open. Cheap UPDATE, no-op once no placeholder names
+ * remain.
+ */
+function resetPlaceholderGameNames(db: DatabaseSync) {
+  const PLACEHOLDER_WHERE =
+    "(name GLOB 'ValveTestApp[0-9]*' OR name = 'UntitledApp' OR name GLOB 'InvitedPartnerApp[0-9]*')"
+
+  // Clear cached achievement counts on any extras that reference a
+  // placeholder-named row. Must run BEFORE the games UPDATE so the
+  // subquery still sees the placeholder names.
+  db.exec(`
+    UPDATE extra_games
+    SET achievements_synced_at = NULL,
+        unlocked_count = NULL,
+        total_count = NULL,
+        perfect_game = 0
+    WHERE appid IN (SELECT appid FROM games WHERE ${PLACEHOLDER_WHERE});
+  `)
+
+  // Reset placeholder names to empty so hydrateMissingExtraNames'
+  // WHERE — which matches both empty AND placeholder rows — picks
+  // them up on the next sync. Preserve admin-set manual names.
+  db.exec(`
+    UPDATE games
+    SET name = '',
+        updated_at = COALESCE(updated_at, '1970-01-01T00:00:00Z')
+    WHERE ${PLACEHOLDER_WHERE}
+      AND (name_source IS NULL OR name_source != 'manual');
+  `)
 }
 
 export function getSqliteDatabase() {

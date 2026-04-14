@@ -10,6 +10,7 @@ import {
   persistExtraGames,
   syncExtraAchievements,
 } from "@/lib/server/extra-games"
+import { isPlaceholderName } from "@/lib/server/placeholder-names"
 import { logger } from "@/lib/server/logger"
 import {
   nowIso,
@@ -184,9 +185,15 @@ export function persistOwnedGames(steamId: string, games: SteamGame[]) {
     markMissingAsUnowned.run(now, steamId)
 
     for (const game of games) {
+      // Valve occasionally returns internal placeholder names here too
+      // (ValveTestAppX, etc) for partner-uploaded entries. Persist an
+      // empty string instead so hydrateMissingExtraNames' WHERE —
+      // which also matches empty names — resolves the real title via
+      // the Steam Support chain on the next sync tick.
+      const safeName = isPlaceholderName(game.name) ? "" : game.name
       insertGame.run(
         game.appid,
-        game.name,
+        safeName,
         nullIfUndefined(game.img_icon_url),
         nullIfUndefined(game.img_logo_url),
         typeof game.has_community_visible_stats === "boolean" ? Number(game.has_community_visible_stats) : null,

@@ -356,6 +356,63 @@ describe("syncExtraAchievements", () => {
     expect(row.achievements_synced_at).toBeTruthy()
   })
 
+  it("falls back to GetSchemaForGame when GetPlayerAchievements refuses (profile-not-public)", async () => {
+    // Simulates an unowned-but-played game: GetPlayerAchievements
+    // returns null ("Profile is not public" sentinel), but the schema
+    // endpoint still exposes the full achievement list. The sync path
+    // should record the total from the schema and leave unlocked at 0
+    // so the UI shows "0/N (0%)" instead of a bare "-".
+    mockSteamApi({
+      getPlayerAchievements: vi.fn().mockResolvedValue(null),
+      getGameSchema: vi.fn().mockResolvedValue({
+        gameName: "Metro 2033",
+        availableGameStats: {
+          achievements: Array.from({ length: 48 }, (_, i) => ({ name: `ACH_${i}` })),
+        },
+      }),
+    })
+    const db = await seedExtra(43110)
+    const { syncExtraAchievements } = await import("@/lib/server/extra-games")
+    await syncExtraAchievements(STEAM_ID)
+    const row = db
+      .prepare("SELECT unlocked_count, total_count, achievements_synced_at FROM extra_games WHERE appid=43110")
+      .get() as { unlocked_count: number; total_count: number; achievements_synced_at: string }
+    expect(row.total_count).toBe(48)
+    expect(row.unlocked_count).toBe(0)
+    expect(row.achievements_synced_at).toBeTruthy()
+    const game = db.prepare("SELECT name FROM games WHERE appid=43110").get() as { name: string }
+    expect(game.name).toBe("Metro 2033")
+  })
+
+  it("skips the games.name write when schema returns a placeholder gameName", async () => {
+    // Valve often returns "ValveTestApp<id>" for unowned-but-played
+    // games. persistExtraAchievements must NOT write that placeholder
+    // to the shared games cache so hydrateMissingExtraNames can
+    // resolve the real title via the Steam Support chain later.
+    mockSteamApi({
+      getPlayerAchievements: vi.fn().mockResolvedValue(null),
+      getGameSchema: vi.fn().mockResolvedValue({
+        gameName: "ValveTestApp43110",
+        availableGameStats: {
+          achievements: [{ name: "ACH_1" }, { name: "ACH_2" }],
+        },
+      }),
+    })
+    const db = await seedExtra(43110)
+    const { syncExtraAchievements } = await import("@/lib/server/extra-games")
+    await syncExtraAchievements(STEAM_ID)
+
+    // Totals still recorded from the schema — we got the count even
+    // though we refused to cache the name.
+    const row = db.prepare("SELECT total_count FROM extra_games WHERE appid=43110").get() as { total_count: number }
+    expect(row.total_count).toBe(2)
+
+    // games.name left empty (or never written) so the hydrate pass
+    // has a chance to resolve the real title.
+    const game = db.prepare("SELECT name FROM games WHERE appid=43110").get() as { name: string } | undefined
+    expect(game?.name ?? "").toBe("")
+  })
+
   it("skips known-broken rows (synced once with total_count=0) without hitting Steam", async () => {
     const getPlayerAchievements = vi.fn()
     mockSteamApi({ getPlayerAchievements })
@@ -486,6 +543,55 @@ describe("hydrateMissingExtraNames", () => {
     await hydrateMissingExtraNames(STEAM_ID)
     const row = db.prepare("SELECT name FROM games WHERE appid=111").get() as { name: string }
     expect(row.name).toBe("Resolved 111")
+  })
+
+  it("retries rows whose games.name is a Valve placeholder", async () => {
+    const db = await seedExtraWithoutName(43110)
+    const now = new Date().toISOString()
+    db.prepare(`INSERT INTO games (appid, name, created_at, updated_at) VALUES (43110, 'ValveTestApp43110', ?, ?)`).run(
+      now,
+      now,
+    )
+    mockStoreSingle((appid) => ({ success: true, data: { name: `Resolved ${appid}` } }))
+    const { hydrateMissingExtraNames } = await import("@/lib/server/extra-games")
+    await hydrateMissingExtraNames(STEAM_ID)
+    const row = db.prepare("SELECT name FROM games WHERE appid=43110").get() as { name: string }
+    expect(row.name).toBe("Resolved 43110")
+  })
+
+  it("refuses to overwrite games.name with another placeholder returned by store", async () => {
+    const db = await seedExtraWithoutName(43110)
+    const now = new Date().toISOString()
+    db.prepare(`INSERT INTO games (appid, name, created_at, updated_at) VALUES (43110, 'ValveTestApp43110', ?, ?)`).run(
+      now,
+      now,
+    )
+    // Store returns another placeholder; GetSchemaForGame returns one
+    // too; both should be rejected so the row stays flagged for the
+    // next run to retry via Support/community.
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const u = new URL(String(input))
+      if (u.hostname === "store.steampowered.com") {
+        const appid = u.searchParams.get("appids") ?? "0"
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ [appid]: { success: true, data: { name: "ValveTestApp43110" } } }),
+          text: async () => "",
+        } as unknown as Response
+      }
+      return { ok: false, status: 404, json: async () => ({}), text: async () => "" } as unknown as Response
+    }) as unknown as typeof fetch
+    vi.doMock("@/lib/steam-api", () => ({
+      getGameSchema: vi.fn().mockResolvedValue({ gameName: "ValveTestApp43110" }),
+      getPlayerAchievements: vi.fn().mockResolvedValue(null),
+      getOwnedGames: vi.fn().mockResolvedValue([]),
+      getLastPlayedTimes: vi.fn().mockResolvedValue([]),
+    }))
+    const { hydrateMissingExtraNames } = await import("@/lib/server/extra-games")
+    await hydrateMissingExtraNames(STEAM_ID)
+    const row = db.prepare("SELECT name FROM games WHERE appid=43110").get() as { name: string }
+    expect(row.name).toBe("ValveTestApp43110") // left as-is, will retry next run
   })
 
   it("upserts the real name when the store API returns success=true", async () => {
