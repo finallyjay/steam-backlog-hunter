@@ -5,11 +5,7 @@
     "correctness": "error"
   },
   "rules": {
-    "nextjs/no-img-element": "off",
-    // The three jsx-a11y rules below are temporarily disabled — see issue #168
-    "jsx-a11y/label-has-associated-control": "off",
-    "jsx-a11y/click-events-have-key-events": "off",
-    "jsx-a11y/no-static-element-interactions": "off"
+    "nextjs/no-img-element": "off"
   },
   "env": {
     "builtin": true
