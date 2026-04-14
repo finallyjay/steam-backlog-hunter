@@ -170,7 +170,10 @@ export function UserProfile({ user, stats, statsLoading = false, syncLabel }: Us
     <Card className="border-surface-4 overflow-hidden bg-[linear-gradient(135deg,rgba(88,198,255,0.14),transparent_35%),linear-gradient(180deg,rgba(255,255,255,0.04),transparent)]">
       <CardHeader className="pb-0">
         <div className="flex items-start justify-between">
-          <CardTitle className="flex items-start gap-4">
+          {/* as="div" because the inner <h2> for the display name is the
+              real semantic heading. We don't want CardTitle defaulting to
+              <h3> and creating a nested-heading conflict. */}
+          <CardTitle as="div" className="flex items-start gap-4">
             <img
               src={user.avatar || "/placeholder.svg"}
               alt={`${user.displayName}'s Steam avatar`}
