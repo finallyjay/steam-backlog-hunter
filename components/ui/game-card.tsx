@@ -133,7 +133,7 @@ export function GameCard({
     <Card
       data-game-id={id}
       className={cn(
-        "group relative gap-0 overflow-hidden rounded-lg px-4 py-4 shadow-none backdrop-blur-none transition-all duration-300",
+        "group relative gap-0 overflow-hidden rounded-lg px-4 py-4 shadow-none backdrop-blur-none transition-all duration-300 hover:-translate-y-0.5",
         isCompleted
           ? "bg-success/10 hover:border-success/40"
           : "bg-surface-1 hover:border-accent/45 hover:bg-surface-2",
