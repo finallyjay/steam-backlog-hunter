@@ -22,6 +22,7 @@ export interface SteamGameCardModel {
   id: number
   name: string
   image: string
+  imagePortrait?: string | null
   playtime: number
   achievements: SteamAchievementView[]
   percent: number

@@ -7,6 +7,7 @@ type GameBase = {
   id: number
   name: string
   image: string
+  imagePortrait?: string | null
   playtime: number
   unlocked_count: number
   total_count: number
@@ -29,6 +30,7 @@ export function mapOwnedGamesToGameCards(
       id: game.appid,
       name: game.name,
       image: game.image_landscape_url || getImageUrl(game.appid, game.img_icon_url),
+      imagePortrait: game.image_portrait_url ?? null,
       playtime: Number((game.playtime_forever / 60).toFixed(1)),
       unlocked_count: game.unlocked_count ?? 0,
       total_count: game.total_count ?? 0,

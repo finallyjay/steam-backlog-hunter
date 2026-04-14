@@ -229,6 +229,7 @@ export default function ExtrasPage() {
                   id={game.appid}
                   name={game.name || `App #${game.appid}`}
                   image={game.image_landscape_url ?? getSteamHeaderImageUrl(game.appid)}
+                  imagePortrait={game.image_portrait_url}
                   playtime={Number(((game.playtime_forever ?? 0) / 60).toFixed(1))}
                   href={`/extras/${game.appid}`}
                   achievements={[]}
@@ -257,6 +258,7 @@ export default function ExtrasPage() {
                 id={game.appid}
                 name={game.name || `App #${game.appid}`}
                 image={game.image_landscape_url ?? getSteamHeaderImageUrl(game.appid)}
+                imagePortrait={game.image_portrait_url}
                 playtime={game.playtime_forever != null ? Number((game.playtime_forever / 60).toFixed(1)) : undefined}
                 href={`https://store.steampowered.com/app/${game.appid}`}
                 achievements={[]}

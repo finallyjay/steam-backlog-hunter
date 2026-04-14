@@ -1,7 +1,7 @@
 "use client"
 
 import { useSteamAchievements, useSteamGames } from "@/hooks/use-steam-data"
-import { getSteamHeaderImageUrl } from "@/lib/steam-api"
+import { GameImage } from "@/components/ui/game-image"
 import { useCurrentUser } from "@/hooks/use-current-user"
 import { useParams, useRouter } from "next/navigation"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -185,11 +185,15 @@ export default function GameDetailPage() {
           <EmptyState message="Game not found." />
         ) : (
           <div className="mb-8 flex items-start gap-6">
-            <img
-              src={game.image_portrait_url || game.image_landscape_url || getSteamHeaderImageUrl(game.appid)}
-              alt={`Cover art for ${game.name}`}
-              className="w-44 rounded-lg border"
-            />
+            <div className="aspect-[2/3] w-44 shrink-0 overflow-hidden rounded-lg border">
+              <GameImage
+                appId={game.appid}
+                src={game.image_portrait_url}
+                orientation="portrait"
+                alt={`Cover art for ${game.name}`}
+                className="h-full w-full object-cover"
+              />
+            </div>
             <div className="flex-1 space-y-4 pt-1">
               <div>
                 <h1 className="mb-1 text-2xl font-bold">{game.name}</h1>

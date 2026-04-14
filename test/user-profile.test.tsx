@@ -75,10 +75,13 @@ describe("UserProfile", () => {
 
   it("shows average completion when stats are available", () => {
     render(<UserProfile user={baseUser} stats={baseStats} />)
-    // The avg-completion ring renders "Avg" as a compact eyebrow label
-    // alongside the percentage value inside the SVG ring.
-    expect(screen.getByText("Avg")).toBeInTheDocument()
-    expect(screen.getByText("77")).toBeInTheDocument()
+    // The avg-completion ring is rendered twice — once inline at
+    // top-right of the header (visible sm+) and once as a centered
+    // block below the header (visible <sm). Both live in the DOM and
+    // only CSS media queries hide one per breakpoint, so the test
+    // asserts on the count rather than a single element.
+    expect(screen.getAllByText("Avg")).toHaveLength(2)
+    expect(screen.getAllByText("77")).toHaveLength(2)
   })
 
   it("renders a tier-coloured circle badge for levels < 100", () => {

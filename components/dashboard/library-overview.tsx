@@ -373,6 +373,7 @@ export function LibraryOverview({
                   id={game.id}
                   name={game.name}
                   image={game.image}
+                  imagePortrait={game.imagePortrait}
                   playtime={game.playtime}
                   achievements={game.achievements}
                   achievementsLoading={achievementsLoading}

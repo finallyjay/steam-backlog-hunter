@@ -12,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { getSteamHeaderImageUrl } from "@/lib/steam-api"
+import { GameImage } from "@/components/ui/game-image"
 import { formatPlaytime } from "@/lib/utils"
 import type { SteamAchievementView } from "@/lib/types/steam"
 
@@ -181,11 +181,15 @@ export default function ExtraGameDetailPage() {
         ) : game ? (
           <>
             <div className="mb-8 flex items-start gap-6">
-              <img
-                src={game.image_portrait_url || game.image_landscape_url || getSteamHeaderImageUrl(game.appid)}
-                alt={`Cover art for ${gameName}`}
-                className="w-44 rounded-lg border"
-              />
+              <div className="aspect-[2/3] w-44 shrink-0 overflow-hidden rounded-lg border">
+                <GameImage
+                  appId={game.appid}
+                  src={game.image_portrait_url}
+                  orientation="portrait"
+                  alt={`Cover art for ${gameName}`}
+                  className="h-full w-full object-cover"
+                />
+              </div>
               <div className="flex-1 space-y-4 pt-1">
                 <div>
                   <div className="mb-2 flex items-center gap-2">
