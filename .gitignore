@@ -4,6 +4,12 @@ node_modules/
 # Next.js build output
 .next/
 
+# Next.js generates next-env.d.ts with different content depending on whether
+# it ran in dev or build mode (.next/dev/types/... vs .next/types/...), so
+# tracking it causes permanent git status drift. Ignoring is safe because
+# pnpm dev/build/typecheck all regenerate it automatically.
+next-env.d.ts
+
 # Local environment variables
 .env*
 
