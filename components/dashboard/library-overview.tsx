@@ -218,12 +218,12 @@ export function LibraryOverview({
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-wrap items-end gap-4">
           <div className="w-36 space-y-1.5">
-            <label className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium">
+            <span className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium">
               <Play className="h-3 w-3" />
               Played
-            </label>
+            </span>
             <Select value={playedFilter} onValueChange={handlePlayedChange}>
-              <SelectTrigger className="w-full">
+              <SelectTrigger className="w-full" aria-label="Played filter">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -238,12 +238,12 @@ export function LibraryOverview({
 
           {showCompletionFilter && (
             <div className="w-full space-y-1.5 sm:w-44">
-              <label className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium">
+              <span className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium">
                 <PieChart className="h-3 w-3" />
                 Completion
-              </label>
+              </span>
               <Select value={state} onValueChange={handleStateChange}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger className="w-full" aria-label="Completion state filter">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -259,12 +259,12 @@ export function LibraryOverview({
 
           {showAchievementFilter && (
             <div className="w-full space-y-1.5 sm:w-48">
-              <label className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium">
+              <span className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium">
                 <Trophy className="h-3 w-3" />
                 Achievements
-              </label>
+              </span>
               <Select value={achievementScope} onValueChange={handleAchievementChange}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger className="w-full" aria-label="Achievement scope filter">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -280,12 +280,12 @@ export function LibraryOverview({
         </div>
 
         <div className="w-48 space-y-1.5">
-          <label className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium">
+          <span className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium">
             <ArrowUpDown className="h-3 w-3" />
             Sort by
-          </label>
+          </span>
           <Select value={order} onValueChange={handleOrderChange}>
-            <SelectTrigger className="w-full">
+            <SelectTrigger className="w-full" aria-label="Sort order">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
