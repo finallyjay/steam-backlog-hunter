@@ -2,7 +2,8 @@
 
 import Link from "next/link"
 import { useMemo, useState } from "react"
-import { Pie, PieChart, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis } from "recharts"
+import { Pie, PieChart, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, Sector } from "recharts"
+import type { PieSectorDataItem } from "recharts/types/polar/Pie"
 import { PieChart as PieChartIcon, Trophy } from "lucide-react"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -28,25 +29,72 @@ const CHART_COLORS = [
   "var(--color-chart-5)",
 ]
 
-function ChartTooltip({
-  active,
-  payload,
-}: {
-  active?: boolean
-  payload?: Array<{ name: string; value: number; payload: { color: string; name?: string } }>
-}) {
-  if (!active || !payload?.length) return null
+const CHART_GRADIENT_IDS = ["chart-grad-1", "chart-grad-2", "chart-grad-3", "chart-grad-4", "chart-grad-5"]
 
-  const item = payload[0]
+// SVG <defs> with one vertical linearGradient per chart color slot, going
+// from full opacity (top) to 0.55 (bottom). Adds depth without changing the
+// palette identity. Rendered as the first child of each Recharts chart.
+function ChartGradients() {
   return (
-    <div className="border-surface-4 rounded-xl border bg-slate-900/95 px-3 py-2 shadow-xl backdrop-blur-sm">
-      <div className="flex items-center gap-2">
-        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.payload.color }} />
-        <span className="text-muted-foreground text-sm">{item.payload.name ?? item.name}</span>
-        <span className="text-foreground ml-1 text-sm font-semibold">{item.value}</span>
-      </div>
-    </div>
+    <defs>
+      {CHART_COLORS.map((color, i) => (
+        <linearGradient key={CHART_GRADIENT_IDS[i]} id={CHART_GRADIENT_IDS[i]} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity={0.95} />
+          <stop offset="100%" stopColor={color} stopOpacity={0.55} />
+        </linearGradient>
+      ))}
+    </defs>
   )
+}
+
+// Custom hover shape for Pie slices: same geometry as the static slice but
+// nudged ~4px outward and with a soft accent glow via drop-shadow.
+function ActivePieShape(props: PieSectorDataItem) {
+  const { cx, cy, innerRadius, outerRadius = 0, startAngle, endAngle, fill } = props
+  return (
+    <Sector
+      cx={cx}
+      cy={cy}
+      innerRadius={innerRadius}
+      outerRadius={outerRadius + 4}
+      startAngle={startAngle}
+      endAngle={endAngle}
+      fill={fill}
+      style={{ filter: "drop-shadow(0 0 8px rgba(97, 206, 255, 0.45))" }}
+    />
+  )
+}
+
+// Factory: returns a Tooltip component that closes over the total of all
+// chart values, so it can render each slice as both an absolute count and a
+// percentage of the whole.
+function createChartTooltip(total: number) {
+  return function ChartTooltip({
+    active,
+    payload,
+  }: {
+    active?: boolean
+    payload?: Array<{ name: string; value: number; payload: { color: string; name?: string } }>
+  }) {
+    if (!active || !payload?.length) return null
+
+    const item = payload[0]
+    const percent = total > 0 ? Math.round((item.value / total) * 100) : 0
+    const color = item.payload.color
+    return (
+      <div
+        className="border-surface-4 relative overflow-hidden rounded-xl border bg-slate-900/95 px-3 py-2 shadow-[0_18px_60px_-25px_rgba(0,0,0,0.85),0_2px_8px_-4px_rgba(0,0,0,0.45)] backdrop-blur-md"
+        style={{ borderTopColor: color, borderTopWidth: 2 }}
+      >
+        <div className="flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
+          <span className="text-muted-foreground text-sm">{item.payload.name ?? item.name}</span>
+          <span className="text-foreground ml-1 text-sm font-semibold tabular-nums">{item.value}</span>
+          <span className="text-muted-foreground/80 text-xs tabular-nums">({percent}%)</span>
+        </div>
+      </div>
+    )
+  }
 }
 
 const METRIC_LEGEND_BASE = "bg-surface-1 flex items-center justify-between rounded-lg px-3 py-2.5"
@@ -117,7 +165,13 @@ function InsightCard({
   chartKind?: ChartKind
   links?: Record<string, string>
 }) {
-  const chartData = data.map((entry, index) => ({ ...entry, color: CHART_COLORS[index] }))
+  const chartData = data.map((entry, index) => ({
+    ...entry,
+    color: CHART_COLORS[index],
+    fillUrl: `url(#${CHART_GRADIENT_IDS[index]})`,
+  }))
+  const total = chartData.reduce((sum, e) => sum + e.value, 0)
+  const TooltipContent = useMemo(() => createChartTooltip(total), [total])
 
   return (
     <div className="grid gap-5">
@@ -129,6 +183,7 @@ function InsightCard({
           <ResponsiveContainer width="100%" height={224}>
             {chartKind === "bars" ? (
               <BarChart data={chartData} layout="vertical" margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
+                <ChartGradients />
                 <XAxis type="number" hide />
                 <YAxis
                   type="category"
@@ -138,15 +193,16 @@ function InsightCard({
                   width={72}
                   tick={{ fill: "rgba(226,232,240,0.72)", fontSize: 12 }}
                 />
-                <Tooltip content={<ChartTooltip />} cursor={{ fill: "rgba(255,255,255,0.05)" }} />
-                <Bar dataKey="value" radius={4} barSize={20}>
+                <Tooltip content={<TooltipContent />} cursor={{ fill: "rgba(255,255,255,0.05)" }} />
+                <Bar dataKey="value" radius={4} barSize={20} animationBegin={0} animationDuration={500}>
                   {chartData.map((entry) => (
-                    <Cell key={entry.name} fill={entry.color} />
+                    <Cell key={entry.name} fill={entry.fillUrl} />
                   ))}
                 </Bar>
               </BarChart>
             ) : (
               <PieChart>
+                <ChartGradients />
                 <Pie
                   data={chartData}
                   dataKey="value"
@@ -155,12 +211,15 @@ function InsightCard({
                   outerRadius={84}
                   paddingAngle={3}
                   stroke="transparent"
+                  activeShape={ActivePieShape}
+                  animationBegin={0}
+                  animationDuration={500}
                 >
                   {chartData.map((entry) => (
-                    <Cell key={entry.name} fill={entry.color} />
+                    <Cell key={entry.name} fill={entry.fillUrl} />
                   ))}
                 </Pie>
-                <Tooltip content={<ChartTooltip />} />
+                <Tooltip content={<TooltipContent />} />
               </PieChart>
             )}
           </ResponsiveContainer>
