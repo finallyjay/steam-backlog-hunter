@@ -267,8 +267,11 @@ export function UserProfile({ user, stats, statsLoading = false, syncLabel }: Us
               </div>
             </div>
           </CardTitle>
+          {/* Desktop: inline ring at top-right. On mobile (<sm) the ring
+              drops to a centered block below the header to free the name
+              row for 100% width. */}
           {!statsLoading && stats && (
-            <div className="shrink-0">
+            <div className="hidden shrink-0 sm:block">
               <CompletionRing percent={stats.averageCompletion} />
             </div>
           )}
@@ -300,6 +303,17 @@ export function UserProfile({ user, stats, statsLoading = false, syncLabel }: Us
 
       <CardContent>
         <div className="space-y-5">
+          {/* Mobile-only copy of the CompletionRing. The desktop version
+              lives inline at top-right of the header, but on narrow
+              viewports the ring dropped into a separate centered block
+              so the name row can grow to 100% width without colliding
+              with anything. */}
+          {!statsLoading && stats && (
+            <div className="flex justify-center sm:hidden">
+              <CompletionRing percent={stats.averageCompletion} />
+            </div>
+          )}
+
           <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="ghost"

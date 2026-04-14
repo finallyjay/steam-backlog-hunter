@@ -32,7 +32,8 @@ export function RecentGames() {
         id: game.appid.toString(),
         name: game.name,
         playtime: Number((game.playtime_forever / 60).toFixed(1)),
-        image: getSteamHeaderImageUrl(game.appid),
+        image: game.image_landscape_url || getSteamHeaderImageUrl(game.appid),
+        imagePortrait: game.image_portrait_url ?? null,
         appid: game.appid,
         total_count: game.total_count ?? 0,
         unlocked_count: game.unlocked_count ?? 0,
@@ -115,6 +116,7 @@ export function RecentGames() {
                     id={game.id}
                     name={game.name}
                     image={game.image}
+                    imagePortrait={game.imagePortrait}
                     playtime={game.playtime}
                     href={`/game/${game.id}`}
                     achievements={achievements}

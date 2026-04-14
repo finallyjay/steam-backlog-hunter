@@ -181,11 +181,17 @@ describe("GameCard", () => {
   it("uses fallback image on error", () => {
     render(<GameCard id={730} name="CS2" image="/nonexistent.png" playtime={10} achievements={[]} />)
 
-    const img = screen.getByAltText("Cover art for CS2")
-    fireEvent.error(img)
+    // Two imgs exist (portrait for mobile, landscape for sm+). Pick the
+    // landscape one — it's the only one whose primary src matches the
+    // explicit `image` prop we passed in.
+    const imgs = screen.getAllByAltText("Cover art for CS2") as HTMLImageElement[]
+    const landscape = imgs.find((el) => el.src.includes("/nonexistent.png"))!
+    expect(landscape).toBeDefined()
 
-    // After first error, should switch to header fallback
-    expect((img as HTMLImageElement).src).toContain("header.jpg")
+    fireEvent.error(landscape)
+
+    // After first error, should switch to the header.jpg CDN fallback.
+    expect(landscape.src).toContain("header.jpg")
   })
 
   it("shows warning color for mid-range completion", () => {

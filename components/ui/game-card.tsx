@@ -1,9 +1,9 @@
 "use client"
 
 import Link from "next/link"
-import { useState } from "react"
 import { Clock, EyeOff, Trophy } from "lucide-react"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
+import { GameImage } from "@/components/ui/game-image"
 import { Progress } from "@/components/ui/progress"
 import { cn, formatPlaytime } from "@/lib/utils"
 import type { SteamAchievementView } from "@/lib/types/steam"
@@ -11,7 +11,15 @@ import type { SteamAchievementView } from "@/lib/types/steam"
 interface GameCardProps {
   id: number | string
   name: string
+  /** Landscape header image (460×215). Used on sm+ viewports. */
   image: string
+  /**
+   * Optional portrait capsule (600×900, 2:3). Used on mobile (<640 px) via
+   * a `<picture>` element so the thumbnail takes less horizontal room and
+   * looks more like Steam's own mobile library. Falls back to the
+   * landscape image (cropped) when null/undefined.
+   */
+  imagePortrait?: string | null
   playtime?: number
   achievements?: SteamAchievementView[]
   achievementsLoading?: boolean
@@ -23,37 +31,18 @@ interface GameCardProps {
   actions?: React.ReactNode
 }
 
-const FALLBACK_STAGES = ["primary", "header", "legacy", "capsule", "generic", "placeholder"] as const
-type FallbackStage = (typeof FALLBACK_STAGES)[number]
-
-// Responsive header capsule sized to Steam's 460×215 aspect ratio.
-// Width scales down on narrow viewports so the right-hand content column
-// keeps enough room for the title + metadata + progress bar instead of
-// being squeezed into ~150px next to a fixed 192px image.
-const GAME_CARD_IMAGE_CLASSES =
-  "border-surface-4 aspect-[460/215] w-24 shrink-0 rounded-2xl border bg-slate-900/70 object-cover shadow-lg sm:w-32 md:w-48"
-
-function getFallbackUrl(id: number | string, stage: FallbackStage): string {
-  switch (stage) {
-    case "header":
-      return `https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${id}/header.jpg`
-    case "legacy":
-      return `https://steamcdn-a.akamaihd.net/steam/apps/${id}/header.jpg`
-    case "capsule":
-      return `https://shared.steamstatic.com/store_item_assets/steam/apps/${id}/capsule_231x87.jpg`
-    case "generic":
-      return "/placeholder-landscape.svg"
-    case "placeholder":
-      return "/placeholder-landscape.svg"
-    default:
-      return "/placeholder.svg"
-  }
-}
+// Responsive thumbnail container: portrait (2:3 Steam library capsule)
+// on mobile, landscape (Steam 460×215 header) on sm+. Two <GameImage>
+// instances live inside, one hidden per breakpoint, each with its own
+// orientation-specific fallback chain.
+const GAME_CARD_THUMB_CLASSES =
+  "border-surface-4 relative aspect-[2/3] w-20 shrink-0 overflow-hidden rounded-2xl border bg-slate-900/70 shadow-lg sm:aspect-[460/215] sm:w-32 md:w-48"
 
 export function GameCard({
   id,
   name,
   image,
+  imagePortrait,
   playtime,
   achievements = [],
   achievementsLoading = false,
@@ -64,9 +53,6 @@ export function GameCard({
   onHide,
   actions,
 }: GameCardProps) {
-  const [imageSrc, setImageSrc] = useState(image || "/placeholder-landscape.svg")
-  const [fallbackIndex, setFallbackIndex] = useState(0)
-
   // Use detailed achievements if available, fall back to server-side counts
   const hasDetail = achievements.length > 0
   const unlocked = hasDetail ? achievements.filter((a) => a.achieved === 1).length : serverUnlocked
@@ -78,18 +64,22 @@ export function GameCard({
   const isCompleted = serverPerfect || (total > 0 && unlocked === total)
   const mainContent = (
     <div className="flex items-stretch gap-4">
-      <img
-        src={imageSrc}
-        alt={`Cover art for ${name}`}
-        className={GAME_CARD_IMAGE_CLASSES}
-        onError={() => {
-          const nextIndex = fallbackIndex + 1
-          if (nextIndex < FALLBACK_STAGES.length) {
-            setImageSrc(getFallbackUrl(id, FALLBACK_STAGES[nextIndex]))
-            setFallbackIndex(nextIndex)
-          }
-        }}
-      />
+      <div className={GAME_CARD_THUMB_CLASSES}>
+        <GameImage
+          appId={id}
+          src={imagePortrait}
+          orientation="portrait"
+          alt={`Cover art for ${name}`}
+          className="block h-full w-full object-cover sm:hidden"
+        />
+        <GameImage
+          appId={id}
+          src={image}
+          orientation="landscape"
+          alt={`Cover art for ${name}`}
+          className="hidden h-full w-full object-cover sm:block"
+        />
+      </div>
       <div className="min-w-0 flex-1">
         <h3 className="flex items-center gap-2 truncate text-base font-semibold tracking-tight">{name}</h3>
         {(playtime !== undefined || !achievementsLoading) && (
