@@ -3,7 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { AnimatedNumber } from "@/components/ui/animated-number"
 import { CompletionRing } from "@/components/dashboard/completion-ring"
+import { surfaceCardVariants } from "@/components/ui/surface-card"
 import { AlertTriangle, ExternalLink } from "lucide-react"
+import { cn } from "@/lib/utils"
 import type { SteamUser } from "@/lib/auth"
 import type { SteamStatsResponse } from "@/lib/types/steam"
 
@@ -302,7 +304,7 @@ export function UserProfile({ user, stats, statsLoading = false, syncLabel }: Us
               <Link
                 key={item.label}
                 href={item.href}
-                className="border-surface-4 bg-surface-1 hover:border-accent/30 hover:bg-surface-2 rounded-lg border px-4 py-4 backdrop-blur-sm transition-colors"
+                className={cn(surfaceCardVariants({ variant: "row", hover: "accent" }), "backdrop-blur-sm")}
               >
                 <p className="text-muted-foreground text-2xs tracking-eyebrow font-semibold uppercase">{item.label}</p>
                 <p className="mt-2 text-2xl font-semibold tracking-tight">

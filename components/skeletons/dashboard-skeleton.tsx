@@ -1,6 +1,7 @@
 import { Skeleton } from "@/components/ui/skeleton"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { PageContainer } from "@/components/ui/page-container"
+import { SurfaceCard } from "@/components/ui/surface-card"
 
 function UserProfileSkeleton() {
   return (
@@ -28,10 +29,10 @@ function UserProfileSkeleton() {
           <Skeleton className="h-9 w-32" />
           <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="border-surface-4 bg-surface-1 rounded-lg border px-4 py-4">
+              <SurfaceCard key={i} variant="row">
                 <Skeleton className="h-3 w-20" />
                 <Skeleton className="mt-3 h-7 w-12" />
-              </div>
+              </SurfaceCard>
             ))}
           </div>
         </div>
