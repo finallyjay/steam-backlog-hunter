@@ -1,11 +1,24 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="300" height="450" viewBox="0 0 300 450" fill="none">
-  <rect width="300" height="450" rx="8" fill="#0f1923"/>
-  <rect x="0.5" y="0.5" width="299" height="449" rx="7.5" stroke="white" stroke-opacity="0.08"/>
-  <g transform="translate(126, 185)" opacity="0.25">
-    <path d="M48 6C48 2.69 45.31 0 42 0H6C2.69 0 0 2.69 0 6V42C0 45.31 2.69 48 6 48H42C45.31 48 48 45.31 48 42V6Z" fill="#1e293b"/>
-    <path d="M37 16.5H32.5V12C32.5 11.17 31.83 10.5 31 10.5H17C16.17 10.5 15.5 11.17 15.5 12V16.5H11C10.17 16.5 9.5 17.17 9.5 18V25.5C9.5 26.33 10.17 27 11 27H15.5V31.5C15.5 32.33 16.17 33 17 33H31C31.83 33 32.5 32.33 32.5 31.5V27H37C37.83 27 38.5 26.33 38.5 25.5V18C38.5 17.17 37.83 16.5 37 16.5Z" fill="#58c6ff" opacity="0.6"/>
-    <circle cx="19.5" cy="21.75" r="1.8" fill="#0f1923"/>
-    <circle cx="28.5" cy="21.75" r="1.8" fill="#0f1923"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="900" viewBox="0 0 600 900" fill="none">
+  <defs>
+    <linearGradient id="pbg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0b1423" />
+      <stop offset="100%" stop-color="#081019" />
+    </linearGradient>
+    <radialGradient id="pglow" cx="50%" cy="42%" r="55%">
+      <stop offset="0%" stop-color="#58c6ff" stop-opacity="0.08" />
+      <stop offset="100%" stop-color="#58c6ff" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+  <rect width="600" height="900" rx="16" fill="url(#pbg)" />
+  <rect width="600" height="900" rx="16" fill="url(#pglow)" />
+  <rect x="0.5" y="0.5" width="599" height="899" rx="15.5" stroke="#58c6ff" stroke-opacity="0.08" />
+  <g transform="translate(192 342) scale(9)" fill="none" stroke="#58c6ff" stroke-opacity="0.5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke">
+    <line x1="6" x2="10" y1="11" y2="11" />
+    <line x1="8" x2="8" y1="9" y2="13" />
+    <line x1="15" x2="15.01" y1="12" y2="12" />
+    <line x1="18" x2="18.01" y1="10" y2="10" />
+    <path d="M17.32 5H6.68a4 4 0 0 0-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 0 1 9.828 16h4.344a2 2 0 0 1 1.414.586L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.545-.604-6.584-.685-7.258-.007-.05-.011-.1-.017-.151A4 4 0 0 0 17.32 5z" />
   </g>
-  <text x="150" y="270" text-anchor="middle" fill="white" fill-opacity="0.15" font-family="system-ui, sans-serif" font-size="12" font-weight="500" letter-spacing="0.12em">NO IMAGE</text>
+  <text x="300" y="680" text-anchor="middle" fill="#58c6ff" fill-opacity="0.3" font-family="system-ui, -apple-system, sans-serif" font-size="22" font-weight="700" letter-spacing="0.2em">STEAM BACKLOG</text>
+  <text x="300" y="712" text-anchor="middle" fill="#58c6ff" fill-opacity="0.3" font-family="system-ui, -apple-system, sans-serif" font-size="22" font-weight="700" letter-spacing="0.2em">HUNTER</text>
 </svg>

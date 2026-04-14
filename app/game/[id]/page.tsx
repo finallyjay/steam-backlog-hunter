@@ -1,7 +1,7 @@
 "use client"
 
 import { useSteamAchievements, useSteamGames } from "@/hooks/use-steam-data"
-import { GameImage } from "@/components/ui/game-image"
+import { GameHero } from "@/components/ui/game-hero"
 import { useCurrentUser } from "@/hooks/use-current-user"
 import { useParams, useRouter } from "next/navigation"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -184,49 +184,35 @@ export default function GameDetailPage() {
         ) : !game ? (
           <EmptyState message="Game not found." />
         ) : (
-          <div className="mb-8 flex items-start gap-6">
-            <div className="aspect-[2/3] w-44 shrink-0 overflow-hidden rounded-lg border">
-              <GameImage
-                appId={game.appid}
-                src={game.image_portrait_url}
-                orientation="portrait"
-                alt={`Cover art for ${game.name}`}
-                className="h-full w-full object-cover"
-              />
-            </div>
-            <div className="flex-1 space-y-4 pt-1">
-              <div>
-                <h1 className="mb-1 text-2xl font-bold">{game.name}</h1>
-                <div className="text-muted-foreground text-sm">{formatPlaytime(game.playtime_forever / 60)} played</div>
-              </div>
+          <GameHero appId={game.appid} name={game.name} portraitUrl={game.image_portrait_url}>
+            <div className="text-muted-foreground text-sm">{formatPlaytime(game.playtime_forever / 60)} played</div>
 
-              {!loadingAchievements && total > 0 && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground font-medium">Achievement progress</span>
-                    <span className="font-medium">
-                      {unlockedCount}/{total} ({percent}%)
-                    </span>
-                  </div>
-                  <Progress value={percent} indicatorClassName={progressColor} />
+            {!loadingAchievements && total > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground font-medium">Achievement progress</span>
+                  <span className="font-medium">
+                    {unlockedCount}/{total} ({percent}%)
+                  </span>
                 </div>
-              )}
-
-              <div className="flex items-center gap-3 pt-1">
-                <a href={`https://store.steampowered.com/app/${game.appid}`} target="_blank" rel="noopener noreferrer">
-                  <Button variant="outline" size="sm" className="gap-2">
-                    <ExternalLink className="h-4 w-4" />
-                    Steam Store
-                  </Button>
-                </a>
-                <Button variant="outline" size="sm" className="gap-2" onClick={handleSync} disabled={syncing}>
-                  <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
-                  {syncing ? "Syncing..." : "Update achievements"}
-                </Button>
-                {syncError && <span className="text-destructive text-sm">{syncError}</span>}
+                <Progress value={percent} indicatorClassName={progressColor} />
               </div>
+            )}
+
+            <div className="flex items-center gap-3 pt-1">
+              <a href={`https://store.steampowered.com/app/${game.appid}`} target="_blank" rel="noopener noreferrer">
+                <Button variant="outline" size="sm" className="gap-2">
+                  <ExternalLink className="h-4 w-4" />
+                  Steam Store
+                </Button>
+              </a>
+              <Button variant="outline" size="sm" className="gap-2" onClick={handleSync} disabled={syncing}>
+                <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
+                {syncing ? "Syncing..." : "Update achievements"}
+              </Button>
+              {syncError && <span className="text-destructive text-sm">{syncError}</span>}
             </div>
-          </div>
+          </GameHero>
         )}
 
         {game && (
