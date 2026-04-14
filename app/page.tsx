@@ -109,7 +109,7 @@ export default function HomePage() {
         )}
 
         <div className="space-y-3">
-          <button onClick={handleSteamSignIn} className="group cursor-pointer">
+          <button type="button" onClick={handleSteamSignIn} className="group cursor-pointer">
             <img
               src="/steam-signin.png"
               alt="Sign in with Steam"

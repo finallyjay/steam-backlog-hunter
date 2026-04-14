@@ -81,7 +81,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           user && <DashboardHeader user={user} />
         ))}
       {title && <div className="w-full px-4 pt-7 pb-4 text-center text-3xl font-bold">{title}</div>}
-      <main id="main-content" className="min-h-screen">
+      {/* tabIndex={-1} so the skip-to-content link can move keyboard focus
+          here when activated (otherwise the focus ring stays on the link). */}
+      <main id="main-content" tabIndex={-1} className="min-h-screen outline-none">
         {children}
       </main>
       <footer className="border-surface-4 border-t py-8">
