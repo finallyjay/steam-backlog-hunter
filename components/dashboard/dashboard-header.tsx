@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Gamepad2, LayoutDashboard, Library, LogOut, Menu, Sparkles, X } from "lucide-react"
+import { Gamepad2, LayoutDashboard, Library, LogOut, Menu, Shield, Sparkles, X } from "lucide-react"
 import type { SteamUser } from "@/lib/auth"
 import { useRouter, usePathname } from "next/navigation"
 import Link from "next/link"
@@ -96,6 +96,11 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
                 <NavLink href="/extras" icon={Sparkles}>
                   Extras
                 </NavLink>
+                {user.isAdmin && (
+                  <NavLink href="/admin" icon={Shield}>
+                    Admin
+                  </NavLink>
+                )}
               </nav>
             </div>
 
@@ -138,6 +143,11 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
             <NavLink href="/extras" icon={Sparkles} onClick={() => setMobileMenuOpen(false)}>
               Extras
             </NavLink>
+            {user.isAdmin && (
+              <NavLink href="/admin" icon={Shield} onClick={() => setMobileMenuOpen(false)}>
+                Admin
+              </NavLink>
+            )}
           </div>
         </nav>
       )}

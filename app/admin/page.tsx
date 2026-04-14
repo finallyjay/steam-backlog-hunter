@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { useCurrentUser } from "@/hooks/use-current-user"
-import { PageContainer } from "@/components/ui/page-container"
 import { LoadingMessage } from "@/components/ui/loading-message"
 import { SurfaceCard } from "@/components/ui/surface-card"
 import { Button } from "@/components/ui/button"
@@ -120,7 +119,7 @@ export default function AdminPage() {
   }
 
   return (
-    <PageContainer>
+    <div>
       <h1 className="mb-6 text-2xl font-semibold tracking-tight">User Management</h1>
 
       {error && <div className="bg-destructive/10 text-destructive mb-4 rounded-md px-4 py-3 text-sm">{error}</div>}
@@ -210,6 +209,6 @@ export default function AdminPage() {
           ))}
         </div>
       )}
-    </PageContainer>
+    </div>
   )
 }
