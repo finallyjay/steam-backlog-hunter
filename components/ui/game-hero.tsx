@@ -11,12 +11,10 @@ import { Skeleton } from "@/components/ui/skeleton"
  * depending on what's available:
  *
  *   Layout A — banner hero (library_hero.jpg, 3840×1240)
- *     - If logo.png also loads, it's overlaid bottom-center Steam-style.
- *     - If logo.png is missing, the game name is rendered over a
- *       gradient at the bottom of the banner instead.
- *     - The caller's `children` (playtime, achievements bar, action
- *       buttons, etc.) are rendered below the banner in a content
- *       block.
+ *     - Clean full-width banner with no overlays.
+ *     - Game title rendered BELOW the banner, left-aligned, as the
+ *       first element of the content block so it sits right above
+ *       playtime / achievements / action buttons.
  *
  *   Layout B — portrait fallback
  *     - Pixel-identical to the previous detail page markup: portrait
@@ -42,7 +40,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 // asset under `/store_item_assets/`.
 const CDN = "https://shared.fastly.steamstatic.com/store_item_assets/steam/apps"
 
-type HeroMode = "probing" | "banner-with-logo" | "banner-only" | "portrait"
+type HeroMode = "probing" | "banner" | "portrait"
 
 function probeImage(url: string): Promise<boolean> {
   return new Promise((resolve) => {
@@ -81,14 +79,10 @@ export function GameHero({ appId, name, title, portraitUrl, children }: GameHero
     setMode("probing")
     setBgOk(false)
 
-    Promise.all([probeImage(`${CDN}/${appId}/library_hero.jpg`), probeImage(`${CDN}/${appId}/logo.png`)]).then(
-      ([heroOk, logoOk]) => {
-        if (cancelled) return
-        if (heroOk && logoOk) setMode("banner-with-logo")
-        else if (heroOk) setMode("banner-only")
-        else setMode("portrait")
-      },
-    )
+    probeImage(`${CDN}/${appId}/library_hero.jpg`).then((heroOk) => {
+      if (cancelled) return
+      setMode(heroOk ? "banner" : "portrait")
+    })
 
     probeImage(`${CDN}/${appId}/page_bg_generated_v6b.jpg`).then((ok) => {
       if (!cancelled) setBgOk(ok)
@@ -148,30 +142,22 @@ export function GameHero({ appId, name, title, portraitUrl, children }: GameHero
     )
   }
 
-  // Layout A — banner hero
+  // Layout A — banner hero. The banner is rendered clean (no logo
+  // overlay, no gradient, no inline title) and the game title sits
+  // below it, left-aligned, just above the children block. Negative
+  // horizontal margins break the banner out of the PageContainer
+  // padding so it spans the full content width edge-to-edge.
   const heroUrl = `${CDN}/${appId}/library_hero.jpg`
-  const logoUrl = `${CDN}/${appId}/logo.png`
   return (
-    <div className="relative mb-8 overflow-hidden rounded-lg">
+    <div className="relative mb-8 space-y-4">
       {backdrop}
-      <div className="border-surface-4 relative aspect-[3840/1240] overflow-hidden rounded-lg border">
-        <img src={heroUrl} alt={`Hero art for ${name}`} className="absolute inset-0 h-full w-full object-cover" />
-        {/* Bottom gradient anchors either the logo or the plain title
-            so it stays legible regardless of the hero art. */}
-        <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
-        {mode === "banner-with-logo" ? (
-          <img
-            src={logoUrl}
-            alt={name}
-            className="absolute inset-x-0 bottom-4 mx-auto max-h-[40%] w-auto max-w-[55%] object-contain drop-shadow-2xl sm:bottom-6"
-          />
-        ) : (
-          <h1 className="absolute inset-x-0 bottom-4 px-6 text-center text-2xl font-bold tracking-tight drop-shadow-lg sm:bottom-6 sm:text-3xl md:text-4xl">
-            {name}
-          </h1>
-        )}
+      <div className="border-surface-4 -mx-4 aspect-[3840/1240] overflow-hidden border-y md:-mx-6 md:rounded-lg md:border-x lg:-mx-8">
+        <img src={heroUrl} alt={`Hero art for ${name}`} className="h-full w-full object-cover" />
       </div>
-      <div className="space-y-4 pt-6">{children}</div>
+      <div className="space-y-4">
+        {title ?? <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{name}</h1>}
+        {children}
+      </div>
     </div>
   )
 }

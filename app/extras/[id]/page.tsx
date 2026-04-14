@@ -5,7 +5,6 @@ import { useParams, useRouter } from "next/navigation"
 import { Database, ExternalLink, LifeBuoy, Lock, Trophy } from "lucide-react"
 
 import { useCurrentUser } from "@/hooks/use-current-user"
-import { usePageTitle } from "@/components/ui/page-title-context"
 import { LoadingMessage } from "@/components/ui/loading-message"
 import { EmptyState } from "@/components/ui/empty-state"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -49,7 +48,6 @@ export default function ExtraGameDetailPage() {
   const appId = Number(params.id)
   const { user, loading: loadingUser } = useCurrentUser()
   const router = useRouter()
-  const { setTitle } = usePageTitle()
   const [game, setGame] = useState<ExtraGameDetail | null>(null)
   const [achievements, setAchievements] = useState<SteamAchievementView[]>([])
   const [loading, setLoading] = useState(true)
@@ -92,13 +90,6 @@ export default function ExtraGameDetailPage() {
       router.push("/")
     }
   }, [loadingUser, router, user])
-
-  useEffect(() => {
-    if (game?.name) {
-      setTitle(`${game.name} - Steam Backlog Hunter`)
-    }
-    return () => setTitle("")
-  }, [game?.name, setTitle])
 
   const pending = useMemo(() => achievements.filter((a) => !a.achieved).sort(sortByUnlockDateDesc), [achievements])
   const unlocked = useMemo(
