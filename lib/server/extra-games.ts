@@ -6,6 +6,7 @@ import type { SteamAchievementView } from "@/lib/types/steam"
 import { getSqliteDatabase } from "@/lib/server/sqlite"
 import { isStale, nowIso } from "@/lib/server/steam-store-utils"
 import { ACHIEVEMENTS_STALE_MS } from "@/lib/server/steam-achievements-sync"
+import { populateGamesFromSteamCatalog } from "@/lib/server/steam-app-catalog"
 import { logger } from "@/lib/server/logger"
 
 export type ExtraGame = {
@@ -109,6 +110,14 @@ function decodeBasicHtmlEntities(s: string): string {
  */
 export async function hydrateMissingExtraNames(steamId: string) {
   const db = getSqliteDatabase()
+
+  // Bulk-seed `games` from the canonical Steam catalog first. This is a
+  // once-per-week no-op for every user after the first, and covers the
+  // entire 200k-app catalog in one shot (Tools / Software / SDK entries
+  // included). The per-appid loop below becomes a safety net for the few
+  // apps the catalog genuinely doesn't cover.
+  await populateGamesFromSteamCatalog()
+
   const rows = db
     .prepare(
       `
