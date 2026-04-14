@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation"
 import { Skeleton } from "@/components/ui/skeleton"
 import { usePageTitle } from "@/components/ui/page-title-context"
 import { Toaster } from "@/components/ui/toaster"
+import { TooltipProvider } from "@/components/ui/tooltip"
 import { FirstSyncModal } from "@/components/first-sync-modal"
 
 type SyncStatusResponse = {
@@ -57,7 +58,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const isAuthPage = pathname !== "/"
 
   return (
-    <>
+    <TooltipProvider delayDuration={300}>
       <a
         href="#main-content"
         className="focus:ring-accent sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:rounded-md focus:bg-slate-900 focus:px-4 focus:py-2 focus:text-white focus:ring-2 focus:outline-none"
@@ -112,6 +113,6 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         </div>
       </footer>
       <Toaster />
-    </>
+    </TooltipProvider>
   )
 }
