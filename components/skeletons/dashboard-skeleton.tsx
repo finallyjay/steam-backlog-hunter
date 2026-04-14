@@ -59,13 +59,13 @@ function InsightCardSkeleton() {
           </SurfaceCard>
           <div className="space-y-3">
             {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="bg-surface-1 flex items-center justify-between rounded-lg px-3 py-2.5">
+              <SurfaceCard key={i} variant="metric">
                 <div className="flex items-center gap-2">
                   <Skeleton className="h-2.5 w-2.5 rounded-full" />
                   <Skeleton className="h-4 w-20" />
                 </div>
                 <Skeleton className="h-4 w-8" />
-              </div>
+              </SurfaceCard>
             ))}
           </div>
         </div>

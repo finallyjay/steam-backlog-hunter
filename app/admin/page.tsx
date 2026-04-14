@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { useCurrentUser } from "@/hooks/use-current-user"
 import { PageContainer } from "@/components/ui/page-container"
 import { LoadingMessage } from "@/components/ui/loading-message"
+import { SurfaceCard } from "@/components/ui/surface-card"
 import { Button } from "@/components/ui/button"
 import { ExternalLink, RefreshCw, Trash2, UserPlus } from "lucide-react"
 
@@ -144,10 +145,7 @@ export default function AdminPage() {
       ) : (
         <div className="space-y-2">
           {users.map((u) => (
-            <div
-              key={u.steam_id}
-              className="border-surface-4 bg-surface-1 flex items-center gap-4 rounded-lg border px-4 py-3"
-            >
+            <SurfaceCard key={u.steam_id} variant="admin-item">
               {u.avatar_url ? (
                 <img
                   src={u.avatar_url}
@@ -208,7 +206,7 @@ export default function AdminPage() {
                   </Button>
                 )}
               </div>
-            </div>
+            </SurfaceCard>
           ))}
         </div>
       )}
