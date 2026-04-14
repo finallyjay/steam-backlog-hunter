@@ -8,7 +8,6 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { LoadingMessage } from "@/components/ui/loading-message"
 import { EmptyState } from "@/components/ui/empty-state"
 import { useEffect, useMemo, useState } from "react"
-import { usePageTitle } from "@/components/ui/page-title-context"
 import type { SteamAchievementView } from "@/lib/types/steam"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
@@ -32,20 +31,12 @@ export default function GameDetailPage() {
   const { games, loading: loadingGames } = useSteamGames("all")
   const { user, loading: loadingUser } = useCurrentUser()
   const router = useRouter()
-  const { setTitle } = usePageTitle()
   const [activeTab, setActiveTab] = useState<AchievementTab>("pending")
   const [syncing, setSyncing] = useState(false)
   const [syncedAchievements, setSyncedAchievements] = useState<SteamAchievementView[] | null>(null)
   const [syncError, setSyncError] = useState<string | null>(null)
 
   const game = games.find((g) => g.appid === appId)
-
-  useEffect(() => {
-    if (game?.name) {
-      setTitle(`${game.name} - Steam Backlog Hunter`)
-    }
-    return () => setTitle("")
-  }, [game?.name, setTitle])
 
   useEffect(() => {
     window.scrollTo(0, 0)
