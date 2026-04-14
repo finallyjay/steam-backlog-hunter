@@ -3,6 +3,7 @@ import { NextResponse } from "next/server"
 import { getCurrentUser } from "@/app/lib/server-auth"
 import { rateLimit } from "@/lib/server/rate-limit"
 import { getUserSyncStatus, synchronizeUserData } from "@/lib/server/steam-store"
+import { invalidateStatsCache } from "@/lib/steam-stats"
 import { logger } from "@/lib/server/logger"
 
 /**
@@ -55,6 +56,10 @@ export async function POST() {
     }
 
     const result = await synchronizeUserData(user.steamId)
+    // Drop the in-memory stats cache so a follow-up GET /api/steam/stats
+    // recomputes from the freshly-synced database instead of returning a
+    // stale snapshot.
+    invalidateStatsCache(user.steamId)
     return NextResponse.json(result)
   } catch (error) {
     logger.error({ err: error, endpoint: "steam/sync" }, "Steam sync API error")
