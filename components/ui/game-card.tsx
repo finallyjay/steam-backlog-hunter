@@ -26,10 +26,12 @@ interface GameCardProps {
 const FALLBACK_STAGES = ["primary", "header", "legacy", "capsule", "generic", "placeholder"] as const
 type FallbackStage = (typeof FALLBACK_STAGES)[number]
 
-// Sized to match Steam's 460×215 header capsule at w-48 (192px), with a
-// slight min-height so fallback placeholders don't collapse the row.
+// Responsive header capsule sized to Steam's 460×215 aspect ratio.
+// Width scales down on narrow viewports so the right-hand content column
+// keeps enough room for the title + metadata + progress bar instead of
+// being squeezed into ~150px next to a fixed 192px image.
 const GAME_CARD_IMAGE_CLASSES =
-  "border-surface-4 h-auto min-h-[5.9rem] w-48 rounded-2xl border bg-slate-900/70 object-cover shadow-lg"
+  "border-surface-4 aspect-[460/215] w-24 shrink-0 rounded-2xl border bg-slate-900/70 object-cover shadow-lg sm:w-32 md:w-48"
 
 function getFallbackUrl(id: number | string, stage: FallbackStage): string {
   switch (stage) {
