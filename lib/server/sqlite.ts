@@ -190,6 +190,17 @@ function createBaseSchema(db: DatabaseSync) {
       FOREIGN KEY (steam_id) REFERENCES steam_profile(steam_id)
     );
 
+    -- Single-row tracking table for the bulk import of Steam's canonical
+    -- app catalog (IStoreService/GetAppList). Records when we last seeded
+    -- the games table with the 200k+ entries that cover Tools, Software
+    -- and SDK apps the per-appid resolution endpoints cannot name. Used
+    -- by the populate routine to throttle itself to one run per week.
+    CREATE TABLE IF NOT EXISTS app_catalog_meta (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      populated_at TEXT NOT NULL,
+      entry_count INTEGER NOT NULL
+    );
+
     CREATE INDEX IF NOT EXISTS idx_user_games_steam_id ON user_games(steam_id);
     CREATE INDEX IF NOT EXISTS idx_user_games_steam_id_owned ON user_games(steam_id, owned);
     CREATE INDEX IF NOT EXISTS idx_stats_snapshot_steam_id ON stats_snapshot(steam_id);
