@@ -12,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { GameImage } from "@/components/ui/game-image"
+import { GameHero } from "@/components/ui/game-hero"
 import { formatPlaytime } from "@/lib/utils"
 import type { SteamAchievementView } from "@/lib/types/steam"
 
@@ -180,69 +180,56 @@ export default function ExtraGameDetailPage() {
           <EmptyState message={error} />
         ) : game ? (
           <>
-            <div className="mb-8 flex items-start gap-6">
-              <div className="aspect-[2/3] w-44 shrink-0 overflow-hidden rounded-lg border">
-                <GameImage
-                  appId={game.appid}
-                  src={game.image_portrait_url}
-                  orientation="portrait"
-                  alt={`Cover art for ${gameName}`}
-                  className="h-full w-full object-cover"
-                />
-              </div>
-              <div className="flex-1 space-y-4 pt-1">
-                <div>
-                  <div className="mb-2 flex items-center gap-2">
-                    <h1 className="text-2xl font-bold">{gameName}</h1>
-                    <span className="bg-surface-3 text-muted-foreground rounded-full px-2 py-0.5 text-xs">Extra</span>
-                  </div>
-                  <div className="text-muted-foreground text-sm">
-                    {formatPlaytime(game.playtime_forever / 60)} played
-                  </div>
+            <GameHero
+              appId={game.appid}
+              name={gameName}
+              portraitUrl={game.image_portrait_url}
+              title={
+                <div className="flex items-center gap-2">
+                  <h1 className="text-2xl font-bold">{gameName}</h1>
+                  <span className="bg-surface-3 text-muted-foreground rounded-full px-2 py-0.5 text-xs">Extra</span>
                 </div>
+              }
+            >
+              <div className="text-muted-foreground text-sm">{formatPlaytime(game.playtime_forever / 60)} played</div>
 
-                {total > 0 && (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground font-medium">Achievement progress</span>
-                      <span className="font-medium">
-                        {unlockedCount}/{total} ({percent}%)
-                      </span>
-                    </div>
-                    <Progress value={percent} indicatorClassName={progressColor} />
+              {total > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground font-medium">Achievement progress</span>
+                    <span className="font-medium">
+                      {unlockedCount}/{total} ({percent}%)
+                    </span>
                   </div>
-                )}
-
-                <div className="flex flex-wrap items-center gap-3 pt-1">
-                  <a
-                    href={`https://store.steampowered.com/app/${game.appid}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <Button variant="outline" size="sm" className="gap-2">
-                      <ExternalLink className="h-4 w-4" />
-                      Steam Store
-                    </Button>
-                  </a>
-                  <a href={`https://steamdb.info/app/${game.appid}/`} target="_blank" rel="noopener noreferrer">
-                    <Button variant="outline" size="sm" className="gap-2">
-                      <Database className="h-4 w-4" />
-                      SteamDB
-                    </Button>
-                  </a>
-                  <a
-                    href={`https://help.steampowered.com/en/wizard/HelpWithGameIssue/?appid=${game.appid}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <Button variant="outline" size="sm" className="gap-2">
-                      <LifeBuoy className="h-4 w-4" />
-                      Support
-                    </Button>
-                  </a>
+                  <Progress value={percent} indicatorClassName={progressColor} />
                 </div>
+              )}
+
+              <div className="flex flex-wrap items-center gap-3 pt-1">
+                <a href={`https://store.steampowered.com/app/${game.appid}`} target="_blank" rel="noopener noreferrer">
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <ExternalLink className="h-4 w-4" />
+                    Steam Store
+                  </Button>
+                </a>
+                <a href={`https://steamdb.info/app/${game.appid}/`} target="_blank" rel="noopener noreferrer">
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <Database className="h-4 w-4" />
+                    SteamDB
+                  </Button>
+                </a>
+                <a
+                  href={`https://help.steampowered.com/en/wizard/HelpWithGameIssue/?appid=${game.appid}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <LifeBuoy className="h-4 w-4" />
+                    Support
+                  </Button>
+                </a>
               </div>
-            </div>
+            </GameHero>
 
             {total > 0 && (
               <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as AchievementTab)}>
