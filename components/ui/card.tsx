@@ -28,8 +28,22 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
-  return <div data-slot="card-title" className={cn("leading-none font-semibold", className)} {...props} />
+type CardTitleElement = "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "div"
+
+/**
+ * CardTitle defaults to <h3> so it shows up in screen reader heading
+ * navigation (rotor / cmd+opt+u). Cards typically live inside a section
+ * with a higher-level heading (h1 page title + h2 section), so h3 is the
+ * sensible mid-level. Override via `as` for cases where the inner content
+ * already contains a real heading (use `as="div"`) or the card is the
+ * top-level section heading on its page (use `as="h2"`).
+ */
+function CardTitle({
+  as: Component = "h3",
+  className,
+  ...props
+}: React.ComponentProps<"div"> & { as?: CardTitleElement }) {
+  return <Component data-slot="card-title" className={cn("leading-none font-semibold", className)} {...props} />
 }
 
 function CardDescription({ className, ...props }: React.ComponentProps<"div">) {
