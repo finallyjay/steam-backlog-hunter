@@ -2,6 +2,7 @@ import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { AnimatedNumber } from "@/components/ui/animated-number"
+import { CompletionRing } from "@/components/dashboard/completion-ring"
 import { AlertTriangle, ExternalLink } from "lucide-react"
 import type { SteamUser } from "@/lib/auth"
 import type { SteamStatsResponse } from "@/lib/types/steam"
@@ -252,15 +253,7 @@ export function UserProfile({ user, stats, statsLoading = false, syncLabel }: Us
               </div>
             </div>
           </CardTitle>
-          {!statsLoading && stats && (
-            <div className="text-right">
-              <p className="text-muted-foreground text-2xs tracking-eyebrow font-semibold uppercase">Avg. completion</p>
-              <p className="mt-1 flex items-baseline justify-end text-3xl font-semibold tracking-tight">
-                <AnimatedNumber value={stats.averageCompletion} />
-                <span className="text-muted-foreground ml-1.5 self-center text-lg">%</span>
-              </p>
-            </div>
-          )}
+          {!statsLoading && stats && <CompletionRing percent={stats.averageCompletion} />}
         </div>
       </CardHeader>
 

@@ -65,7 +65,9 @@ describe("UserProfile", () => {
 
   it("shows average completion when stats are available", () => {
     render(<UserProfile user={baseUser} stats={baseStats} />)
-    expect(screen.getByText("Avg. completion")).toBeInTheDocument()
+    // The avg-completion ring renders "Avg" as a compact eyebrow label
+    // alongside the percentage value inside the SVG ring.
+    expect(screen.getByText("Avg")).toBeInTheDocument()
     expect(screen.getByText("77")).toBeInTheDocument()
   })
 
