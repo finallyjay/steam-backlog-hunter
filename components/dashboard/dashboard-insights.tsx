@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { AnimatedNumber } from "@/components/ui/animated-number"
 import { useSteamGames } from "@/hooks/use-steam-data"
+import { cn } from "@/lib/utils"
 import type { SteamStatsResponse } from "@/lib/types/steam"
 
 interface DashboardInsightsProps {
@@ -48,6 +49,8 @@ function ChartTooltip({
   )
 }
 
+const METRIC_LEGEND_BASE = "bg-surface-1 flex items-center justify-between rounded-lg px-3 py-2.5"
+
 function MetricLegend({ label, value, color, href }: { label: string; value: number; color: string; href?: string }) {
   const inner = (
     <>
@@ -63,16 +66,40 @@ function MetricLegend({ label, value, color, href }: { label: string; value: num
 
   if (href) {
     return (
-      <Link
-        href={href}
-        className="bg-surface-1 hover:bg-surface-2 flex items-center justify-between rounded-lg px-3 py-2.5 transition-colors"
-      >
+      <Link href={href} className={cn(METRIC_LEGEND_BASE, "hover:bg-surface-2 transition-colors")}>
         {inner}
       </Link>
     )
   }
+  return <div className={METRIC_LEGEND_BASE}>{inner}</div>
+}
 
-  return <div className="bg-surface-1 flex items-center justify-between rounded-lg px-3 py-2.5">{inner}</div>
+function InsightChartFrame({
+  title,
+  insight,
+  children,
+}: {
+  title: string
+  insight: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="border-surface-3 bg-surface-1 rounded-lg border p-4">
+      <div className="mb-3">
+        <p className="text-foreground text-sm font-semibold">{title}</p>
+        <p className="text-muted-foreground text-sm">{insight}</p>
+      </div>
+      <div className="h-56 min-h-0 min-w-0">{children}</div>
+    </div>
+  )
+}
+
+function ChartLoadingPlaceholder() {
+  return (
+    <div className="text-muted-foreground border-surface-3 bg-surface-1 flex h-full items-center justify-center rounded-2xl border text-sm">
+      Waiting for chart data
+    </div>
+  )
 }
 
 function InsightCard({
@@ -94,61 +121,53 @@ function InsightCard({
 
   return (
     <div className="grid gap-5">
-      <div className="border-surface-3 bg-surface-1 rounded-lg border p-4">
-        <div className="mb-3">
-          <p className="text-foreground text-sm font-semibold">{title}</p>
-          <p className="text-muted-foreground text-sm">{insight}</p>
-        </div>
-        <div className="h-56 min-h-0 min-w-0">
-          {!loading ? (
-            // Explicit pixel height avoids recharts' "width(-1) and height(-1)"
-            // warning on first render — ResponsiveContainer only needs to
-            // measure the (stable) horizontal axis of the parent.
-            <ResponsiveContainer width="100%" height={224}>
-              {chartKind === "bars" ? (
-                <BarChart data={chartData} layout="vertical" margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
-                  <XAxis type="number" hide />
-                  <YAxis
-                    type="category"
-                    dataKey="name"
-                    axisLine={false}
-                    tickLine={false}
-                    width={72}
-                    tick={{ fill: "rgba(226,232,240,0.72)", fontSize: 12 }}
-                  />
-                  <Tooltip content={<ChartTooltip />} cursor={{ fill: "rgba(255,255,255,0.05)" }} />
-                  <Bar dataKey="value" radius={4} barSize={20}>
-                    {chartData.map((entry) => (
-                      <Cell key={entry.name} fill={entry.color} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              ) : (
-                <PieChart>
-                  <Pie
-                    data={chartData}
-                    dataKey="value"
-                    nameKey="name"
-                    innerRadius={56}
-                    outerRadius={84}
-                    paddingAngle={3}
-                    stroke="transparent"
-                  >
-                    {chartData.map((entry) => (
-                      <Cell key={entry.name} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip content={<ChartTooltip />} />
-                </PieChart>
-              )}
-            </ResponsiveContainer>
-          ) : (
-            <div className="text-muted-foreground border-surface-3 bg-surface-1 flex h-full items-center justify-center rounded-2xl border text-sm">
-              Waiting for chart data
-            </div>
-          )}
-        </div>
-      </div>
+      <InsightChartFrame title={title} insight={insight}>
+        {!loading ? (
+          // Explicit pixel height avoids recharts' "width(-1) and height(-1)"
+          // warning on first render — ResponsiveContainer only needs to
+          // measure the (stable) horizontal axis of the parent.
+          <ResponsiveContainer width="100%" height={224}>
+            {chartKind === "bars" ? (
+              <BarChart data={chartData} layout="vertical" margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
+                <XAxis type="number" hide />
+                <YAxis
+                  type="category"
+                  dataKey="name"
+                  axisLine={false}
+                  tickLine={false}
+                  width={72}
+                  tick={{ fill: "rgba(226,232,240,0.72)", fontSize: 12 }}
+                />
+                <Tooltip content={<ChartTooltip />} cursor={{ fill: "rgba(255,255,255,0.05)" }} />
+                <Bar dataKey="value" radius={4} barSize={20}>
+                  {chartData.map((entry) => (
+                    <Cell key={entry.name} fill={entry.color} />
+                  ))}
+                </Bar>
+              </BarChart>
+            ) : (
+              <PieChart>
+                <Pie
+                  data={chartData}
+                  dataKey="value"
+                  nameKey="name"
+                  innerRadius={56}
+                  outerRadius={84}
+                  paddingAngle={3}
+                  stroke="transparent"
+                >
+                  {chartData.map((entry) => (
+                    <Cell key={entry.name} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip content={<ChartTooltip />} />
+              </PieChart>
+            )}
+          </ResponsiveContainer>
+        ) : (
+          <ChartLoadingPlaceholder />
+        )}
+      </InsightChartFrame>
 
       <div
         className="grid gap-3 transition-[grid-template-rows] duration-300 ease-in-out"
