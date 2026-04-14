@@ -719,6 +719,175 @@ describe("hydrateMissingExtraNames", () => {
     expect(row?.name).toBe("Tom Clancy's Splinter Cell")
   })
 
+  // ---- Source 3 (inserted between schema and community): Steam Support ----
+
+  function mockStoreSchemaFailThenSupport(supportTitlesByAppId: Record<number, string>) {
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const u = new URL(String(input))
+      if (u.hostname === "store.steampowered.com") {
+        const appid = u.searchParams.get("appids") ?? "0"
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ [appid]: { success: false } }),
+          text: async () => "",
+        } as unknown as Response
+      }
+      if (u.hostname === "help.steampowered.com") {
+        const appid = Number(u.searchParams.get("appid") ?? "0")
+        const title = supportTitlesByAppId[appid] ?? "Steam Support"
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({}),
+          text: async () => `<html><head><title>${title}</title></head></html>`,
+        } as unknown as Response
+      }
+      // Community: default to empty so the chain never pulls from it in
+      // these tests (we want to prove Support resolved things on its own).
+      return { ok: true, status: 200, json: async () => ({}), text: async () => "" } as unknown as Response
+    }) as unknown as typeof fetch
+  }
+
+  it("falls back to the Steam Support wizard when store and schema return nothing", async () => {
+    const db = await seedExtraWithoutName(489890)
+    mockStoreSchemaFailThenSupport({
+      489890: "Steam Support - Puzzles At Mystery Manor",
+    })
+    vi.doMock("@/lib/steam-api", () => ({
+      getGameSchema: vi.fn().mockResolvedValue(null),
+      getPlayerAchievements: vi.fn().mockResolvedValue(null),
+      getOwnedGames: vi.fn().mockResolvedValue([]),
+      getLastPlayedTimes: vi.fn().mockResolvedValue([]),
+    }))
+    const { hydrateMissingExtraNames } = await import("@/lib/server/extra-games")
+    await hydrateMissingExtraNames(STEAM_ID)
+    const row = db.prepare("SELECT name FROM games WHERE appid=489890").get() as { name: string } | undefined
+    expect(row?.name).toBe("Puzzles At Mystery Manor")
+  })
+
+  it("treats the bare 'Steam Support' title (no dash) as unresolved", async () => {
+    const db = await seedExtraWithoutName(615000)
+    mockStoreSchemaFailThenSupport({
+      615000: "Steam Support", // no " - <name>" suffix → truly dead app
+    })
+    vi.doMock("@/lib/steam-api", () => ({
+      getGameSchema: vi.fn().mockResolvedValue(null),
+      getPlayerAchievements: vi.fn().mockResolvedValue(null),
+      getOwnedGames: vi.fn().mockResolvedValue([]),
+      getLastPlayedTimes: vi.fn().mockResolvedValue([]),
+    }))
+    const { hydrateMissingExtraNames } = await import("@/lib/server/extra-games")
+    await hydrateMissingExtraNames(STEAM_ID)
+    const row = db.prepare("SELECT name FROM games WHERE appid=615000").get() as { name: string } | undefined
+    expect(row).toBeUndefined()
+  })
+
+  it("decodes HTML entities in Steam Support titles (e.g. &#39; for apostrophe)", async () => {
+    const db = await seedExtraWithoutName(707830)
+    mockStoreSchemaFailThenSupport({
+      707830: "Steam Support - Injustice&#39;s Online Beta",
+    })
+    vi.doMock("@/lib/steam-api", () => ({
+      getGameSchema: vi.fn().mockResolvedValue(null),
+      getPlayerAchievements: vi.fn().mockResolvedValue(null),
+      getOwnedGames: vi.fn().mockResolvedValue([]),
+      getLastPlayedTimes: vi.fn().mockResolvedValue([]),
+    }))
+    const { hydrateMissingExtraNames } = await import("@/lib/server/extra-games")
+    await hydrateMissingExtraNames(STEAM_ID)
+    const row = db.prepare("SELECT name FROM games WHERE appid=707830").get() as { name: string } | undefined
+    expect(row?.name).toBe("Injustice's Online Beta")
+  })
+
+  it("stops calling Steam Support after 5 consecutive 429 responses", async () => {
+    const db = await seedProfile()
+    const now = new Date().toISOString()
+    for (let i = 1; i <= 10; i++) {
+      db.prepare(
+        `INSERT INTO extra_games (steam_id, appid, playtime_forever, synced_at, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+      ).run(STEAM_ID, i, 100 - i, now, now, now)
+    }
+    let supportCalls = 0
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const u = new URL(String(input))
+      if (u.hostname === "store.steampowered.com") {
+        const appid = u.searchParams.get("appids") ?? "0"
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ [appid]: { success: false } }),
+          text: async () => "",
+        } as unknown as Response
+      }
+      if (u.hostname === "help.steampowered.com") {
+        supportCalls++
+        return { ok: false, status: 429, json: async () => ({}), text: async () => "" } as unknown as Response
+      }
+      return { ok: true, status: 200, json: async () => ({}), text: async () => "" } as unknown as Response
+    }) as unknown as typeof fetch
+    vi.doMock("@/lib/steam-api", () => ({
+      getGameSchema: vi.fn().mockResolvedValue(null),
+      getPlayerAchievements: vi.fn().mockResolvedValue(null),
+      getOwnedGames: vi.fn().mockResolvedValue([]),
+      getLastPlayedTimes: vi.fn().mockResolvedValue([]),
+    }))
+    const { hydrateMissingExtraNames } = await import("@/lib/server/extra-games")
+    await hydrateMissingExtraNames(STEAM_ID)
+    expect(supportCalls).toBe(5)
+    void db
+  })
+
+  it("stops calling the community fallback after 5 consecutive 429 responses", async () => {
+    const db = await seedProfile()
+    const now = new Date().toISOString()
+    for (let i = 1; i <= 10; i++) {
+      db.prepare(
+        `INSERT INTO extra_games (steam_id, appid, playtime_forever, synced_at, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+      ).run(STEAM_ID, i, 100 - i, now, now, now)
+    }
+    let communityCalls = 0
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const u = new URL(String(input))
+      if (u.hostname === "store.steampowered.com") {
+        const appid = u.searchParams.get("appids") ?? "0"
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ [appid]: { success: false } }),
+          text: async () => "",
+        } as unknown as Response
+      }
+      if (u.hostname === "help.steampowered.com") {
+        // Support responds with empty title so the chain moves on to
+        // community without incrementing its failure counter.
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({}),
+          text: async () => "<html><head><title>Steam Support</title></head></html>",
+        } as unknown as Response
+      }
+      if (u.hostname === "steamcommunity.com") {
+        communityCalls++
+        return { ok: false, status: 429, json: async () => ({}), text: async () => "" } as unknown as Response
+      }
+      return { ok: false, status: 404, json: async () => ({}), text: async () => "" } as unknown as Response
+    }) as unknown as typeof fetch
+    vi.doMock("@/lib/steam-api", () => ({
+      getGameSchema: vi.fn().mockResolvedValue(null),
+      getPlayerAchievements: vi.fn().mockResolvedValue(null),
+      getOwnedGames: vi.fn().mockResolvedValue([]),
+      getLastPlayedTimes: vi.fn().mockResolvedValue([]),
+    }))
+    const { hydrateMissingExtraNames } = await import("@/lib/server/extra-games")
+    await hydrateMissingExtraNames(STEAM_ID)
+    expect(communityCalls).toBe(5)
+    void db
+  })
+
   it("does not call the community fallback when the store already returned a name", async () => {
     const db = await seedExtraWithoutName(100200)
     let communityCalled = false
