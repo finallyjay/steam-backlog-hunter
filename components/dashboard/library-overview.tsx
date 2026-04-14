@@ -333,7 +333,7 @@ export function LibraryOverview({
       {listLoading ? (
         <div className="space-y-4">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="border-surface-4 bg-surface-1 flex items-stretch gap-4 rounded-lg border px-4 py-4">
+            <SurfaceCard key={i} variant="row" className="flex items-stretch gap-4">
               <Skeleton className="h-[5.9rem] w-48 rounded-2xl" />
               <div className="min-w-0 flex-1 space-y-2">
                 <Skeleton className="h-5 w-44" />
@@ -343,7 +343,7 @@ export function LibraryOverview({
                 </div>
                 <Skeleton className="h-2 w-full rounded-full" />
               </div>
-            </div>
+            </SurfaceCard>
           ))}
         </div>
       ) : error ? (
