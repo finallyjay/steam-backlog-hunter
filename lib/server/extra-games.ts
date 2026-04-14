@@ -72,13 +72,17 @@ async function fetchCommunityGameName(appId: number): Promise<string | null> {
 }
 
 function decodeBasicHtmlEntities(s: string): string {
+  // Order matters: &amp; must be replaced LAST so we don't double-decode
+  // strings that contain a literal &amp; followed by another entity (e.g.
+  // "&amp;#39;" should resolve to "&#39;", not "'"). CodeQL flags the
+  // naive ordering as a double-unescape vulnerability.
   return s
-    .replaceAll("&amp;", "&")
     .replaceAll("&#39;", "'")
     .replaceAll("&apos;", "'")
     .replaceAll("&quot;", '"')
     .replaceAll("&lt;", "<")
     .replaceAll("&gt;", ">")
+    .replaceAll("&amp;", "&")
 }
 
 /**

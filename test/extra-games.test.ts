@@ -586,10 +586,11 @@ describe("hydrateMissingExtraNames", () => {
     // store appdetails endpoint (counts toward the back-off) and the
     // community page fallback (independent host, doesn't count). Only
     // increment storeCalls for the store URL so the back-off assertion
-    // stays meaningful.
+    // stays meaningful. Use URL.hostname for an exact host match — CodeQL
+    // flags substring matching as incomplete URL sanitization.
     globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
-      const url = String(input)
-      if (url.includes("store.steampowered.com")) storeCalls++
+      const host = new URL(String(input)).hostname
+      if (host === "store.steampowered.com") storeCalls++
       return { ok: false, status: 500, json: async () => ({}), text: async () => "" } as unknown as Response
     }) as unknown as typeof fetch
     vi.doMock("@/lib/steam-api", () => ({
@@ -626,11 +627,12 @@ describe("hydrateMissingExtraNames", () => {
 
   function mockStoreFailAndCommunity(communityHtmlByAppId: Record<number, string>) {
     globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
-      const url = String(input)
-      if (url.includes("store.steampowered.com")) {
+      const u = new URL(String(input))
+      // Use exact hostname matching — CodeQL flags substring URL checks
+      // as incomplete sanitization.
+      if (u.hostname === "store.steampowered.com") {
         // Force the store fallback to return success=false so the chain
         // proceeds to schema (mocked to null) and then to community.
-        const u = new URL(url)
         const appid = u.searchParams.get("appids") ?? "0"
         return {
           ok: true,
@@ -639,8 +641,8 @@ describe("hydrateMissingExtraNames", () => {
           text: async () => "",
         } as unknown as Response
       }
-      if (url.includes("steamcommunity.com")) {
-        const m = url.match(/\/app\/(\d+)/)
+      if (u.hostname === "steamcommunity.com") {
+        const m = u.pathname.match(/\/app\/(\d+)/)
         const appid = m ? Number(m[1]) : 0
         const html = communityHtmlByAppId[appid] ?? ""
         return { ok: true, status: 200, json: async () => ({}), text: async () => html } as unknown as Response
@@ -721,12 +723,11 @@ describe("hydrateMissingExtraNames", () => {
     const db = await seedExtraWithoutName(100200)
     let communityCalled = false
     globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
-      const url = String(input)
-      if (url.includes("steamcommunity.com")) {
+      const u = new URL(String(input))
+      if (u.hostname === "steamcommunity.com") {
         communityCalled = true
         return { ok: true, status: 200, json: async () => ({}), text: async () => "" } as unknown as Response
       }
-      const u = new URL(url)
       const appid = u.searchParams.get("appids") ?? "0"
       return {
         ok: true,
