@@ -7,6 +7,7 @@ import type { PieSectorDataItem } from "recharts/types/polar/Pie"
 import { PieChart as PieChartIcon, Trophy } from "lucide-react"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { SurfaceCard, surfaceCardVariants } from "@/components/ui/surface-card"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { AnimatedNumber } from "@/components/ui/animated-number"
 import { useSteamGames } from "@/hooks/use-steam-data"
@@ -97,8 +98,6 @@ function createChartTooltip(total: number) {
   }
 }
 
-const METRIC_LEGEND_BASE = "bg-surface-1 flex items-center justify-between rounded-lg px-3 py-2.5"
-
 function MetricLegend({ label, value, color, href }: { label: string; value: number; color: string; href?: string }) {
   const inner = (
     <>
@@ -112,14 +111,16 @@ function MetricLegend({ label, value, color, href }: { label: string; value: num
     </>
   )
 
+  // The clickable variant uses surfaceCardVariants directly on the <Link>
+  // so we don't add an extra wrapper div around the anchor.
   if (href) {
     return (
-      <Link href={href} className={cn(METRIC_LEGEND_BASE, "hover:bg-surface-2 transition-colors")}>
+      <Link href={href} className={cn(surfaceCardVariants({ variant: "metric" }), "hover:bg-surface-2")}>
         {inner}
       </Link>
     )
   }
-  return <div className={METRIC_LEGEND_BASE}>{inner}</div>
+  return <SurfaceCard variant="metric">{inner}</SurfaceCard>
 }
 
 function InsightChartFrame({
@@ -132,13 +133,13 @@ function InsightChartFrame({
   children: React.ReactNode
 }) {
   return (
-    <div className="border-surface-3 bg-surface-1 rounded-lg border p-4">
+    <SurfaceCard>
       <div className="mb-3">
         <p className="text-foreground text-sm font-semibold">{title}</p>
         <p className="text-muted-foreground text-sm">{insight}</p>
       </div>
       <div className="h-56 min-h-0 min-w-0">{children}</div>
-    </div>
+    </SurfaceCard>
   )
 }
 
