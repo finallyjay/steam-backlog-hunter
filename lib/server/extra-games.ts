@@ -166,7 +166,9 @@ export async function hydrateMissingExtraNames(steamId: string) {
       SELECT e.appid
       FROM extra_games e
       LEFT JOIN games g ON g.appid = e.appid
-      WHERE e.steam_id = ? AND (g.appid IS NULL OR g.name IS NULL OR g.name = '')
+      WHERE e.steam_id = ?
+        AND (g.appid IS NULL OR g.name IS NULL OR g.name = '')
+        AND (g.name_source IS NULL OR g.name_source != 'manual')
       ORDER BY e.playtime_forever DESC
     `,
     )
@@ -178,7 +180,7 @@ export async function hydrateMissingExtraNames(steamId: string) {
     INSERT INTO games (appid, name, created_at, updated_at)
     VALUES (?, ?, ?, ?)
     ON CONFLICT(appid) DO UPDATE SET
-      name = excluded.name,
+      name = CASE WHEN games.name_source = 'manual' THEN games.name ELSE excluded.name END,
       updated_at = excluded.updated_at
   `)
 
@@ -399,7 +401,7 @@ export function persistExtraAchievements(
         INSERT INTO games (appid, name, created_at, updated_at)
         VALUES (?, ?, ?, ?)
         ON CONFLICT(appid) DO UPDATE SET
-          name = excluded.name,
+          name = CASE WHEN games.name_source = 'manual' THEN games.name ELSE excluded.name END,
           updated_at = excluded.updated_at
       `,
       ).run(appId, gameName, now, now)

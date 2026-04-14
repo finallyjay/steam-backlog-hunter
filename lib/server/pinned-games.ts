@@ -53,7 +53,7 @@ export async function ensurePinnedGamesSynced(steamId: string, existingOwnedAppI
     INSERT INTO games (appid, name, has_community_visible_stats, created_at, updated_at)
     VALUES (?, ?, 1, ?, ?)
     ON CONFLICT(appid) DO UPDATE SET
-      name = excluded.name,
+      name = CASE WHEN games.name_source = 'manual' THEN games.name ELSE excluded.name END,
       has_community_visible_stats = 1,
       updated_at = excluded.updated_at
   `)

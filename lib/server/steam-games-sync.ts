@@ -144,7 +144,7 @@ export function persistOwnedGames(steamId: string, games: SteamGame[]) {
       updated_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(appid) DO UPDATE SET
-      name = excluded.name,
+      name = CASE WHEN games.name_source = 'manual' THEN games.name ELSE excluded.name END,
       icon_hash = excluded.icon_hash,
       logo_hash = excluded.logo_hash,
       has_community_visible_stats = excluded.has_community_visible_stats,

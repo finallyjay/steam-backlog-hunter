@@ -50,6 +50,14 @@ function createBaseSchema(db: DatabaseSync) {
     CREATE TABLE IF NOT EXISTS games (
       appid INTEGER PRIMARY KEY,
       name TEXT NOT NULL,
+      -- Provenance of the name column. 'auto' means any sync path
+      -- (catalog, store, schema, support wizard, community page) may
+      -- overwrite it on subsequent upserts. 'manual' is set when the
+      -- admin types a name in /admin/orphan-names and freezes the
+      -- value: every upsert path keeps the existing name when
+      -- name_source='manual', but still refreshes images/icons/stats
+      -- flags so the row stays current.
+      name_source TEXT NOT NULL DEFAULT 'auto',
       icon_hash TEXT,
       logo_hash TEXT,
       image_icon_url TEXT,
@@ -285,6 +293,8 @@ function applyAdditiveMigrations(db: DatabaseSync) {
   addColumnIfMissing(db, "extra_games", "unlocked_count", "INTEGER")
   addColumnIfMissing(db, "extra_games", "total_count", "INTEGER")
   addColumnIfMissing(db, "extra_games", "perfect_game", "INTEGER NOT NULL DEFAULT 0")
+  // Provenance of games.name. See CREATE TABLE comment above.
+  addColumnIfMissing(db, "games", "name_source", "TEXT NOT NULL DEFAULT 'auto'")
 }
 
 export function getSqliteDatabase() {

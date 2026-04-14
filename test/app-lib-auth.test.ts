@@ -68,6 +68,30 @@ describe("getCurrentUser", () => {
     expect(user?.steamId).toBe("76561198023709299")
   })
 
+  it("decorates the user with isAdmin=true when steamId matches ADMIN_STEAM_ID", async () => {
+    process.env.ADMIN_STEAM_ID = "76561198023709299"
+    cookieStore.get.mockReturnValue({ name: "steam_user", value: JSON.stringify(mockUser) })
+    vi.mocked(isSteamIdWhitelisted).mockReturnValue(true)
+    try {
+      const user = await getCurrentUser()
+      expect(user?.isAdmin).toBe(true)
+    } finally {
+      delete process.env.ADMIN_STEAM_ID
+    }
+  })
+
+  it("decorates the user with isAdmin=false when steamId does not match ADMIN_STEAM_ID", async () => {
+    process.env.ADMIN_STEAM_ID = "99999999999999999"
+    cookieStore.get.mockReturnValue({ name: "steam_user", value: JSON.stringify(mockUser) })
+    vi.mocked(isSteamIdWhitelisted).mockReturnValue(true)
+    try {
+      const user = await getCurrentUser()
+      expect(user?.isAdmin).toBe(false)
+    } finally {
+      delete process.env.ADMIN_STEAM_ID
+    }
+  })
+
   it("clears the cookie and returns null when the id is NOT whitelisted", async () => {
     cookieStore.get.mockReturnValue({ name: "steam_user", value: JSON.stringify(mockUser) })
     vi.mocked(isSteamIdWhitelisted).mockReturnValue(false)
