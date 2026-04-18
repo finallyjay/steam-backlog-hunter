@@ -126,7 +126,7 @@ export default function ExtraGameDetailPage() {
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="from-background/95 to-background/80 min-h-screen bg-gradient-to-br">
       <div className="container mx-auto px-4 py-8">
         {loading ? (
           <div className="mb-8 flex items-center gap-6">

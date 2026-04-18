@@ -28,10 +28,13 @@ import { Skeleton } from "@/components/ui/skeleton"
  *       children on the right. Uses <GameImage> so the portrait chain
  *       (2x retina → 1x → branded placeholder) still applies.
  *
- * On top of both layouts, `page_bg_generated_v6b.jpg` is probed in
- * parallel and rendered as a heavily blurred, semi-transparent backdrop
- * fixed to the viewport (not scoped to the hero box) so the game's
- * ambient color bleeds into the whole page, not just the hero.
+ * On top of both layouts, a blurred backdrop is rendered fixed to the
+ * viewport so the game's ambient colour bleeds into the whole page.
+ * The bg URL is resolved via a fallback chain so we have an image for
+ * nearly every app: page_bg_generated_v6b.jpg (modern) → _generated.jpg
+ * (older) → library_hero.jpg (always present for modern entries). The
+ * backdrop has no dark overlay of its own — the tinting comes from the
+ * page wrapper's semi-transparent gradient sitting above it.
  *
  * Probing is entirely client-side so nothing hits the DB or sync
  * pipeline. Worst case is a ~300 ms flash during which a banner-shaped
@@ -79,12 +82,12 @@ interface GameHeroProps {
 
 export function GameHero({ appId, name, title, portraitUrl, children }: GameHeroProps) {
   const [mode, setMode] = useState<HeroMode>("probing")
-  const [bgOk, setBgOk] = useState(false)
+  const [bgUrl, setBgUrl] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
     setMode("probing")
-    setBgOk(false)
+    setBgUrl(null)
 
     Promise.all([probeImage(`${CDN}/${appId}/library_hero.jpg`), probeImage(`${CDN}/${appId}/logo.png`)]).then(
       ([heroOk, logoOk]) => {
@@ -93,27 +96,45 @@ export function GameHero({ appId, name, title, portraitUrl, children }: GameHero
       },
     )
 
-    probeImage(`${CDN}/${appId}/page_bg_generated_v6b.jpg`).then((ok) => {
-      if (!cancelled) setBgOk(ok)
-    })
+    // Backdrop asset fallback chain. Prefer `page_bg_generated.jpg` (the
+    // less-processed variant — cleaner colour) since the page wrapper already
+    // layers a dark translucent gradient on top. `v6b` is heavily
+    // blurred/desaturated and goes muddy under the overlay. library_hero.jpg
+    // is the last resort — always present for modern entries and still works
+    // blurred as an ambient bleed below.
+    ;(async () => {
+      const candidates = [
+        `${CDN}/${appId}/page_bg_generated.jpg`,
+        `${CDN}/${appId}/page_bg_generated_v6b.jpg`,
+        `${CDN}/${appId}/library_hero.jpg`,
+      ]
+      for (const url of candidates) {
+        const ok = await probeImage(url)
+        if (cancelled) return
+        if (ok) {
+          setBgUrl(url)
+          return
+        }
+      }
+    })()
 
     return () => {
       cancelled = true
     }
   }, [appId])
 
-  // Backdrop is fixed to the viewport (not absolute inside the hero box)
-  // so the game's ambient color fills the whole detail page, including
-  // the area below the banner that scrolls. `-z-10` keeps it behind
-  // in-flow content; the body::before/::after CRT overlays stay above.
-  const backdrop = bgOk ? (
+  // Backdrop is fixed to the viewport (not absolute inside the hero box) so
+  // the game's ambient colour fills the whole detail page, including the area
+  // below the banner that scrolls. `-z-10` keeps it behind in-flow content
+  // (including the page wrapper's translucent gradient that tints it); the
+  // body::before/::after CRT overlays stay above.
+  const backdrop = bgUrl ? (
     <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden" aria-hidden="true">
       <img
-        src={`${CDN}/${appId}/page_bg_generated_v6b.jpg`}
+        src={bgUrl}
         alt=""
-        className="h-full w-full scale-110 object-cover opacity-40 blur-2xl brightness-75 saturate-150"
+        className="h-full w-full scale-110 object-cover opacity-100 blur-[2px] brightness-110 saturate-[1.75]"
       />
-      <div className="from-background/50 via-background/30 to-background/80 absolute inset-0 bg-gradient-to-b" />
     </div>
   ) : null
 

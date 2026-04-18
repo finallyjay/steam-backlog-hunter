@@ -47,7 +47,7 @@ export function AchievementRow({ achievement: ach }: AchievementRowProps) {
   return (
     <li
       className={`border-surface-4 flex items-center gap-4 rounded-lg border p-4 transition-colors ${
-        isUnlocked ? "bg-surface-1" : "bg-white/2 opacity-70"
+        isUnlocked ? "bg-card/80" : "bg-card/60 opacity-90"
       }`}
     >
       <img
