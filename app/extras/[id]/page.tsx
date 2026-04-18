@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { Database, ExternalLink, LifeBuoy, Lock, Trophy } from "lucide-react"
+import { Database, ExternalLink, LifeBuoy, Lock, Search, Trophy } from "lucide-react"
 
 import { useCurrentUser } from "@/hooks/use-current-user"
 import { LoadingMessage } from "@/components/ui/loading-message"
 import { EmptyState } from "@/components/ui/empty-state"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
+import { InputFrame } from "@/components/ui/input-frame"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { GameHero } from "@/components/ui/game-hero"
@@ -44,6 +45,21 @@ function sortByUnlockDateDesc(a: SteamAchievementView, b: SteamAchievementView) 
   return b.unlocktime - a.unlocktime
 }
 
+function sortByGlobalPercentDesc(a: SteamAchievementView, b: SteamAchievementView) {
+  const ap = a.globalPercent
+  const bp = b.globalPercent
+  if (ap == null && bp == null) return 0
+  if (ap == null) return 1
+  if (bp == null) return -1
+  return bp - ap
+}
+
+function matchesSearch(ach: SteamAchievementView, query: string): boolean {
+  if (!query) return true
+  const q = query.toLowerCase()
+  return ach.displayName.toLowerCase().includes(q) || (ach.description ?? "").toLowerCase().includes(q)
+}
+
 export default function ExtraGameDetailPage() {
   const params = useParams<{ id: string }>()
   const appId = Number(params.id)
@@ -54,6 +70,7 @@ export default function ExtraGameDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<AchievementTab>("pending")
+  const [search, setSearch] = useState("")
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -92,11 +109,13 @@ export default function ExtraGameDetailPage() {
     }
   }, [loadingUser, router, user])
 
-  const pending = useMemo(() => achievements.filter((a) => !a.achieved).sort(sortByUnlockDateDesc), [achievements])
+  const pending = useMemo(() => achievements.filter((a) => !a.achieved).sort(sortByGlobalPercentDesc), [achievements])
   const unlocked = useMemo(
     () => achievements.filter((a) => a.achieved === 1).sort(sortByUnlockDateDesc),
     [achievements],
   )
+  const filteredPending = useMemo(() => pending.filter((a) => matchesSearch(a, search)), [pending, search])
+  const filteredUnlocked = useMemo(() => unlocked.filter((a) => matchesSearch(a, search)), [unlocked, search])
   const total = achievements.length
   const unlockedCount = unlocked.length
   const percent = total > 0 ? Math.round((unlockedCount / total) * 100) : 0
@@ -192,24 +211,43 @@ export default function ExtraGameDetailPage() {
             </GameHero>
 
             {total > 0 && (
-              <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as AchievementTab)}>
-                <TabsList>
-                  <TabsTrigger value="pending">
-                    <Lock className="h-4 w-4" />
-                    Pending ({pending.length})
-                  </TabsTrigger>
-                  <TabsTrigger value="unlocked">
-                    <Trophy className="h-4 w-4" />
-                    Unlocked ({unlocked.length})
-                  </TabsTrigger>
-                </TabsList>
-                <TabsContent value="pending">
-                  {renderAchievementPanel(pending, "No pending achievements for this game!")}
-                </TabsContent>
-                <TabsContent value="unlocked">
-                  {renderAchievementPanel(unlocked, "No unlocked achievements yet.")}
-                </TabsContent>
-              </Tabs>
+              <>
+                <InputFrame className="mb-4">
+                  <Search className="text-muted-foreground h-4 w-4 shrink-0" aria-hidden="true" />
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search achievements..."
+                    aria-label="Search achievements"
+                    className="text-foreground placeholder:text-muted-foreground h-full w-full bg-transparent text-sm focus:outline-none"
+                  />
+                </InputFrame>
+                <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as AchievementTab)}>
+                  <TabsList>
+                    <TabsTrigger value="pending">
+                      <Lock className="h-4 w-4" />
+                      Pending ({filteredPending.length}/{pending.length})
+                    </TabsTrigger>
+                    <TabsTrigger value="unlocked">
+                      <Trophy className="h-4 w-4" />
+                      Unlocked ({filteredUnlocked.length}/{unlocked.length})
+                    </TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="pending">
+                    {renderAchievementPanel(
+                      filteredPending,
+                      search ? "No pending achievements match your search." : "No pending achievements for this game!",
+                    )}
+                  </TabsContent>
+                  <TabsContent value="unlocked">
+                    {renderAchievementPanel(
+                      filteredUnlocked,
+                      search ? "No unlocked achievements match your search." : "No unlocked achievements yet.",
+                    )}
+                  </TabsContent>
+                </Tabs>
+              </>
             )}
 
             {total === 0 && !loading && (

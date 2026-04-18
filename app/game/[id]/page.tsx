@@ -11,9 +11,10 @@ import { EmptyState } from "@/components/ui/empty-state"
 import { useEffect, useMemo, useState } from "react"
 import type { SteamAchievementView } from "@/lib/types/steam"
 import { Button } from "@/components/ui/button"
+import { InputFrame } from "@/components/ui/input-frame"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ExternalLink, Lock, RefreshCw, Trophy } from "lucide-react"
+import { ExternalLink, Lock, RefreshCw, Search, Trophy } from "lucide-react"
 import { formatPlaytime } from "@/lib/utils"
 
 type AchievementTab = "pending" | "unlocked"
@@ -23,6 +24,24 @@ function sortByUnlockDateDesc(a: SteamAchievementView, b: SteamAchievementView) 
   if (!a.unlocktime) return 1
   if (!b.unlocktime) return -1
   return b.unlocktime - a.unlocktime
+}
+
+// Pending achievements ranked by global unlock % DESC — most common (easiest
+// to earn) float to the top. Null percentages (no rarity data yet) sink to the
+// bottom so they don't interleave with known rarities.
+function sortByGlobalPercentDesc(a: SteamAchievementView, b: SteamAchievementView) {
+  const ap = a.globalPercent
+  const bp = b.globalPercent
+  if (ap == null && bp == null) return 0
+  if (ap == null) return 1
+  if (bp == null) return -1
+  return bp - ap
+}
+
+function matchesSearch(ach: SteamAchievementView, query: string): boolean {
+  if (!query) return true
+  const q = query.toLowerCase()
+  return ach.displayName.toLowerCase().includes(q) || (ach.description ?? "").toLowerCase().includes(q)
 }
 
 export default function GameDetailPage() {
@@ -36,6 +55,7 @@ export default function GameDetailPage() {
   const [syncing, setSyncing] = useState(false)
   const [syncedAchievements, setSyncedAchievements] = useState<SteamAchievementView[] | null>(null)
   const [syncError, setSyncError] = useState<string | null>(null)
+  const [search, setSearch] = useState("")
 
   const game = games.find((g) => g.appid === appId)
 
@@ -74,13 +94,15 @@ export default function GameDetailPage() {
     [effectiveAchievements],
   )
   const pending = useMemo(
-    () => allAchievements.filter((a) => !a.achieved).sort(sortByUnlockDateDesc),
+    () => allAchievements.filter((a) => !a.achieved).sort(sortByGlobalPercentDesc),
     [allAchievements],
   )
   const unlocked = useMemo(
     () => allAchievements.filter((a) => a.achieved === 1).sort(sortByUnlockDateDesc),
     [allAchievements],
   )
+  const filteredPending = useMemo(() => pending.filter((a) => matchesSearch(a, search)), [pending, search])
+  const filteredUnlocked = useMemo(() => unlocked.filter((a) => matchesSearch(a, search)), [unlocked, search])
   const total = allAchievements.length
   const unlockedCount = unlocked.length
   const percent = total > 0 ? Math.round((unlockedCount / total) * 100) : 0
@@ -175,23 +197,45 @@ export default function GameDetailPage() {
           </GameHero>
         )}
 
+        {game && total > 0 && !loadingAchievements && (
+          <InputFrame className="mb-4">
+            <Search className="text-muted-foreground h-4 w-4 shrink-0" aria-hidden="true" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search achievements..."
+              aria-label="Search achievements"
+              className="text-foreground placeholder:text-muted-foreground h-full w-full bg-transparent text-sm focus:outline-none"
+            />
+          </InputFrame>
+        )}
+
         {game && (
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as AchievementTab)}>
             <TabsList>
               <TabsTrigger value="pending">
                 <Lock className="h-4 w-4" />
-                Pending{!loadingAchievements && ` (${pending.length})`}
+                Pending{!loadingAchievements && ` (${filteredPending.length}/${pending.length})`}
               </TabsTrigger>
               <TabsTrigger value="unlocked">
                 <Trophy className="h-4 w-4" />
-                Unlocked{!loadingAchievements && ` (${unlocked.length})`}
+                Unlocked{!loadingAchievements && ` (${filteredUnlocked.length}/${unlocked.length})`}
               </TabsTrigger>
             </TabsList>
             <TabsContent value="pending">
-              {renderAchievementPanel(pending, "You have no pending achievements for this game!")}
+              {renderAchievementPanel(
+                filteredPending,
+                search
+                  ? "No pending achievements match your search."
+                  : "You have no pending achievements for this game!",
+              )}
             </TabsContent>
             <TabsContent value="unlocked">
-              {renderAchievementPanel(unlocked, "No unlocked achievements yet.")}
+              {renderAchievementPanel(
+                filteredUnlocked,
+                search ? "No unlocked achievements match your search." : "No unlocked achievements yet.",
+              )}
             </TabsContent>
           </Tabs>
         )}

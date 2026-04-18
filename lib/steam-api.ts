@@ -242,11 +242,16 @@ export async function getGlobalAchievementPercentages(appId: number): Promise<Gl
     })
     const arr = data?.achievementpercentages?.achievements
     if (!Array.isArray(arr)) return null
-    return arr.filter(
-      (a: unknown): a is GlobalAchievementPercent =>
-        typeof (a as GlobalAchievementPercent)?.name === "string" &&
-        typeof (a as GlobalAchievementPercent)?.percent === "number",
-    )
+    // Steam serves `percent` as a string ("82.3"), not a number, so coerce via
+    // Number() and drop non-finite results (malformed rows or NaN).
+    const result: GlobalAchievementPercent[] = []
+    for (const entry of arr as Array<{ name?: unknown; percent?: unknown }>) {
+      if (typeof entry.name !== "string") continue
+      const percent = typeof entry.percent === "number" ? entry.percent : Number(entry.percent)
+      if (!Number.isFinite(percent)) continue
+      result.push({ name: entry.name, percent })
+    }
+    return result
   } catch (error) {
     if (error instanceof SteamAPIError && (error.status === 400 || error.status === 403 || error.status === 404)) {
       return null
