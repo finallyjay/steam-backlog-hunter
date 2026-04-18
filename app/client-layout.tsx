@@ -87,7 +87,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       <main id="main-content" tabIndex={-1} className="min-h-screen outline-none">
         {children}
       </main>
-      <footer className="border-surface-4 border-t py-8">
+      <footer className="border-surface-4 bg-background relative border-t py-8">
         <div className="container mx-auto flex flex-col items-center gap-3 px-4 text-center">
           <p className="text-muted-foreground text-sm">
             Made with{" "}
