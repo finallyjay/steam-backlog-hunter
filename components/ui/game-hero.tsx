@@ -61,7 +61,7 @@ function probeImage(url: string): Promise<boolean> {
 
 interface GameHeroProps {
   appId: number | string
-  /** Plain-text name — used for img alt and the sr-only h1 fallback. */
+  /** Plain-text name — used for img alt and the default `<h1>` fallback. */
   name: string
   /**
    * Optional custom title node rendered instead of the default
@@ -181,7 +181,7 @@ export function GameHero({ appId, name, title, portraitUrl, children }: GameHero
         </div>
       </div>
       <div className="mt-6 space-y-4">
-        {title ?? <h1 className="sr-only">{name}</h1>}
+        {title ?? <h1 className="text-2xl font-bold">{name}</h1>}
         {children}
       </div>
     </div>

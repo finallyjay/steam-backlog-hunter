@@ -1,6 +1,13 @@
 import "server-only"
 
-import { getGameSchema, getPlayerAchievements, type GameSchema, type SteamAchievement } from "@/lib/steam-api"
+import {
+  getGameSchema,
+  getGlobalAchievementPercentages,
+  getPlayerAchievements,
+  type GameSchema,
+  type GlobalAchievementPercent,
+  type SteamAchievement,
+} from "@/lib/steam-api"
 import type { SteamAchievementView } from "@/lib/types/steam"
 import { getSqliteDatabase } from "@/lib/server/sqlite"
 import { nowIso, isStale } from "@/lib/server/steam-store-utils"
@@ -25,6 +32,8 @@ type AchievementJoinRow = {
   description: string | null
   icon: string | null
   icon_gray: string | null
+  hidden: number | null
+  global_percent: number | null
   achieved: number
   unlock_time: number | null
 }
@@ -39,6 +48,8 @@ function mapJoinRowToView(row: AchievementJoinRow): SteamAchievementView {
     displayName: row.display_name ?? row.apiname,
     icon: row.icon ?? "",
     icongray: row.icon_gray ?? "",
+    hidden: row.hidden ?? 0,
+    globalPercent: row.global_percent,
   }
 }
 
@@ -84,6 +95,8 @@ export function readStoredAchievementsList(steamId: string, appId: number): Stea
         ga.description,
         ga.icon,
         ga.icon_gray,
+        ga.hidden,
+        ga.global_percent,
         COALESCE(ua.achieved, 0) AS achieved,
         COALESCE(ua.unlock_time, 0) AS unlock_time
       FROM game_achievements ga
@@ -124,6 +137,8 @@ export function getBatchStoredAchievements(steamId: string, appIds: number[]): R
         ga.description,
         ga.icon,
         ga.icon_gray,
+        ga.hidden,
+        ga.global_percent,
         COALESCE(ua.achieved, 0) AS achieved,
         COALESCE(ua.unlock_time, 0) AS unlock_time
       FROM user_games ug
@@ -210,10 +225,25 @@ export function persistAchievements(steamId: string, appId: number, achievements
  * Persists the game schema (achievement definitions) into the normalized
  * `game_achievements` table. Callers that want to refresh must go through
  * `ensureSchema`, which handles staleness and upstream fetching.
+ *
+ * `percentages` is the parallel `GetGlobalAchievementPercentagesForApp` result.
+ * When provided, each apiname is joined by name and persisted alongside the
+ * schema row. Pass `null` when the endpoint failed or returned nothing — we
+ * still refresh the schema but leave `global_percent` as-is for rows we
+ * already have (UPSERT only sets it when we have a value).
  */
-function persistSchema(appId: number, schema: GameSchema | null) {
+function persistSchema(appId: number, schema: GameSchema | null, percentages: GlobalAchievementPercent[] | null) {
   const db = getSqliteDatabase()
   const now = nowIso()
+
+  const percentByName = new Map<string, number>()
+  if (percentages) {
+    for (const entry of percentages) {
+      if (typeof entry.name === "string" && typeof entry.percent === "number") {
+        percentByName.set(entry.name, entry.percent)
+      }
+    }
+  }
 
   db.exec("BEGIN")
   try {
@@ -221,16 +251,20 @@ function persistSchema(appId: number, schema: GameSchema | null) {
 
     const achievements = schema?.availableGameStats?.achievements ?? []
     if (achievements.length > 0) {
+      // Preserve an existing global_percent when the new percentages payload
+      // didn't include this apiname — COALESCE against the existing column so
+      // a transient rarity-endpoint miss doesn't null out good data.
       const upsert = db.prepare(`
         INSERT INTO game_achievements (
-          appid, apiname, display_name, description, icon, icon_gray, hidden, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          appid, apiname, display_name, description, icon, icon_gray, hidden, global_percent, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(appid, apiname) DO UPDATE SET
           display_name = excluded.display_name,
           description = excluded.description,
           icon = excluded.icon,
           icon_gray = excluded.icon_gray,
           hidden = excluded.hidden,
+          global_percent = COALESCE(excluded.global_percent, game_achievements.global_percent),
           updated_at = excluded.updated_at
       `)
 
@@ -244,6 +278,7 @@ function persistSchema(appId: number, schema: GameSchema | null) {
           achievement.icon ?? null,
           achievement.icongray ?? null,
           achievement.hidden ? 1 : 0,
+          percentByName.get(achievement.name) ?? null,
           now,
           now,
         )
@@ -274,8 +309,12 @@ export async function ensureSchema(appId: number, options?: { forceRefresh?: boo
     return
   }
 
-  const schema = await getGameSchema(appId)
-  persistSchema(appId, schema)
+  // Schema + global rarity in parallel. Rarity is an independent endpoint
+  // (ISteamUserStats/GetGlobalAchievementPercentagesForApp) on the same
+  // staleness budget as the schema, so refreshing them together keeps the
+  // two data sets in sync without a second call cadence.
+  const [schema, percentages] = await Promise.all([getGameSchema(appId), getGlobalAchievementPercentages(appId)])
+  persistSchema(appId, schema, percentages)
 }
 
 /**

@@ -48,6 +48,7 @@ async function seedFreshProfile(iso?: string) {
 
 function mockSteamApi() {
   vi.doMock("@/lib/steam-api", () => ({
+    getGlobalAchievementPercentages: vi.fn().mockResolvedValue(null),
     getOwnedGames: vi.fn().mockResolvedValue([]),
     getRecentlyPlayedGames: vi.fn().mockResolvedValue([]),
     getPlayerAchievements: vi.fn().mockResolvedValue(null),
@@ -128,6 +129,7 @@ describe("getUserSyncStatus", () => {
 describe("synchronizeUserData", () => {
   it("returns summarised counts and the freshly computed stats object", async () => {
     vi.doMock("@/lib/steam-api", () => ({
+      getGlobalAchievementPercentages: vi.fn().mockResolvedValue(null),
       getOwnedGames: vi.fn().mockResolvedValue([
         {
           appid: 620,

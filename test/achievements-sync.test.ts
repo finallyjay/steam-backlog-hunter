@@ -97,6 +97,7 @@ describe("syncAchievementsForStats (per-game)", () => {
     const mockGetGameSchema = vi.fn().mockResolvedValue(null)
 
     vi.doMock("@/lib/steam-api", () => ({
+      getGlobalAchievementPercentages: vi.fn().mockResolvedValue(null),
       getOwnedGames: vi.fn().mockResolvedValue([]),
       getRecentlyPlayedGames: vi.fn().mockResolvedValue([]),
       getPlayerAchievements: mockGetPlayerAchievements,
@@ -145,6 +146,7 @@ describe("syncAchievementsForStats (per-game)", () => {
     const mockGetPlayerAchievements = vi.fn()
 
     vi.doMock("@/lib/steam-api", () => ({
+      getGlobalAchievementPercentages: vi.fn().mockResolvedValue(null),
       getOwnedGames: vi.fn().mockResolvedValue([]),
       getRecentlyPlayedGames: vi.fn().mockResolvedValue([]),
       getPlayerAchievements: mockGetPlayerAchievements,
@@ -177,6 +179,7 @@ describe("syncAchievementsForStats (per-game)", () => {
     })
 
     vi.doMock("@/lib/steam-api", () => ({
+      getGlobalAchievementPercentages: vi.fn().mockResolvedValue(null),
       getOwnedGames: vi.fn().mockResolvedValue([]),
       getRecentlyPlayedGames: vi.fn().mockResolvedValue([]),
       getPlayerAchievements: mockGetPlayerAchievements,
@@ -213,6 +216,7 @@ describe("syncAchievementsForStats (per-game)", () => {
     const mockGetPlayerAchievements = vi.fn().mockResolvedValue(null)
 
     vi.doMock("@/lib/steam-api", () => ({
+      getGlobalAchievementPercentages: vi.fn().mockResolvedValue(null),
       getOwnedGames: vi.fn().mockResolvedValue([]),
       getRecentlyPlayedGames: vi.fn().mockResolvedValue([]),
       getPlayerAchievements: mockGetPlayerAchievements,
@@ -244,6 +248,7 @@ describe("syncAchievementsForStats (per-game)", () => {
 describe("syncAchievementsForStats (incremental filter)", () => {
   function mockSteamApi(mockGetPlayerAchievements: ReturnType<typeof vi.fn>) {
     vi.doMock("@/lib/steam-api", () => ({
+      getGlobalAchievementPercentages: vi.fn().mockResolvedValue(null),
       getOwnedGames: vi.fn().mockResolvedValue([]),
       getRecentlyPlayedGames: vi.fn().mockResolvedValue([]),
       getPlayerAchievements: mockGetPlayerAchievements,
