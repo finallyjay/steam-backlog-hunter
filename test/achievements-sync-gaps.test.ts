@@ -60,6 +60,7 @@ function mockSteamApi(mocks: {
   getGameSchema?: ReturnType<typeof vi.fn>
 }) {
   vi.doMock("@/lib/steam-api", () => ({
+    getGlobalAchievementPercentages: vi.fn().mockResolvedValue(null),
     getOwnedGames: vi.fn().mockResolvedValue([]),
     getRecentlyPlayedGames: vi.fn().mockResolvedValue([]),
     getPlayerAchievements: mocks.getPlayerAchievements ?? vi.fn().mockResolvedValue(null),

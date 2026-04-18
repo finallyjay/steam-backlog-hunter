@@ -1163,6 +1163,7 @@ describe("getExtraAchievementsList", () => {
     ).run(STEAM_ID, 111, "ACH_1", now, now)
 
     vi.doMock("@/lib/steam-api", () => ({
+      getGlobalAchievementPercentages: vi.fn().mockResolvedValue(null),
       getGameSchema: vi.fn().mockResolvedValue(null),
       getPlayerAchievements: vi.fn().mockResolvedValue(null),
       getOwnedGames: vi.fn().mockResolvedValue([]),

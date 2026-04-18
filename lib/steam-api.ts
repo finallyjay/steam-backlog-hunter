@@ -221,6 +221,44 @@ export async function getLastPlayedTimes(steamId: string): Promise<LastPlayedGam
   }
 }
 
+/** One entry of ISteamUserStats/GetGlobalAchievementPercentagesForApp. */
+export interface GlobalAchievementPercent {
+  name: string
+  percent: number
+}
+
+/**
+ * Fetches the global unlock percentage for every achievement of a game.
+ *
+ * Calls ISteamUserStats/GetGlobalAchievementPercentagesForApp, which is public
+ * (no API key scope needed — Valve serves it to the community widgets). Returns
+ * null on 400/403/404/network errors so the caller can treat "no rarity data"
+ * as a first-class case alongside "no schema".
+ */
+export async function getGlobalAchievementPercentages(appId: number): Promise<GlobalAchievementPercent[] | null> {
+  try {
+    const data = await steamAPIRequest("/ISteamUserStats/GetGlobalAchievementPercentagesForApp/v2/", {
+      gameid: appId.toString(),
+    })
+    const arr = data?.achievementpercentages?.achievements
+    if (!Array.isArray(arr)) return null
+    return arr.filter(
+      (a: unknown): a is GlobalAchievementPercent =>
+        typeof (a as GlobalAchievementPercent)?.name === "string" &&
+        typeof (a as GlobalAchievementPercent)?.percent === "number",
+    )
+  } catch (error) {
+    if (error instanceof SteamAPIError && (error.status === 400 || error.status === 403 || error.status === 404)) {
+      return null
+    }
+    console.warn(
+      `[steam-api] Unexpected error fetching global percentages for app ${appId}:`,
+      error instanceof Error ? error.message : error,
+    )
+    return null
+  }
+}
+
 /** Fetches the game schema (achievement and stat definitions) from the Steam API. */
 export async function getGameSchema(appId: number): Promise<GameSchema | null> {
   try {

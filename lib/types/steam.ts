@@ -5,6 +5,10 @@ export interface SteamAchievementView extends SteamAchievement {
   description: string
   icon: string
   icongray: string
+  /** 1 when the game dev marked this achievement as hidden in the schema. */
+  hidden: number
+  /** % of Steam players who have unlocked this achievement, or null if unknown. */
+  globalPercent: number | null
 }
 
 export interface SteamStatsResponse {

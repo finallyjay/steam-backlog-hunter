@@ -24,6 +24,8 @@ describe("GameCard", () => {
             description: "",
             icon: "",
             icongray: "",
+            hidden: 0,
+            globalPercent: null,
           },
           {
             apiname: "ach_2",
@@ -33,6 +35,8 @@ describe("GameCard", () => {
             description: "",
             icon: "",
             icongray: "",
+            hidden: 0,
+            globalPercent: null,
           },
         ]}
       />,
@@ -58,6 +62,8 @@ describe("GameCard", () => {
             description: "",
             icon: "",
             icongray: "",
+            hidden: 0,
+            globalPercent: null,
           },
           {
             apiname: "ach_2",
@@ -67,6 +73,8 @@ describe("GameCard", () => {
             description: "",
             icon: "",
             icongray: "",
+            hidden: 0,
+            globalPercent: null,
           },
         ]}
       />,
@@ -98,6 +106,8 @@ describe("GameCard", () => {
             description: "",
             icon: "",
             icongray: "",
+            hidden: 0,
+            globalPercent: null,
           },
         ]}
       />,

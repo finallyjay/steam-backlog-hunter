@@ -115,6 +115,8 @@ describe("POST /api/steam/game/:id/sync", () => {
           description: "",
           icon: "",
           icongray: "",
+          hidden: 0,
+          globalPercent: null,
         },
       ],
       success: true,

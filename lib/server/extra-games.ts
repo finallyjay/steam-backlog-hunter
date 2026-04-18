@@ -710,6 +710,8 @@ export async function getExtraAchievementsList(steamId: string, appId: number): 
         ga.description,
         ga.icon,
         ga.icon_gray,
+        ga.hidden,
+        ga.global_percent,
         COALESCE(ea.achieved, 0) AS achieved,
         COALESCE(ea.unlock_time, 0) AS unlock_time
       FROM game_achievements ga
@@ -728,6 +730,8 @@ export async function getExtraAchievementsList(steamId: string, appId: number): 
     description: string | null
     icon: string | null
     icon_gray: string | null
+    hidden: number | null
+    global_percent: number | null
     achieved: number
     unlock_time: number | null
   }>
@@ -743,5 +747,7 @@ export async function getExtraAchievementsList(steamId: string, appId: number): 
     displayName: row.display_name ?? row.apiname,
     icon: row.icon ?? "",
     icongray: row.icon_gray ?? "",
+    hidden: row.hidden ?? 0,
+    globalPercent: row.global_percent,
   }))
 }

@@ -106,6 +106,8 @@ describe("achievements normalized read path (PR #2)", () => {
         description: "First alpha",
         icon: "a1.jpg",
         icongray: "a1g.jpg",
+        hidden: 0,
+        globalPercent: null,
       },
       {
         apiname: "ACH_A2",
@@ -116,6 +118,8 @@ describe("achievements normalized read path (PR #2)", () => {
         description: "Second alpha",
         icon: "a2.jpg",
         icongray: "a2g.jpg",
+        hidden: 0,
+        globalPercent: null,
       },
     ])
 
@@ -131,6 +135,8 @@ describe("achievements normalized read path (PR #2)", () => {
         description: "First bravo",
         icon: "b1.jpg",
         icongray: "b1g.jpg",
+        hidden: 0,
+        globalPercent: null,
       },
     ])
   })
