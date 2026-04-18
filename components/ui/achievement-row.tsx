@@ -17,10 +17,33 @@ function formatUnlockTimestamp(unixSeconds: number): { date: string; time: strin
   }
 }
 
-/** Formats the global-% label with 1 decimal under 10% (where rarity differences matter). */
-function formatGlobalPercent(percent: number): string {
-  const value = percent < 10 ? percent.toFixed(1) : Math.round(percent).toString()
-  return `${value}% global`
+/**
+ * Up to 2 decimal places, trailing zeros stripped. JS's Number→string
+ * conversion drops trailing zeros for free, so `82.0 → "82"`, `82.3 → "82.3"`,
+ * `82.35 → "82.35"`. Round first to avoid showing floating-point noise like
+ * "82.29999999".
+ */
+function formatPercent(percent: number): string {
+  return `${Math.round(percent * 100) / 100}%`
+}
+
+/**
+ * Rarity tiers with four visually distinct hues so a glance reads the tier
+ * before the number. The dark theme already leans cyan for both `accent` and
+ * `muted-foreground`, so we route ultra-rare to `danger` (magenta) and common
+ * to a plain chroma-less gray (`text-foreground/60`) to avoid two blue-ish
+ * badges sitting next to each other.
+ *
+ *   <5%   — ultra rare   → danger (magenta/pink)
+ *   <15%  — very rare    → warning (amber)
+ *   <40%  — uncommon     → success (green)
+ *   ≥40%  — common       → neutral gray
+ */
+function rarityBadgeClass(percent: number): string {
+  if (percent < 5) return "bg-danger/15 text-danger border-danger/40"
+  if (percent < 15) return "bg-warning/15 text-warning border-warning/40"
+  if (percent < 40) return "bg-success/15 text-success border-success/40"
+  return "bg-surface-3 text-foreground/60 border-surface-4"
 }
 
 interface AchievementRowProps {
@@ -35,7 +58,9 @@ interface AchievementRowProps {
  * Hidden behaviour: unlocked achievements always show their full name +
  * description regardless of the `hidden` flag (the game dev only wants them
  * hidden until earned). Locked + hidden rows gate the text behind a "Revelar"
- * button; the user can toggle reveal per-row, matching Steam's own UX.
+ * button; the user can toggle reveal per-row, matching Steam's own UX. The
+ * rarity badge is always shown when globalPercent is known — rarity is
+ * metadata about the game, not the hidden achievement's identity.
  */
 export function AchievementRow({ achievement: ach }: AchievementRowProps) {
   const [revealed, setRevealed] = useState(false)
@@ -43,6 +68,15 @@ export function AchievementRow({ achievement: ach }: AchievementRowProps) {
   const showFullText = isUnlocked || ach.hidden !== 1 || revealed
 
   const timestamp = isUnlocked && ach.unlocktime ? formatUnlockTimestamp(ach.unlocktime) : null
+
+  const rarityBadge =
+    ach.globalPercent != null ? (
+      <span
+        className={`inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-xs font-medium ${rarityBadgeClass(ach.globalPercent)}`}
+      >
+        {formatPercent(ach.globalPercent)}
+      </span>
+    ) : null
 
   return (
     <li
@@ -58,12 +92,18 @@ export function AchievementRow({ achievement: ach }: AchievementRowProps) {
       <div className="min-w-0 flex-1">
         {showFullText ? (
           <>
-            <div className="truncate font-semibold">{ach.displayName}</div>
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="truncate font-semibold">{ach.displayName}</span>
+              {rarityBadge}
+            </div>
             {ach.description && <div className="text-muted-foreground text-sm">{ach.description}</div>}
           </>
         ) : (
           <>
-            <div className="text-muted-foreground truncate font-semibold italic">Logro oculto</div>
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="text-muted-foreground truncate font-semibold italic">Logro oculto</span>
+              {rarityBadge}
+            </div>
             <button
               type="button"
               onClick={() => setRevealed(true)}
@@ -74,17 +114,10 @@ export function AchievementRow({ achievement: ach }: AchievementRowProps) {
           </>
         )}
       </div>
-      {(timestamp || ach.globalPercent != null) && (
+      {timestamp && (
         <div className="text-muted-foreground shrink-0 space-y-0.5 text-right text-xs">
-          {timestamp && (
-            <>
-              <div>{timestamp.date}</div>
-              <div>{timestamp.time}</div>
-            </>
-          )}
-          {ach.globalPercent != null && (
-            <div className={timestamp ? "pt-1" : ""}>{formatGlobalPercent(ach.globalPercent)}</div>
-          )}
+          <div>{timestamp.date}</div>
+          <div>{timestamp.time}</div>
         </div>
       )}
     </li>
