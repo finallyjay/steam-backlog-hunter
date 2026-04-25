@@ -10,6 +10,7 @@ import {
   persistExtraGames,
   syncExtraAchievements,
 } from "@/lib/server/extra-games"
+import { syncGamePlatforms } from "@/lib/server/steam-platforms-sync"
 import { isPlaceholderName } from "@/lib/server/placeholder-names"
 import { logger } from "@/lib/server/logger"
 import {
@@ -40,6 +41,21 @@ export type GameRow = {
   unlocked_count: number | null
   total_count: number | null
   perfect_game: number | null
+  platforms: string | null
+}
+
+function parsePlatforms(raw: string | null): SteamGame["platforms"] {
+  if (!raw) return null
+  try {
+    const parsed = JSON.parse(raw) as { windows?: unknown; mac?: unknown; linux?: unknown }
+    return {
+      windows: Boolean(parsed.windows),
+      mac: Boolean(parsed.mac),
+      linux: Boolean(parsed.linux),
+    }
+  } catch {
+    return null
+  }
 }
 
 /** Converts a SQLite game row into a SteamGame object. */
@@ -61,6 +77,7 @@ export function mapRowToSteamGame(row: GameRow): SteamGame {
     unlocked_count: row.unlocked_count ?? undefined,
     total_count: row.total_count ?? undefined,
     perfect_game: row.perfect_game === 1,
+    platforms: parsePlatforms(row.platforms),
   }
 }
 
@@ -85,7 +102,8 @@ export function getStoredOwnedGames(steamId: string): SteamGame[] {
       g.has_community_visible_stats,
       ug.unlocked_count,
       ug.total_count,
-      ug.perfect_game
+      ug.perfect_game,
+      g.platforms
     FROM user_games ug
     INNER JOIN games g ON g.appid = ug.appid
     WHERE ug.steam_id = ? AND ug.owned = 1
@@ -116,7 +134,8 @@ export function getStoredGame(steamId: string, appId: number): SteamGame | null 
       g.image_icon_url,
       g.image_landscape_url,
       g.image_portrait_url,
-      g.has_community_visible_stats
+      g.has_community_visible_stats,
+      g.platforms
     FROM user_games ug
     INNER JOIN games g ON g.appid = ug.appid
     WHERE ug.steam_id = ? AND ug.appid = ? AND ug.owned = 1
@@ -317,6 +336,11 @@ async function runHeavyOwnedGamesSync(steamId: string, existingGames: SteamGame[
   // appdetails endpoint. Truly delisted no-achievement apps stay nameless
   // and render as "App #{appid}".
   await hydrateMissingExtraNames(steamId)
+  // Probe store appdetails for platform support (windows/mac/linux). Used by
+  // the UI to disambiguate same-named games across editions (e.g. GTA III
+  // Mac vs Windows). Throttled to 200 fetches per run with a 30-day
+  // staleness floor, so steady-state cost is essentially zero.
+  await syncGamePlatforms(steamId)
   const finalGames = getStoredOwnedGames(steamId)
   // Image probes: both owned and extras share the `games` cache, so running
   // ensureGameImages across the union fills in headers/portraits for every
@@ -383,7 +407,8 @@ export async function getRecentlyPlayedGamesForUser(steamId: string, options?: {
       g.has_community_visible_stats,
       ug.unlocked_count,
       ug.total_count,
-      ug.perfect_game
+      ug.perfect_game,
+      g.platforms
     FROM user_games ug
     INNER JOIN games g ON g.appid = ug.appid
     WHERE ug.steam_id = ? AND ug.owned = 1 AND ug.rtime_last_played > 0

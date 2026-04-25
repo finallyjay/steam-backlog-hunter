@@ -33,6 +33,7 @@ export interface SteamGameCardModel {
   completed: boolean
   totalAchievements: number
   unlockedAchievements: number
+  platforms?: { windows: boolean; mac: boolean; linux: boolean } | null
 }
 
 export type SteamGamesResponse = {

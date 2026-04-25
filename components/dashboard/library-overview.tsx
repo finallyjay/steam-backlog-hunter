@@ -110,6 +110,24 @@ export function LibraryOverview({
     [games, achievementsMap, order],
   )
 
+  // Names that appear on more than one appid in this library. Steam returns
+  // separate entries per platform edition (e.g. GTA III Mac vs Windows are
+  // appids 12220 and 12210), so showing platform badges only on these rows
+  // disambiguates them without cluttering the typical Windows-only card.
+  const duplicateNames = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const game of gamesWithStats) {
+      const key = game.name.trim().toLowerCase()
+      if (!key) continue
+      counts.set(key, (counts.get(key) ?? 0) + 1)
+    }
+    const dupes = new Set<string>()
+    for (const [name, count] of counts) {
+      if (count > 1) dupes.add(name)
+    }
+    return dupes
+  }, [gamesWithStats])
+
   const visibleGames = useMemo(() => {
     let filtered = gamesWithStats
 
@@ -382,6 +400,7 @@ export function LibraryOverview({
                   serverUnlocked={game.unlockedAchievements}
                   serverPerfect={game.completed}
                   onHide={handleHideGame}
+                  platforms={duplicateNames.has(game.name.trim().toLowerCase()) ? game.platforms : null}
                 />
               </div>
             )
