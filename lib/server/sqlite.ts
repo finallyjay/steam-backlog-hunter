@@ -68,6 +68,10 @@ function createBaseSchema(db: DatabaseSync) {
       images_synced_at TEXT,
       has_community_visible_stats INTEGER,
       schema_synced_at TEXT,
+      -- JSON object {windows: bool, mac: bool, linux: bool} sourced from
+      -- store appdetails. NULL means we haven't probed this appid yet.
+      platforms TEXT,
+      platforms_synced_at TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
@@ -297,6 +301,10 @@ function applyAdditiveMigrations(db: DatabaseSync) {
   addColumnIfMissing(db, "extra_games", "perfect_game", "INTEGER NOT NULL DEFAULT 0")
   // Provenance of games.name. See CREATE TABLE comment above.
   addColumnIfMissing(db, "games", "name_source", "TEXT NOT NULL DEFAULT 'auto'")
+  // Platform support (windows/mac/linux) sourced from store appdetails. Used
+  // by the UI to disambiguate same-named games across platforms.
+  addColumnIfMissing(db, "games", "platforms", "TEXT")
+  addColumnIfMissing(db, "games", "platforms_synced_at", "TEXT")
   runVersionedMigrations(db)
 }
 

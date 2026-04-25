@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { Clock, EyeOff, Trophy } from "lucide-react"
+import { Apple, Clock, EyeOff, Monitor, Terminal, Trophy } from "lucide-react"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { GameImage } from "@/components/ui/game-image"
 import { Progress } from "@/components/ui/progress"
@@ -29,6 +29,12 @@ interface GameCardProps {
   serverPerfect?: boolean
   onHide?: (appId: number) => void
   actions?: React.ReactNode
+  /**
+   * Platform availability badges. Only rendered when set — the library view
+   * passes this only for games whose name collides with another in the same
+   * library, so the typical Windows-only card stays visually clean.
+   */
+  platforms?: { windows: boolean; mac: boolean; linux: boolean } | null
 }
 
 // Responsive thumbnail container: portrait (2:3 Steam library capsule)
@@ -52,6 +58,7 @@ export function GameCard({
   serverPerfect = false,
   onHide,
   actions,
+  platforms,
 }: GameCardProps) {
   // Use detailed achievements if available, fall back to server-side counts
   const hasDetail = achievements.length > 0
@@ -105,6 +112,14 @@ export function GameCard({
                   <span className="text-foreground/75 font-medium">-</span>
                 </div>
               )
+            ) : null}
+
+            {platforms ? (
+              <div className="text-muted-foreground flex items-center gap-1.5" aria-label="Available platforms">
+                {platforms.windows ? <Monitor className="h-3.5 w-3.5" aria-label="Windows" /> : null}
+                {platforms.mac ? <Apple className="h-3.5 w-3.5" aria-label="macOS" /> : null}
+                {platforms.linux ? <Terminal className="h-3.5 w-3.5" aria-label="Linux" /> : null}
+              </div>
             ) : null}
           </div>
         )}

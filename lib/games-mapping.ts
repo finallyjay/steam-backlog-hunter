@@ -12,6 +12,7 @@ type GameBase = {
   unlocked_count: number
   total_count: number
   perfect_game: boolean
+  platforms?: { windows: boolean; mac: boolean; linux: boolean } | null
 }
 
 /**
@@ -35,6 +36,7 @@ export function mapOwnedGamesToGameCards(
       unlocked_count: game.unlocked_count ?? 0,
       total_count: game.total_count ?? 0,
       perfect_game: game.perfect_game ?? false,
+      platforms: game.platforms ?? null,
     }))
 }
 
