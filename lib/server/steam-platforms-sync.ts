@@ -90,7 +90,12 @@ export async function syncGamePlatforms(steamId: string) {
     try {
       const url = new URL("https://store.steampowered.com/api/appdetails")
       url.searchParams.set("appids", String(appid))
-      url.searchParams.set("filters", "basic")
+      // `filters=basic` does NOT include the `platforms` field — it
+      // returns name/description/requirements only. The dedicated
+      // `filters=platforms` value is the smallest payload that actually
+      // contains what we need (≈90% smaller than the unfiltered
+      // response).
+      url.searchParams.set("filters", "platforms")
       const response = await fetch(url.toString(), { cache: "no-store" })
 
       if (!response.ok) {
