@@ -11,14 +11,18 @@ import { Skeleton } from "@/components/ui/skeleton"
  * depending on what's available:
  *
  *   Layout A — banner hero (library_hero.jpg + logo.png)
- *     - Full-bleed banner that escapes the page container's max-width
- *       via the `w-screen` + `left-1/2` + `-ml-[50vw]` pattern.
+ *     - Full-bleed banner that escapes the page container via the
+ *       `w-screen` + `left-1/2` + `-translate-x-1/2` pattern, capped at
+ *       `max-w-[1920px]` so the banner (and its proportional height)
+ *       stops growing on ultra-wide displays — matches Steam's own
+ *       library detail layout, which never blows up edge-to-edge on 4K.
  *     - `-mt-8` negates the page's top padding so the banner sits
  *       flush against the sticky header with no gap.
  *     - Steam's transparent logo.png is overlaid bottom-LEFT, horizontally
  *       aligned with the page container's content edge so it lines up
- *       with playtime / achievement progress rendered below — mirrors
- *       Steam's own library detail layout.
+ *       with playtime / achievement progress rendered below. Logo height
+ *       is fixed per breakpoint (h-12 → h-32) instead of a percentage of
+ *       the banner so it stays legible regardless of banner size.
  *     - Requires BOTH library_hero.jpg AND logo.png to exist — if
  *       either is missing we fall back to Layout B so we never render
  *       a bare banner without the game's wordmark.
@@ -145,8 +149,10 @@ export function GameHero({ appId, name, title, portraitUrl, children }: GameHero
     return (
       <div className="relative mb-8">
         {backdrop}
-        <div className="relative left-1/2 -mt-8 -ml-[50vw] aspect-[3840/1240] w-screen overflow-hidden">
-          <Skeleton className="h-full w-full rounded-none" />
+        <div className="relative left-1/2 -mt-8 w-screen -translate-x-1/2 overflow-hidden">
+          <div className="relative mx-auto aspect-[3840/1240] w-full max-w-[1920px] overflow-hidden">
+            <Skeleton className="h-full w-full rounded-none" />
+          </div>
         </div>
         <div className="mt-6 space-y-4">
           <Skeleton className="h-4 w-40" />
@@ -188,16 +194,25 @@ export function GameHero({ appId, name, title, portraitUrl, children }: GameHero
   return (
     <div className="relative mb-8">
       {backdrop}
-      <div className="relative left-1/2 -mt-8 -ml-[50vw] aspect-[3840/1240] w-screen overflow-hidden">
-        <img src={heroUrl} alt="" className="h-full w-full object-cover" />
-        <div className="from-background/80 via-background/10 pointer-events-none absolute inset-0 bg-gradient-to-t to-transparent" />
-        <div className="pointer-events-none absolute inset-0">
-          <div className="container mx-auto flex h-full items-end px-4 pb-6 md:pb-10 lg:pb-14">
-            <img
-              src={logoUrl}
-              alt={`${name} logo`}
-              className="max-h-[50%] max-w-[50%] object-contain object-left-bottom drop-shadow-[0_4px_16px_rgba(0,0,0,0.6)]"
-            />
+      <div className="relative left-1/2 -mt-8 w-screen -translate-x-1/2 overflow-hidden">
+        <div className="relative mx-auto aspect-[3840/1240] w-full max-w-[1920px] overflow-hidden">
+          {/* Horizontal alpha mask softens the cap so the banner fades
+              into the page background on viewports >1920px instead of
+              showing a hard vertical edge. */}
+          <img
+            src={heroUrl}
+            alt=""
+            className="h-full w-full [mask-image:linear-gradient(to_right,transparent_0%,black_8%,black_92%,transparent_100%)] object-cover"
+          />
+          <div className="from-background/80 via-background/10 pointer-events-none absolute inset-0 bg-gradient-to-t to-transparent" />
+          <div className="pointer-events-none absolute inset-0">
+            <div className="container mx-auto flex h-full items-end px-4 pb-6 md:pb-10 lg:pb-14">
+              <img
+                src={logoUrl}
+                alt={`${name} logo`}
+                className="h-12 w-auto max-w-[40%] object-contain object-left-bottom drop-shadow-[0_4px_16px_rgba(0,0,0,0.6)] sm:h-16 md:h-20 lg:h-24 xl:h-28 2xl:h-32"
+              />
+            </div>
           </div>
         </div>
       </div>
