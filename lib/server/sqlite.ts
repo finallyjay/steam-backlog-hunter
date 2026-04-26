@@ -72,6 +72,11 @@ function createBaseSchema(db: DatabaseSync) {
       -- store appdetails. NULL means we haven't probed this appid yet.
       platforms TEXT,
       platforms_synced_at TEXT,
+      -- Release year parsed from store appdetails. NULL means either we
+      -- haven't probed yet OR Steam reports an empty release_date (a
+      -- common signal that a duplicate-named appid is a stripped legacy
+      -- listing kept for ownership only — see GTA III 12230).
+      release_year INTEGER,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
@@ -305,6 +310,10 @@ function applyAdditiveMigrations(db: DatabaseSync) {
   // by the UI to disambiguate same-named games across platforms.
   addColumnIfMissing(db, "games", "platforms", "TEXT")
   addColumnIfMissing(db, "games", "platforms_synced_at", "TEXT")
+  // Release year sourced from the same appdetails probe as platforms —
+  // used by the UI as a secondary disambiguator when same-named editions
+  // share identical platform support.
+  addColumnIfMissing(db, "games", "release_year", "INTEGER")
   runVersionedMigrations(db)
 }
 
@@ -380,6 +389,31 @@ const MIGRATIONS: Array<{ version: number; name: string; run: (db: DatabaseSync)
             perfect_game = 0
         WHERE achievements_synced_at IS NOT NULL
           AND (total_count IS NULL OR total_count = 0);
+      `)
+    },
+  },
+  {
+    version: 3,
+    name: "backfill-release-year-on-synced-platforms",
+    /**
+     * v0.10.13 added syncGamePlatforms with `filters=platforms`. v0.10.14
+     * extends it to also pull `release_date` so the UI can fall back to a
+     * release-year (or "Legacy") badge when same-named editions share
+     * identical platform support (e.g. GTA III appids 12100 and 12230,
+     * both reported as Windows-only by Steam today).
+     *
+     * Existing rows that synced under v0.10.13 have `platforms` populated
+     * but `release_year` NULL — indistinguishable from a legacy stripped
+     * listing. This migration nulls `platforms_synced_at` on exactly those
+     * rows so the next sync run re-fetches and populates the year.
+     * Rows that were negative-cached as delisted (platforms IS NULL) are
+     * left alone — they don't need re-fetching.
+     */
+    run(db) {
+      db.exec(`
+        UPDATE games
+        SET platforms_synced_at = NULL
+        WHERE platforms IS NOT NULL AND release_year IS NULL;
       `)
     },
   },

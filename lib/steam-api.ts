@@ -15,6 +15,7 @@ export interface SteamGame {
   total_count?: number
   perfect_game?: boolean
   platforms?: { windows: boolean; mac: boolean; linux: boolean } | null
+  releaseYear?: number | null
 }
 
 export interface SteamAchievement {
