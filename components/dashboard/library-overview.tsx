@@ -401,6 +401,7 @@ export function LibraryOverview({
                   serverPerfect={game.completed}
                   onHide={handleHideGame}
                   platforms={duplicateNames.has(game.name.trim().toLowerCase()) ? game.platforms : null}
+                  releaseYear={duplicateNames.has(game.name.trim().toLowerCase()) ? game.releaseYear : null}
                 />
               </div>
             )

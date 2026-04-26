@@ -13,6 +13,7 @@ type GameBase = {
   total_count: number
   perfect_game: boolean
   platforms?: { windows: boolean; mac: boolean; linux: boolean } | null
+  releaseYear?: number | null
 }
 
 /**
@@ -37,6 +38,7 @@ export function mapOwnedGamesToGameCards(
       total_count: game.total_count ?? 0,
       perfect_game: game.perfect_game ?? false,
       platforms: game.platforms ?? null,
+      releaseYear: game.releaseYear ?? null,
     }))
 }
 

@@ -42,6 +42,7 @@ export type GameRow = {
   total_count: number | null
   perfect_game: number | null
   platforms: string | null
+  release_year: number | null
 }
 
 function parsePlatforms(raw: string | null): SteamGame["platforms"] {
@@ -78,6 +79,7 @@ export function mapRowToSteamGame(row: GameRow): SteamGame {
     total_count: row.total_count ?? undefined,
     perfect_game: row.perfect_game === 1,
     platforms: parsePlatforms(row.platforms),
+    releaseYear: row.release_year,
   }
 }
 
@@ -103,7 +105,8 @@ export function getStoredOwnedGames(steamId: string): SteamGame[] {
       ug.unlocked_count,
       ug.total_count,
       ug.perfect_game,
-      g.platforms
+      g.platforms,
+      g.release_year
     FROM user_games ug
     INNER JOIN games g ON g.appid = ug.appid
     WHERE ug.steam_id = ? AND ug.owned = 1
@@ -135,7 +138,8 @@ export function getStoredGame(steamId: string, appId: number): SteamGame | null 
       g.image_landscape_url,
       g.image_portrait_url,
       g.has_community_visible_stats,
-      g.platforms
+      g.platforms,
+      g.release_year
     FROM user_games ug
     INNER JOIN games g ON g.appid = ug.appid
     WHERE ug.steam_id = ? AND ug.appid = ? AND ug.owned = 1
@@ -408,7 +412,8 @@ export async function getRecentlyPlayedGamesForUser(steamId: string, options?: {
       ug.unlocked_count,
       ug.total_count,
       ug.perfect_game,
-      g.platforms
+      g.platforms,
+      g.release_year
     FROM user_games ug
     INNER JOIN games g ON g.appid = ug.appid
     WHERE ug.steam_id = ? AND ug.owned = 1 AND ug.rtime_last_played > 0

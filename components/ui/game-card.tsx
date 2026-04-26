@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { Apple, Clock, EyeOff, Monitor, Terminal, Trophy } from "lucide-react"
+import { Apple, Archive, Clock, EyeOff, Monitor, Terminal, Trophy } from "lucide-react"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { GameImage } from "@/components/ui/game-image"
 import { Progress } from "@/components/ui/progress"
@@ -35,6 +35,13 @@ interface GameCardProps {
    * library, so the typical Windows-only card stays visually clean.
    */
   platforms?: { windows: boolean; mac: boolean; linux: boolean } | null
+  /**
+   * Release year, surfaced as a secondary disambiguator next to the platform
+   * icons when name collides. `null` on a colliding row signals a stripped
+   * legacy listing (Steam returns an empty release_date for some unified
+   * editions, e.g. GTA III appid 12230) and renders an "Archive" badge.
+   */
+  releaseYear?: number | null
 }
 
 // Responsive thumbnail container: portrait (2:3 Steam library capsule)
@@ -59,6 +66,7 @@ export function GameCard({
   onHide,
   actions,
   platforms,
+  releaseYear,
 }: GameCardProps) {
   // Use detailed achievements if available, fall back to server-side counts
   const hasDetail = achievements.length > 0
@@ -119,6 +127,20 @@ export function GameCard({
                 {platforms.windows ? <Monitor className="h-3.5 w-3.5" aria-label="Windows" /> : null}
                 {platforms.mac ? <Apple className="h-3.5 w-3.5" aria-label="macOS" /> : null}
                 {platforms.linux ? <Terminal className="h-3.5 w-3.5" aria-label="Linux" /> : null}
+                {releaseYear ? (
+                  <span className="text-[0.7rem] font-medium tabular-nums" aria-label={`Released ${releaseYear}`}>
+                    {releaseYear}
+                  </span>
+                ) : releaseYear === null ? (
+                  <span
+                    className="flex items-center gap-1 text-[0.7rem] font-medium"
+                    aria-label="Legacy listing (no store metadata)"
+                    title="Legacy edition — store metadata stripped by Steam"
+                  >
+                    <Archive className="h-3 w-3" aria-hidden="true" />
+                    Legacy
+                  </span>
+                ) : null}
               </div>
             ) : null}
           </div>
