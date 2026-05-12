@@ -1,6 +1,6 @@
 {
   "name": "steam-backlog-hunter",
-  "version": "0.10.14",
+  "version": "0.10.15",
   "private": true,
   "scripts": {
     "build": "next build && cp -r .next/static .next/standalone/.next/static && cp -r public .next/standalone/public",
@@ -27,6 +27,11 @@
   "engines": {
     "node": ">=24.13.1 <25"
   },
+  "pnpm": {
+    "overrides": {
+      "postcss@<8.5.10": ">=8.5.10"
+    }
+  },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-avatar": "1.1.11",
@@ -45,7 +50,7 @@
     "clsx": "^2.1.1",
     "date-fns": "4.1.0",
     "lucide-react": "^0.574.0",
-    "next": "16.2.3",
+    "next": "16.2.6",
     "pino": "^10.3.1",
     "radix-ui": "^1.4.3",
     "react": "^19.2.4",
