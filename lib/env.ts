@@ -9,6 +9,9 @@ const envSchema = z.object({
   NEXTAUTH_URL: z.string().url().optional(),
   SQLITE_PATH: z.string().optional(),
   ADMIN_STEAM_ID: z.string().optional(),
+  // HMAC key used to sign the session cookie. Optional — falls back to
+  // STEAM_API_KEY (also a server secret) so sessions are signed out of the box.
+  SESSION_SECRET: z.string().optional(),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
 })
 

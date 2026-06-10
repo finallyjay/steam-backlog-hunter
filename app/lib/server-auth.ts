@@ -2,6 +2,7 @@ import { cookies } from "next/headers"
 import type { SteamUser } from "@/lib/auth"
 import { isSteamIdWhitelisted } from "@/lib/whitelist"
 import { isAdmin } from "@/lib/server/admin"
+import { verifySession } from "@/lib/server/session"
 import { logger } from "@/lib/server/logger"
 
 /**
@@ -20,7 +21,13 @@ export async function getCurrentUser(): Promise<SteamUser | null> {
       return null
     }
 
-    const user = JSON.parse(userCookie.value) as SteamUser
+    // Verify the HMAC signature before trusting the payload — a forged cookie
+    // (even with a whitelisted Steam ID) is rejected here.
+    const user = verifySession(userCookie.value)
+    if (!user) {
+      cookieStore.delete("steam_user")
+      return null
+    }
 
     if (!isSteamIdWhitelisted(user.steamId)) {
       cookieStore.delete("steam_user")

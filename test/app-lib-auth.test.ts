@@ -31,6 +31,11 @@ vi.mock("@/lib/whitelist", () => ({
 
 import { getCurrentUser, requireAuth } from "@/app/lib/server-auth"
 import { isSteamIdWhitelisted } from "@/lib/whitelist"
+import { signSession } from "@/lib/server/session"
+
+// signSession/verifySession sign with env.SESSION_SECRET (the env mock reads
+// process.env), so set it before any token is created or verified.
+process.env.SESSION_SECRET = "test-session-secret"
 
 const mockUser = {
   steamId: "76561198023709299",
@@ -62,7 +67,7 @@ describe("getCurrentUser", () => {
   })
 
   it("returns the user when the cookie JSON is valid and id is whitelisted", async () => {
-    cookieStore.get.mockReturnValue({ name: "steam_user", value: JSON.stringify(mockUser) })
+    cookieStore.get.mockReturnValue({ name: "steam_user", value: signSession(mockUser) })
     vi.mocked(isSteamIdWhitelisted).mockReturnValue(true)
     const user = await getCurrentUser()
     expect(user?.steamId).toBe("76561198023709299")
@@ -70,7 +75,7 @@ describe("getCurrentUser", () => {
 
   it("decorates the user with isAdmin=true when steamId matches ADMIN_STEAM_ID", async () => {
     process.env.ADMIN_STEAM_ID = "76561198023709299"
-    cookieStore.get.mockReturnValue({ name: "steam_user", value: JSON.stringify(mockUser) })
+    cookieStore.get.mockReturnValue({ name: "steam_user", value: signSession(mockUser) })
     vi.mocked(isSteamIdWhitelisted).mockReturnValue(true)
     try {
       const user = await getCurrentUser()
@@ -82,7 +87,7 @@ describe("getCurrentUser", () => {
 
   it("decorates the user with isAdmin=false when steamId does not match ADMIN_STEAM_ID", async () => {
     process.env.ADMIN_STEAM_ID = "99999999999999999"
-    cookieStore.get.mockReturnValue({ name: "steam_user", value: JSON.stringify(mockUser) })
+    cookieStore.get.mockReturnValue({ name: "steam_user", value: signSession(mockUser) })
     vi.mocked(isSteamIdWhitelisted).mockReturnValue(true)
     try {
       const user = await getCurrentUser()
@@ -93,7 +98,7 @@ describe("getCurrentUser", () => {
   })
 
   it("clears the cookie and returns null when the id is NOT whitelisted", async () => {
-    cookieStore.get.mockReturnValue({ name: "steam_user", value: JSON.stringify(mockUser) })
+    cookieStore.get.mockReturnValue({ name: "steam_user", value: signSession(mockUser) })
     vi.mocked(isSteamIdWhitelisted).mockReturnValue(false)
     const user = await getCurrentUser()
     expect(user).toBeNull()
@@ -109,7 +114,7 @@ describe("getCurrentUser", () => {
 
 describe("requireAuth", () => {
   it("returns the user when authenticated", async () => {
-    cookieStore.get.mockReturnValue({ name: "steam_user", value: JSON.stringify(mockUser) })
+    cookieStore.get.mockReturnValue({ name: "steam_user", value: signSession(mockUser) })
     vi.mocked(isSteamIdWhitelisted).mockReturnValue(true)
     const user = await requireAuth()
     expect(user.steamId).toBe("76561198023709299")

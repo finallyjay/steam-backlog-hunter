@@ -3,6 +3,7 @@ import crypto from "node:crypto"
 import { cookies } from "next/headers"
 import { isSteamIdWhitelisted } from "@/lib/whitelist"
 import { upsertProfile } from "@/lib/server/steam-store-utils"
+import { signSession } from "@/lib/server/session"
 import { logger } from "@/lib/server/logger"
 
 const STEAM_OPENID_URL = "https://steamcommunity.com/openid/login"
@@ -172,7 +173,7 @@ export async function GET(request: NextRequest) {
 
     cookieStore.set(
       "steam_user",
-      JSON.stringify({
+      signSession({
         steamId: player.steamid,
         displayName: player.personaname,
         avatar: player.avatarfull,
