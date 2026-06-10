@@ -28,6 +28,7 @@ vi.mock("next/headers", () => ({
 }))
 
 import { GET } from "@/app/api/auth/steam/callback/route"
+import { verifySession } from "@/lib/server/session"
 
 describe("GET /api/auth/steam/callback", () => {
   const originalEnv = {
@@ -226,9 +227,12 @@ describe("GET /api/auth/steam/callback", () => {
     expect(response.headers.get("location")).toBe("https://example.com/dashboard")
     expect(mockCookieStore.set).toHaveBeenCalledWith(
       "steam_user",
-      expect.stringContaining(steamId),
+      expect.any(String),
       expect.objectContaining({ httpOnly: true, path: "/" }),
     )
+    // The cookie is a signed token, not raw JSON — verify it decodes to the user.
+    const cookieValue = mockCookieStore.set.mock.calls[0][1] as string
+    expect(verifySession(cookieValue)?.steamId).toBe(steamId)
   })
 
   it("includes steam level and badges in session cookie", async () => {
@@ -293,10 +297,10 @@ describe("GET /api/auth/steam/callback", () => {
     expect(response.status).toBe(307)
 
     const cookiePayload = mockCookieStore.set.mock.calls[0][1] as string
-    const parsed = JSON.parse(cookiePayload)
-    expect(parsed.steamLevel).toBe(42)
+    const parsed = verifySession(cookiePayload)
+    expect(parsed?.steamLevel).toBe(42)
     // Only community badges (no appid) should be stored
-    expect(parsed.badges).toEqual([{ badgeid: 13, level: 50 }])
+    expect(parsed?.badges).toEqual([{ badgeid: 13, level: 50 }])
   })
 
   it("handles auth error gracefully", async () => {
