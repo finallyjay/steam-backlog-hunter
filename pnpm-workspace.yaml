@@ -1,0 +1,9 @@
+overrides:
+  # Security: keep transitive postcss patched (>=8.5.10). pnpm 10+ reads
+  # overrides from here, not the package.json "pnpm" field.
+  postcss@<8.5.10: ">=8.5.10"
+
+# pnpm 11 build-script approval. sharp is a native image library used by
+# Next.js image optimization and needs its platform binary built.
+allowBuilds:
+  sharp: true
