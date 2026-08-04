@@ -7,7 +7,7 @@ import { GameCard } from "@/components/ui/game-card"
 import { SurfaceCard } from "@/components/ui/surface-card"
 import { useSteamGames, useSteamAchievementsBatch } from "@/hooks/use-steam-data"
 import { useMemo, useState, useCallback } from "react"
-import { getSteamHeaderImageUrl } from "@/lib/steam-api"
+import { getSteamHeaderImageUrl } from "@/lib/steam-image-urls"
 export function RecentGames() {
   const { games, loading, error } = useSteamGames("recent")
   const [locallyHidden, setLocallyHidden] = useState<Set<number>>(new Set())

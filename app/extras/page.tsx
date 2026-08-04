@@ -12,7 +12,7 @@ import { GameCard } from "@/components/ui/game-card"
 import { InputFrame } from "@/components/ui/input-frame"
 import { Skeleton } from "@/components/ui/skeleton"
 import { SurfaceCard } from "@/components/ui/surface-card"
-import { getSteamHeaderImageUrl } from "@/lib/steam-api"
+import { getSteamHeaderImageUrl } from "@/lib/steam-image-urls"
 
 type Tab = "extras" | "hidden"
 

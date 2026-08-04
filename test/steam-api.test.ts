@@ -6,19 +6,30 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 // names, localized apinames, silent 400s, etc.) gets caught at CI time
 // instead of on a dashboard load.
 
+// steam-api.ts routes all diagnostics through the pino logger, so we mock
+// the logger module (rather than spying on console) to assert on its calls.
+const { loggerMock } = vi.hoisted(() => ({
+  loggerMock: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+}))
+vi.mock("@/lib/server/logger", () => ({ logger: loggerMock }))
+
 const ORIGINAL_FETCH = globalThis.fetch
-const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {})
-const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {})
 
 beforeEach(() => {
   process.env.STEAM_API_KEY = "fake-key"
-  consoleErrorSpy.mockClear()
-  consoleWarnSpy.mockClear()
+  // Clear here too (not just in afterEach) so a focused run or an inherited
+  // shell value can't leak into the default-locale test.
+  delete process.env.STEAM_API_LOCALE
+  loggerMock.info.mockClear()
+  loggerMock.warn.mockClear()
+  loggerMock.error.mockClear()
 })
 
 afterEach(() => {
   globalThis.fetch = ORIGINAL_FETCH
   delete process.env.STEAM_API_KEY
+  delete process.env.STEAM_API_LOCALE
+  vi.useRealTimers()
   vi.resetModules()
 })
 
@@ -26,6 +37,8 @@ type JsonResponse = {
   ok?: boolean
   status?: number
   body?: unknown
+  /** Value returned by response.headers.get("retry-after"). */
+  retryAfter?: string | null
 }
 
 /** Queues fetch responses in order; the wrapper always calls fetch once per request. */
@@ -37,6 +50,7 @@ function mockFetchSequence(responses: JsonResponse[]) {
     return {
       ok: next.ok ?? true,
       status: next.status ?? 200,
+      headers: { get: (name: string) => (name.toLowerCase() === "retry-after" ? (next.retryAfter ?? null) : null) },
       json: async () => next.body,
     } as unknown as Response
   }) as unknown as typeof fetch
@@ -67,6 +81,15 @@ describe("getSteamHeaderImageUrl", () => {
     const { getSteamHeaderImageUrl } = await import("@/lib/steam-api")
     expect(getSteamHeaderImageUrl(620)).toBe(
       "https://shared.steamstatic.com/store_item_assets/steam/apps/620/header.jpg",
+    )
+  })
+})
+
+describe("getSteamPortraitImageUrl", () => {
+  it("builds the library portrait url from appid", async () => {
+    const { getSteamPortraitImageUrl } = await import("@/lib/steam-api")
+    expect(getSteamPortraitImageUrl(620)).toBe(
+      "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/620/library_600x900.jpg",
     )
   })
 })
@@ -111,7 +134,7 @@ describe("getOwnedGames", () => {
     mockFetchRejecting(new Error("ECONNREFUSED"))
     const { getOwnedGames } = await import("@/lib/steam-api")
     expect(await getOwnedGames("76561198023709299")).toEqual([])
-    expect(consoleErrorSpy).toHaveBeenCalled()
+    expect(loggerMock.error).toHaveBeenCalled()
   })
 
   it("returns an empty array when the response body has no games field", async () => {
@@ -125,7 +148,7 @@ describe("getOwnedGames", () => {
     mockFetchSequence([{ body: {} }]) // unused
     const { getOwnedGames } = await import("@/lib/steam-api")
     expect(await getOwnedGames("76561198023709299")).toEqual([])
-    expect(consoleErrorSpy).toHaveBeenCalled()
+    expect(loggerMock.error).toHaveBeenCalled()
   })
 })
 
@@ -154,7 +177,7 @@ describe("getRecentlyPlayedGames", () => {
     mockFetchRejecting(new Error("EHOSTUNREACH"))
     const { getRecentlyPlayedGames } = await import("@/lib/steam-api")
     expect(await getRecentlyPlayedGames("76561198023709299")).toEqual([])
-    expect(consoleErrorSpy).toHaveBeenCalled()
+    expect(loggerMock.error).toHaveBeenCalled()
   })
 })
 
@@ -193,29 +216,29 @@ describe("getPlayerAchievements", () => {
     mockFetchSequence([{ ok: false, status: 400, body: { playerstats: { error: "Requested app has no stats" } } }])
     const { getPlayerAchievements } = await import("@/lib/steam-api")
     expect(await getPlayerAchievements("76561198023709299", 620)).toBeNull()
-    expect(consoleErrorSpy).not.toHaveBeenCalled()
+    expect(loggerMock.error).not.toHaveBeenCalled()
   })
 
   it("returns null *silently* on 403 (no stats / private)", async () => {
     mockFetchSequence([{ ok: false, status: 403, body: {} }])
     const { getPlayerAchievements } = await import("@/lib/steam-api")
     expect(await getPlayerAchievements("76561198023709299", 620)).toBeNull()
-    expect(consoleErrorSpy).not.toHaveBeenCalled()
+    expect(loggerMock.error).not.toHaveBeenCalled()
   })
 
   it("returns null *silently* on 500 (broken stats) — no console noise", async () => {
     mockFetchSequence([{ ok: false, status: 500, body: {} }])
     const { getPlayerAchievements } = await import("@/lib/steam-api")
     expect(await getPlayerAchievements("76561198023709299", 620)).toBeNull()
-    expect(consoleErrorSpy).not.toHaveBeenCalled()
+    expect(loggerMock.error).not.toHaveBeenCalled()
   })
 
   it("returns null on network error and warns (not errors)", async () => {
     mockFetchRejecting(new Error("socket hangup"))
     const { getPlayerAchievements } = await import("@/lib/steam-api")
     expect(await getPlayerAchievements("76561198023709299", 620)).toBeNull()
-    expect(consoleWarnSpy).toHaveBeenCalled()
-    expect(consoleErrorSpy).not.toHaveBeenCalled()
+    expect(loggerMock.warn).toHaveBeenCalled()
+    expect(loggerMock.error).not.toHaveBeenCalled()
   })
 
   it("defaults achievements to [] when the response omits the array", async () => {
@@ -256,27 +279,152 @@ describe("getGameSchema", () => {
     mockFetchSequence([{ ok: false, status: 400, body: {} }])
     const { getGameSchema } = await import("@/lib/steam-api")
     expect(await getGameSchema(620)).toBeNull()
-    expect(consoleErrorSpy).not.toHaveBeenCalled()
+    expect(loggerMock.error).not.toHaveBeenCalled()
   })
 
   it("returns null silently on 403", async () => {
     mockFetchSequence([{ ok: false, status: 403, body: {} }])
     const { getGameSchema } = await import("@/lib/steam-api")
     expect(await getGameSchema(620)).toBeNull()
-    expect(consoleErrorSpy).not.toHaveBeenCalled()
+    expect(loggerMock.error).not.toHaveBeenCalled()
   })
 
   it("logs on 500 and returns null", async () => {
     mockFetchSequence([{ ok: false, status: 500, body: {} }])
     const { getGameSchema } = await import("@/lib/steam-api")
     expect(await getGameSchema(620)).toBeNull()
-    expect(consoleErrorSpy).toHaveBeenCalled()
+    expect(loggerMock.error).toHaveBeenCalled()
   })
 
   it("logs on network error and returns null", async () => {
     mockFetchRejecting(new Error("DNS failure"))
     const { getGameSchema } = await import("@/lib/steam-api")
     expect(await getGameSchema(620)).toBeNull()
-    expect(consoleErrorSpy).toHaveBeenCalled()
+    expect(loggerMock.error).toHaveBeenCalled()
+  })
+})
+
+describe("locale configuration (STEAM_API_LOCALE)", () => {
+  it("defaults to l=es when STEAM_API_LOCALE is unset", async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      headers: { get: () => null },
+      json: async () => ({ response: { games: [] } }),
+    })) as unknown as typeof fetch
+    globalThis.fetch = fetchMock
+    const { getOwnedGames } = await import("@/lib/steam-api")
+    await getOwnedGames("76561198023709299")
+    const url = (fetchMock as unknown as { mock: { calls: [[string, unknown]] } }).mock.calls[0][0]
+    expect(url).toContain("l=es")
+  })
+
+  it("uses the STEAM_API_LOCALE override when set", async () => {
+    process.env.STEAM_API_LOCALE = "en"
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      headers: { get: () => null },
+      json: async () => ({ response: { games: [] } }),
+    })) as unknown as typeof fetch
+    globalThis.fetch = fetchMock
+    const { getRecentlyPlayedGames } = await import("@/lib/steam-api")
+    await getRecentlyPlayedGames("76561198023709299")
+    const url = (fetchMock as unknown as { mock: { calls: [[string, unknown]] } }).mock.calls[0][0]
+    expect(url).toContain("l=en")
+    expect(url).not.toContain("l=es")
+  })
+})
+
+describe("429 rate-limit backoff", () => {
+  it("retries after a 429 and succeeds on the follow-up request", async () => {
+    mockFetchSequence([
+      { ok: false, status: 429, retryAfter: "0" },
+      { body: { response: { games: [{ appid: 620, name: "Portal 2", playtime_forever: 1 }] } } },
+    ])
+    const { getOwnedGames } = await import("@/lib/steam-api")
+    vi.useFakeTimers()
+    const promise = getOwnedGames("76561198023709299")
+    await vi.runAllTimersAsync()
+    const games = await promise
+    expect(games).toHaveLength(1)
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2)
+    expect(loggerMock.warn).toHaveBeenCalled()
+    expect(loggerMock.error).not.toHaveBeenCalled()
+  })
+
+  it("honours the Retry-After header when computing the backoff delay", async () => {
+    mockFetchSequence([{ ok: false, status: 429, retryAfter: "2" }, { body: { response: { games: [] } } }])
+    const { getOwnedGames } = await import("@/lib/steam-api")
+    vi.useFakeTimers()
+    const promise = getOwnedGames("76561198023709299")
+    await vi.runAllTimersAsync()
+    await promise
+    expect(loggerMock.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ delayMs: 2000, retryAfter: "2" }),
+      expect.any(String),
+    )
+  })
+
+  it("honours a Retry-After larger than the exponential cap WITHOUT capping it to MAX_BACKOFF", async () => {
+    // 45s Retry-After is > the 30s exponential cap but <= the 60s wait ceiling:
+    // it must be waited out in full, not truncated to 30s (which would retry
+    // while Steam is still throttling).
+    mockFetchSequence([{ ok: false, status: 429, retryAfter: "45" }, { body: { response: { games: [] } } }])
+    const { getOwnedGames } = await import("@/lib/steam-api")
+    vi.useFakeTimers()
+    const promise = getOwnedGames("76561198023709299")
+    await vi.runAllTimersAsync()
+    await promise
+    expect(loggerMock.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ delayMs: 45000, retryAfter: "45" }),
+      expect.any(String),
+    )
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2)
+  })
+
+  it("gives up immediately (no early retry) when Retry-After exceeds the wait ceiling", async () => {
+    // 120s > the 60s ceiling: retrying before that window closes would just
+    // hit the same throttle, so we fail fast instead of retrying too soon.
+    mockFetchSequence([{ ok: false, status: 429, retryAfter: "120" }])
+    const { getOwnedGames } = await import("@/lib/steam-api")
+    const games = await getOwnedGames("76561198023709299")
+    expect(games).toEqual([])
+    // Only the initial request — no retry was attempted.
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1)
+    expect(loggerMock.warn).not.toHaveBeenCalled()
+    expect(loggerMock.error).toHaveBeenCalled()
+  })
+
+  it("gives up after exhausting retries and returns the empty fallback", async () => {
+    mockFetchSequence([
+      { ok: false, status: 429, retryAfter: "0" },
+      { ok: false, status: 429, retryAfter: "0" },
+      { ok: false, status: 429, retryAfter: "0" },
+      { ok: false, status: 429, retryAfter: "0" },
+    ])
+    const { getOwnedGames } = await import("@/lib/steam-api")
+    vi.useFakeTimers()
+    const promise = getOwnedGames("76561198023709299")
+    await vi.runAllTimersAsync()
+    const games = await promise
+    expect(games).toEqual([])
+    // 1 initial + 3 retries
+    expect(globalThis.fetch).toHaveBeenCalledTimes(4)
+    expect(loggerMock.error).toHaveBeenCalled()
+  })
+
+  it("falls back to exponential backoff when no Retry-After header is present", async () => {
+    mockFetchSequence([{ ok: false, status: 429, retryAfter: null }, { body: { response: { games: [] } } }])
+    const { getOwnedGames } = await import("@/lib/steam-api")
+    vi.useFakeTimers()
+    const promise = getOwnedGames("76561198023709299")
+    await vi.runAllTimersAsync()
+    await promise
+    // attempt 0 → BASE_BACKOFF_MS * 2**0 = 1000ms
+    expect(loggerMock.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ delayMs: 1000, retryAfter: null }),
+      expect.any(String),
+    )
   })
 })

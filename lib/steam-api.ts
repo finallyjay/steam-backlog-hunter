@@ -1,3 +1,24 @@
+// This module talks to the Steam Web API and logs through the server-only
+// pino logger, so it is marked `server-only`. Client components only ever
+// import *types* from here (e.g. `SteamGame`), which TypeScript erases at
+// compile time — there is no runtime import — so the boundary holds and the
+// build stays green. Runtime helpers a client needs (CDN URL builders) live
+// in the client-safe `lib/steam-image-urls` module instead.
+import "server-only"
+
+import { createHash } from "node:crypto"
+
+import { logger } from "@/lib/server/logger"
+
+/**
+ * Steam IDs are personal identifiers, so never log them raw (CWE-532). This
+ * returns a short, stable hash that's enough to correlate log lines for the
+ * same account without exposing the id itself.
+ */
+function redactSteamId(steamId: string): string {
+  return `sid_${createHash("sha256").update(steamId).digest("hex").slice(0, 10)}`
+}
+
 export interface SteamGame {
   appid: number
   name: string
@@ -76,6 +97,31 @@ export interface GameSchema {
 
 const STEAM_API_BASE = "https://api.steampowered.com"
 
+/**
+ * Locale passed to Steam as the `l=` parameter (localizes game names,
+ * achievement text, etc). Defaults to Spanish to preserve historical
+ * behaviour; override with STEAM_API_LOCALE (e.g. "en", "fr", "de").
+ */
+function steamLocale(): string {
+  return process.env.STEAM_API_LOCALE || "es"
+}
+
+// Rate-limit backoff tuning. Steam returns HTTP 429 when Valve throttles the
+// key — common during the heavy owned-games sync, which fans out hundreds of
+// per-app achievement/schema calls. Without a retry those blips silently turn
+// into empty results (getOwnedGames → []), so we retry with exponential
+// backoff, honouring the Retry-After header when Valve sends one.
+const MAX_STEAM_RETRIES = 3
+const BASE_BACKOFF_MS = 1_000
+// Caps ONLY the exponential fallback delay — never a server-provided
+// Retry-After (that must be honoured in full, see nextBackoffMs).
+const MAX_BACKOFF_MS = 30_000
+// Ceiling on how long we'll actually hold a request open waiting out a
+// Retry-After. Beyond this it's cheaper to fail fast (return the rate-limit
+// error) than to sleep for minutes — and retrying *before* the window closes
+// would just hit the same throttle again.
+const MAX_RETRY_AFTER_WAIT_MS = 60_000
+
 class SteamAPIError extends Error {
   constructor(
     message: string,
@@ -84,6 +130,42 @@ class SteamAPIError extends Error {
     super(message)
     this.name = "SteamAPIError"
   }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/**
+ * Parses a `Retry-After` header into milliseconds. Steam may send either a
+ * delay in seconds ("120") or an HTTP-date. Returns null when the header is
+ * absent or unparseable so the caller can fall back to exponential backoff.
+ */
+function parseRetryAfterMs(header: string | null | undefined): number | null {
+  if (!header) return null
+  const seconds = Number(header)
+  if (Number.isFinite(seconds)) return Math.max(0, seconds * 1_000)
+  const dateMs = Date.parse(header)
+  if (Number.isFinite(dateMs)) return Math.max(0, dateMs - Date.now())
+  return null
+}
+
+/**
+ * Delay (ms) to wait before the next 429 retry, or `null` to stop retrying.
+ *
+ * - A valid Retry-After is honoured *in full* (never capped to MAX_BACKOFF_MS)
+ *   as long as it's within MAX_RETRY_AFTER_WAIT_MS. Capping it would retry
+ *   while Valve is still throttling us and burn the remaining attempts early.
+ * - A Retry-After beyond that ceiling returns `null`: give up now rather than
+ *   retry too soon or hold the request open for minutes.
+ * - Without Retry-After, fall back to capped exponential backoff.
+ */
+function nextBackoffMs(attempt: number, retryAfterHeader: string | null | undefined): number | null {
+  const retryAfter = parseRetryAfterMs(retryAfterHeader)
+  if (retryAfter !== null) {
+    return retryAfter <= MAX_RETRY_AFTER_WAIT_MS ? retryAfter : null
+  }
+  return Math.min(BASE_BACKOFF_MS * 2 ** attempt, MAX_BACKOFF_MS)
 }
 
 async function steamAPIRequest(endpoint: string, params: Record<string, string>) {
@@ -100,21 +182,43 @@ async function steamAPIRequest(endpoint: string, params: Record<string, string>)
     url.searchParams.set(key, value)
   })
 
-  try {
-    const response = await fetch(url.toString(), {
-      cache: "no-store",
-    })
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const response = await fetch(url.toString(), {
+        cache: "no-store",
+      })
 
-    if (!response.ok) {
-      throw new SteamAPIError(`Steam API request failed: ${response.status}`, response.status)
-    }
+      // Explicit rate-limit handling: back off and retry rather than letting
+      // Valve's throttle surface as a generic failure the callers swallow.
+      if (response.status === 429) {
+        const retryAfterHeader = response.headers?.get?.("retry-after")
+        const delay = attempt < MAX_STEAM_RETRIES ? nextBackoffMs(attempt, retryAfterHeader) : null
+        if (delay !== null) {
+          logger.warn(
+            { endpoint, attempt: attempt + 1, delayMs: delay, retryAfter: retryAfterHeader ?? null },
+            "Steam API rate limited (429) — backing off before retry",
+          )
+          await sleep(delay)
+          continue
+        }
+        logger.error(
+          { endpoint, attempts: attempt + 1, retryAfter: retryAfterHeader ?? null },
+          "Steam API rate limited (429) — giving up (retries exhausted or Retry-After too long)",
+        )
+        throw new SteamAPIError(`Steam API rate limited: 429`, 429)
+      }
 
-    return await response.json()
-  } catch (error) {
-    if (error instanceof SteamAPIError) {
-      throw error
+      if (!response.ok) {
+        throw new SteamAPIError(`Steam API request failed: ${response.status}`, response.status)
+      }
+
+      return await response.json()
+    } catch (error) {
+      if (error instanceof SteamAPIError) {
+        throw error
+      }
+      throw new SteamAPIError(`Network error: ${error instanceof Error ? error.message : "Unknown error"}`)
     }
-    throw new SteamAPIError(`Network error: ${error instanceof Error ? error.message : "Unknown error"}`)
   }
 }
 
@@ -128,12 +232,12 @@ export async function getOwnedGames(steamId: string): Promise<SteamGame[]> {
       // skip_unvetted_apps=0 pulls in playtests and early-access experiments
       // that Steam normally hides (e.g. SquadBlast Playtest, ForeVR Cornhole).
       skip_unvetted_apps: "0",
-      l: "es",
+      l: steamLocale(),
     })
 
     return data.response?.games || []
   } catch (error) {
-    console.error("Error fetching owned games:", error)
+    logger.error({ err: error, steamIdHash: redactSteamId(steamId) }, "Error fetching owned games")
     return []
   }
 }
@@ -144,12 +248,12 @@ export async function getRecentlyPlayedGames(steamId: string): Promise<SteamGame
     const data = await steamAPIRequest("/IPlayerService/GetRecentlyPlayedGames/v1/", {
       steamid: steamId,
       count: "25",
-      l: "es",
+      l: steamLocale(),
     })
 
     return data.response?.games || []
   } catch (error) {
-    console.error("Error fetching recently played games:", error)
+    logger.error({ err: error, steamIdHash: redactSteamId(steamId) }, "Error fetching recently played games")
     return []
   }
 }
@@ -160,7 +264,7 @@ export async function getPlayerAchievements(steamId: string, appId: number): Pro
     const data = await steamAPIRequest("/ISteamUserStats/GetPlayerAchievements/v1/", {
       steamid: steamId,
       appid: appId.toString(),
-      l: "es",
+      l: steamLocale(),
     })
 
     if (!data.playerstats?.success) {
@@ -181,10 +285,7 @@ export async function getPlayerAchievements(steamId: string, appId: number): Pro
     if (error instanceof SteamAPIError && (error.status === 400 || error.status === 403 || error.status === 500)) {
       return null
     }
-    console.warn(
-      `[steam-api] Unexpected error fetching achievements for app ${appId}:`,
-      error instanceof Error ? error.message : error,
-    )
+    logger.warn({ err: error, appId }, "Unexpected error fetching achievements")
     return null
   }
 }
@@ -218,7 +319,7 @@ export async function getLastPlayedTimes(steamId: string): Promise<LastPlayedGam
     if (error instanceof SteamAPIError && (error.status === 400 || error.status === 403)) {
       return []
     }
-    console.error("Error fetching last played times:", error)
+    logger.error({ err: error, steamIdHash: redactSteamId(steamId) }, "Error fetching last played times")
     return []
   }
 }
@@ -258,10 +359,7 @@ export async function getGlobalAchievementPercentages(appId: number): Promise<Gl
     if (error instanceof SteamAPIError && (error.status === 400 || error.status === 403 || error.status === 404)) {
       return null
     }
-    console.warn(
-      `[steam-api] Unexpected error fetching global percentages for app ${appId}:`,
-      error instanceof Error ? error.message : error,
-    )
+    logger.warn({ err: error, appId }, "Unexpected error fetching global achievement percentages")
     return null
   }
 }
@@ -281,24 +379,11 @@ export async function getGameSchema(appId: number): Promise<GameSchema | null> {
     if (error instanceof SteamAPIError && (error.status === 400 || error.status === 403)) {
       return null
     }
-    console.error("Error fetching game schema for app:", appId, error)
+    logger.error({ err: error, appId }, "Error fetching game schema")
     return null
   }
 }
 
-/** Builds a Steam community image URL from an app ID and image hash. */
-export function getSteamImageUrl(appId: number, imageHash: string): string {
-  if (!imageHash) return "/placeholder-icon.svg"
-
-  return `https://media.steampowered.com/steamcommunity/public/images/apps/${appId}/${imageHash}.jpg`
-}
-
-/** Builds a Steam store header image URL for a game (landscape 460x215). */
-export function getSteamHeaderImageUrl(appId: number): string {
-  return `https://shared.steamstatic.com/store_item_assets/steam/apps/${appId}/header.jpg`
-}
-
-/** Builds a Steam library portrait image URL for a game (600x900, 2:3). */
-export function getSteamPortraitImageUrl(appId: number): string {
-  return `https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${appId}/library_600x900.jpg`
-}
+// Pure CDN URL builders live in a client-safe module (this file is
+// `server-only`). Re-exported here for existing server-side importers.
+export { getSteamImageUrl, getSteamHeaderImageUrl, getSteamPortraitImageUrl } from "@/lib/steam-image-urls"

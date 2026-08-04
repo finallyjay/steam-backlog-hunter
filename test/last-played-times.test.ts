@@ -78,24 +78,23 @@ describe("getLastPlayedTimes (Steam API wrapper)", () => {
     globalThis.fetch = vi.fn(async () => ({
       ok: false,
       status: 400,
+      headers: { get: () => null },
       json: async () => ({}),
     })) as unknown as typeof fetch
-    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {})
+    const { logger } = await import("@/lib/server/logger")
     const { getLastPlayedTimes } = await import("@/lib/steam-api")
     expect(await getLastPlayedTimes(STEAM_ID)).toEqual([])
-    expect(consoleSpy).not.toHaveBeenCalled()
-    consoleSpy.mockRestore()
+    expect(logger.error).not.toHaveBeenCalled()
   })
 
   it("returns [] and logs on network failure", async () => {
     globalThis.fetch = vi.fn(async () => {
       throw new Error("ECONNRESET")
     }) as unknown as typeof fetch
-    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {})
+    const { logger } = await import("@/lib/server/logger")
     const { getLastPlayedTimes } = await import("@/lib/steam-api")
     expect(await getLastPlayedTimes(STEAM_ID)).toEqual([])
-    expect(consoleSpy).toHaveBeenCalled()
-    consoleSpy.mockRestore()
+    expect(logger.error).toHaveBeenCalled()
   })
 })
 
