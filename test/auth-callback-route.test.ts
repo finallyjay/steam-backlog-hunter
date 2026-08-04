@@ -86,6 +86,24 @@ describe("GET /api/auth/steam/callback", () => {
     expect(response.headers.get("location")).toBe("https://example.com/?error=auth_failed")
   })
 
+  it("redirects to auth_failed when nonce length differs from cookie (no RangeError)", async () => {
+    process.env.NEXTAUTH_URL = "https://example.com"
+    process.env.STEAM_WHITELIST_IDS = "76561198023709299"
+
+    // crypto.timingSafeEqual throws RangeError on different-length buffers;
+    // a short attacker-supplied ?nonce= must redirect, not crash with a 500.
+    mockCookieStore.get.mockReturnValue({ value: TEST_NONCE })
+
+    const request = new NextRequest(
+      `https://example.com/api/auth/steam/callback?nonce=short&openid.claimed_id=https://steamcommunity.com/openid/id/76561198023709299&openid.return_to=https://example.com/api/auth/steam/callback`,
+    )
+
+    const response = await GET(request)
+
+    expect(response.status).toBe(307)
+    expect(response.headers.get("location")).toBe("https://example.com/?error=auth_failed")
+  })
+
   it("redirects to auth_failed when Steam ID format is invalid", async () => {
     process.env.NEXTAUTH_URL = "https://example.com"
     process.env.STEAM_WHITELIST_IDS = "76561198023709299"
@@ -170,6 +188,54 @@ describe("GET /api/auth/steam/callback", () => {
 
     const request = new NextRequest(
       `https://example.com/api/auth/steam/callback?nonce=${TEST_NONCE}&openid.claimed_id=https://steamcommunity.com/openid/id/76561198023709299&openid.return_to=https://evil.com/callback`,
+    )
+
+    const response = await GET(request)
+
+    expect(response.status).toBe(307)
+    expect(response.headers.get("location")).toBe("https://example.com/?error=auth_failed")
+  })
+
+  it("redirects to auth_failed when return_to host merely prefixes the realm", async () => {
+    process.env.NEXTAUTH_URL = "https://example.com"
+    process.env.STEAM_WHITELIST_IDS = "76561198023709299"
+
+    mockCookieStore.get.mockReturnValue({ value: TEST_NONCE })
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        text: async () => "is_valid:true",
+      }),
+    )
+
+    // "https://example.com.evil.com" passes a naive startsWith("https://example.com")
+    // check; origins must be compared instead.
+    const request = new NextRequest(
+      `https://example.com/api/auth/steam/callback?nonce=${TEST_NONCE}&openid.claimed_id=https://steamcommunity.com/openid/id/76561198023709299&openid.return_to=https://example.com.evil.com/api/auth/steam/callback`,
+    )
+
+    const response = await GET(request)
+
+    expect(response.status).toBe(307)
+    expect(response.headers.get("location")).toBe("https://example.com/?error=auth_failed")
+  })
+
+  it("redirects to auth_failed when return_to is not a parseable URL", async () => {
+    process.env.NEXTAUTH_URL = "https://example.com"
+    process.env.STEAM_WHITELIST_IDS = "76561198023709299"
+
+    mockCookieStore.get.mockReturnValue({ value: TEST_NONCE })
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        text: async () => "is_valid:true",
+      }),
+    )
+
+    const request = new NextRequest(
+      `https://example.com/api/auth/steam/callback?nonce=${TEST_NONCE}&openid.claimed_id=https://steamcommunity.com/openid/id/76561198023709299&openid.return_to=not-a-url`,
     )
 
     const response = await GET(request)
