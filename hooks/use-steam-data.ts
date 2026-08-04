@@ -353,6 +353,14 @@ export function useSteamHiddenGames() {
     void load()
   }, [load])
 
+  useEffect(() => {
+    function handleInvalidate() {
+      void load()
+    }
+    window.addEventListener(STEAM_DATA_INVALIDATED_EVENT, handleInvalidate)
+    return () => window.removeEventListener(STEAM_DATA_INVALIDATED_EVENT, handleInvalidate)
+  }, [load])
+
   return { games, loading, error, refetch: load }
 }
 
