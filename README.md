@@ -39,14 +39,14 @@ A self-hosted dashboard for tracking your Steam library, monitoring achievement 
 | Database        | SQLite via Node.js built-in `DatabaseSync`                                                                        |
 | Auth            | Steam OpenID 2.0                                                                                                  |
 | Testing         | [Vitest](https://vitest.dev/) + Testing Library                                                                   |
-| Linting         | ESLint + Prettier                                                                                                 |
+| Linting         | [oxlint](https://oxc.rs/docs/guide/usage/linter) + [oxfmt](https://oxc.rs/docs/guide/usage/formatter)             |
 | CI/CD           | GitHub Actions                                                                                                    |
-| Package Manager | pnpm 10.25                                                                                                        |
+| Package Manager | pnpm 11.7                                                                                                         |
 
 ## Prerequisites
 
 - Node.js `24.13.1` (see `.nvmrc`)
-- pnpm `10.25.0`
+- pnpm `11.7.0` (see `packageManager` in `package.json` — Corepack picks it up automatically)
 
 ## Getting Started
 
@@ -76,6 +76,7 @@ The app will be available at `http://localhost:3000`.
 | `NEXTAUTH_URL`        | Production | Your app's public URL (e.g. `https://steam.example.com`)                  |
 | `SQLITE_PATH`         | No         | Custom SQLite database path (see [Database](#database))                   |
 | `STEAM_WHITELIST_IDS` | No         | Comma-separated Steam64 IDs for initial seed (managed via `/admin` after) |
+| `SESSION_SECRET`      | No         | HMAC key for signing the session cookie (falls back to `STEAM_API_KEY`)   |
 | `LOG_LEVEL`           | No         | Pino log level (default: `info`)                                          |
 
 ## Scripts
@@ -85,10 +86,10 @@ The app will be available at `http://localhost:3000`.
 | `pnpm dev`          | Start development server             |
 | `pnpm build`        | Production build (standalone output) |
 | `pnpm start`        | Run production server                |
-| `pnpm lint`         | ESLint + TypeScript typecheck        |
+| `pnpm lint`         | oxlint + TypeScript typecheck        |
 | `pnpm test`         | Run test suite (Vitest)              |
 | `pnpm typecheck`    | Type generation + `tsc --noEmit`     |
-| `pnpm format`       | Format codebase with Prettier        |
+| `pnpm format`       | Format codebase with oxfmt           |
 | `pnpm format:check` | Check formatting without writing     |
 
 ## Architecture
@@ -235,7 +236,7 @@ Ensure `NEXTAUTH_URL` matches your public URL for Steam OpenID redirects.
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feat/my-feature`)
 3. Commit using [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `chore:`, etc.)
-4. Pre-commit hooks will run Prettier and ESLint automatically
+4. Pre-commit hooks will run oxfmt and oxlint automatically
 5. Create an issue first, then open a Pull Request that closes it
 
 CI runs `lint → test → build` on all PRs.
