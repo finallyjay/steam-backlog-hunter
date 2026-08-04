@@ -10,8 +10,9 @@ node_modules/
 # pnpm dev/build/typecheck all regenerate it automatically.
 next-env.d.ts
 
-# Local environment variables
+# Local environment variables (keep the example template tracked)
 .env*
+!.env.local.example
 
 # Logs
 npm-debug.log*
