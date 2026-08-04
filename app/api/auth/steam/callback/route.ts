@@ -19,6 +19,33 @@ function getAppUrl(path: string, request: NextRequest): string {
 }
 
 /**
+ * Constant-time comparison of the `nonce` query param against the nonce
+ * cookie. `crypto.timingSafeEqual` throws a RangeError on buffers of
+ * different lengths, so check lengths first (same pattern as
+ * `verifySession` in lib/server/session.ts) — an attacker-supplied
+ * `?nonce=` of the wrong length must fail validation, not crash the route.
+ */
+function nonceMatches(nonce: string, expected: string): boolean {
+  const nonceBuf = Buffer.from(nonce)
+  const expectedBuf = Buffer.from(expected)
+  return nonceBuf.length === expectedBuf.length && crypto.timingSafeEqual(nonceBuf, expectedBuf)
+}
+
+/**
+ * Checks that `openid.return_to` points back at our own origin. Compares
+ * parsed origins instead of a string prefix so that a lookalike host such
+ * as `https://app.example.com.evil.com` cannot pass a check against
+ * `https://app.example.com`. Unparseable URLs fail closed.
+ */
+function returnToMatchesRealm(returnTo: string, expectedRealm: string): boolean {
+  try {
+    return new URL(returnTo).origin === new URL(expectedRealm).origin
+  } catch {
+    return false
+  }
+}
+
+/**
  * GET /api/auth/steam/callback
  *
  * Handles the Steam OpenID callback after the user authenticates with Steam.
@@ -39,7 +66,7 @@ export async function GET(request: NextRequest) {
   const nonce = searchParams.get("nonce")
   const nonceCookie = cookieStore.get("steam_openid_nonce")
 
-  if (!nonce || !nonceCookie?.value || !crypto.timingSafeEqual(Buffer.from(nonce), Buffer.from(nonceCookie.value))) {
+  if (!nonce || !nonceCookie?.value || !nonceMatches(nonce, nonceCookie.value)) {
     logger.info("Auth failed: invalid or missing nonce")
     cookieStore.delete("steam_openid_nonce")
     return NextResponse.redirect(getAppUrl("/?error=auth_failed", request))
@@ -89,7 +116,7 @@ export async function GET(request: NextRequest) {
     // --- Verify return_to matches our realm ---
     const returnTo = searchParams.get("openid.return_to") ?? ""
     const expectedRealm = process.env.NEXTAUTH_URL || new URL("/", request.url).origin
-    if (!returnTo.startsWith(expectedRealm)) {
+    if (!returnToMatchesRealm(returnTo, expectedRealm)) {
       return NextResponse.redirect(getAppUrl("/?error=auth_failed", request))
     }
 
