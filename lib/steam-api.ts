@@ -1,6 +1,23 @@
+// This module talks to the Steam Web API and logs through the server-only
+// pino logger, so it is marked `server-only`. Client components only ever
+// import *types* from here (e.g. `SteamGame`), which TypeScript erases at
+// compile time — there is no runtime import — so the boundary holds and the
+// build stays green. Runtime helpers a client needs (CDN URL builders) live
+// in the client-safe `lib/steam-image-urls` module instead.
 import "server-only"
 
+import { createHash } from "node:crypto"
+
 import { logger } from "@/lib/server/logger"
+
+/**
+ * Steam IDs are personal identifiers, so never log them raw (CWE-532). This
+ * returns a short, stable hash that's enough to correlate log lines for the
+ * same account without exposing the id itself.
+ */
+function redactSteamId(steamId: string): string {
+  return `sid_${createHash("sha256").update(steamId).digest("hex").slice(0, 10)}`
+}
 
 export interface SteamGame {
   appid: number
@@ -92,11 +109,18 @@ function steamLocale(): string {
 // Rate-limit backoff tuning. Steam returns HTTP 429 when Valve throttles the
 // key — common during the heavy owned-games sync, which fans out hundreds of
 // per-app achievement/schema calls. Without a retry those blips silently turn
-// into empty results (getOwnedGames → []), so we retry with capped exponential
+// into empty results (getOwnedGames → []), so we retry with exponential
 // backoff, honouring the Retry-After header when Valve sends one.
 const MAX_STEAM_RETRIES = 3
 const BASE_BACKOFF_MS = 1_000
+// Caps ONLY the exponential fallback delay — never a server-provided
+// Retry-After (that must be honoured in full, see nextBackoffMs).
 const MAX_BACKOFF_MS = 30_000
+// Ceiling on how long we'll actually hold a request open waiting out a
+// Retry-After. Beyond this it's cheaper to fail fast (return the rate-limit
+// error) than to sleep for minutes — and retrying *before* the window closes
+// would just hit the same throttle again.
+const MAX_RETRY_AFTER_WAIT_MS = 60_000
 
 class SteamAPIError extends Error {
   constructor(
@@ -126,10 +150,21 @@ function parseRetryAfterMs(header: string | null | undefined): number | null {
   return null
 }
 
-/** Backoff for a given attempt: Retry-After if present, else capped exponential. */
-function backoffDelayMs(attempt: number, retryAfterHeader: string | null | undefined): number {
+/**
+ * Delay (ms) to wait before the next 429 retry, or `null` to stop retrying.
+ *
+ * - A valid Retry-After is honoured *in full* (never capped to MAX_BACKOFF_MS)
+ *   as long as it's within MAX_RETRY_AFTER_WAIT_MS. Capping it would retry
+ *   while Valve is still throttling us and burn the remaining attempts early.
+ * - A Retry-After beyond that ceiling returns `null`: give up now rather than
+ *   retry too soon or hold the request open for minutes.
+ * - Without Retry-After, fall back to capped exponential backoff.
+ */
+function nextBackoffMs(attempt: number, retryAfterHeader: string | null | undefined): number | null {
   const retryAfter = parseRetryAfterMs(retryAfterHeader)
-  if (retryAfter !== null) return Math.min(retryAfter, MAX_BACKOFF_MS)
+  if (retryAfter !== null) {
+    return retryAfter <= MAX_RETRY_AFTER_WAIT_MS ? retryAfter : null
+  }
   return Math.min(BASE_BACKOFF_MS * 2 ** attempt, MAX_BACKOFF_MS)
 }
 
@@ -157,8 +192,8 @@ async function steamAPIRequest(endpoint: string, params: Record<string, string>)
       // Valve's throttle surface as a generic failure the callers swallow.
       if (response.status === 429) {
         const retryAfterHeader = response.headers?.get?.("retry-after")
-        if (attempt < MAX_STEAM_RETRIES) {
-          const delay = backoffDelayMs(attempt, retryAfterHeader)
+        const delay = attempt < MAX_STEAM_RETRIES ? nextBackoffMs(attempt, retryAfterHeader) : null
+        if (delay !== null) {
           logger.warn(
             { endpoint, attempt: attempt + 1, delayMs: delay, retryAfter: retryAfterHeader ?? null },
             "Steam API rate limited (429) — backing off before retry",
@@ -166,7 +201,10 @@ async function steamAPIRequest(endpoint: string, params: Record<string, string>)
           await sleep(delay)
           continue
         }
-        logger.error({ endpoint, attempts: attempt + 1 }, "Steam API rate limited (429) — retries exhausted, giving up")
+        logger.error(
+          { endpoint, attempts: attempt + 1, retryAfter: retryAfterHeader ?? null },
+          "Steam API rate limited (429) — giving up (retries exhausted or Retry-After too long)",
+        )
         throw new SteamAPIError(`Steam API rate limited: 429`, 429)
       }
 
@@ -199,7 +237,7 @@ export async function getOwnedGames(steamId: string): Promise<SteamGame[]> {
 
     return data.response?.games || []
   } catch (error) {
-    logger.error({ err: error, steamId }, "Error fetching owned games")
+    logger.error({ err: error, steamIdHash: redactSteamId(steamId) }, "Error fetching owned games")
     return []
   }
 }
@@ -215,7 +253,7 @@ export async function getRecentlyPlayedGames(steamId: string): Promise<SteamGame
 
     return data.response?.games || []
   } catch (error) {
-    logger.error({ err: error, steamId }, "Error fetching recently played games")
+    logger.error({ err: error, steamIdHash: redactSteamId(steamId) }, "Error fetching recently played games")
     return []
   }
 }
@@ -281,7 +319,7 @@ export async function getLastPlayedTimes(steamId: string): Promise<LastPlayedGam
     if (error instanceof SteamAPIError && (error.status === 400 || error.status === 403)) {
       return []
     }
-    logger.error({ err: error, steamId }, "Error fetching last played times")
+    logger.error({ err: error, steamIdHash: redactSteamId(steamId) }, "Error fetching last played times")
     return []
   }
 }

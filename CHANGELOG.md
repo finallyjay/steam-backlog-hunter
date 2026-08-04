@@ -10,9 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Explicit HTTP 429 handling in the Steam API client (`lib/steam-api.ts`): rate-limited
-  requests are now retried with capped exponential backoff, honouring the `Retry-After`
-  header when Valve sends one, instead of being swallowed as a generic failure that made
-  `getOwnedGames` return an empty library.
+  requests are now retried with exponential backoff, honouring the `Retry-After` header in
+  full when Valve sends one (only the exponential fallback is capped). Previously a 429 was
+  swallowed as a generic failure. These retries run _before_ the existing empty-library
+  guard in `runHeavyOwnedGamesSync`; that guard is unchanged, so if retries are exhausted
+  `getOwnedGames` still returns `[]` and the sync preserves the previously stored library
+  rather than wiping them.
 - `STEAM_API_LOCALE` environment variable to override the locale (`l=`) sent to Steam.
   Defaults to `es` to preserve previous behaviour.
 

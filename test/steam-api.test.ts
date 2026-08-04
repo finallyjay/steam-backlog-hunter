@@ -17,6 +17,9 @@ const ORIGINAL_FETCH = globalThis.fetch
 
 beforeEach(() => {
   process.env.STEAM_API_KEY = "fake-key"
+  // Clear here too (not just in afterEach) so a focused run or an inherited
+  // shell value can't leak into the default-locale test.
+  delete process.env.STEAM_API_LOCALE
   loggerMock.info.mockClear()
   loggerMock.warn.mockClear()
   loggerMock.error.mockClear()
@@ -361,6 +364,36 @@ describe("429 rate-limit backoff", () => {
       expect.objectContaining({ delayMs: 2000, retryAfter: "2" }),
       expect.any(String),
     )
+  })
+
+  it("honours a Retry-After larger than the exponential cap WITHOUT capping it to MAX_BACKOFF", async () => {
+    // 45s Retry-After is > the 30s exponential cap but <= the 60s wait ceiling:
+    // it must be waited out in full, not truncated to 30s (which would retry
+    // while Steam is still throttling).
+    mockFetchSequence([{ ok: false, status: 429, retryAfter: "45" }, { body: { response: { games: [] } } }])
+    const { getOwnedGames } = await import("@/lib/steam-api")
+    vi.useFakeTimers()
+    const promise = getOwnedGames("76561198023709299")
+    await vi.runAllTimersAsync()
+    await promise
+    expect(loggerMock.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ delayMs: 45000, retryAfter: "45" }),
+      expect.any(String),
+    )
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2)
+  })
+
+  it("gives up immediately (no early retry) when Retry-After exceeds the wait ceiling", async () => {
+    // 120s > the 60s ceiling: retrying before that window closes would just
+    // hit the same throttle, so we fail fast instead of retrying too soon.
+    mockFetchSequence([{ ok: false, status: 429, retryAfter: "120" }])
+    const { getOwnedGames } = await import("@/lib/steam-api")
+    const games = await getOwnedGames("76561198023709299")
+    expect(games).toEqual([])
+    // Only the initial request — no retry was attempted.
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1)
+    expect(loggerMock.warn).not.toHaveBeenCalled()
+    expect(loggerMock.error).toHaveBeenCalled()
   })
 
   it("gives up after exhausting retries and returns the empty fallback", async () => {
