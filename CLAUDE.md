@@ -7,19 +7,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 pnpm dev              # Start dev server (localhost:3000)
 pnpm build            # Production build (standalone output)
-pnpm lint             # ESLint + typecheck (runs both)
+pnpm lint             # oxlint + typecheck (runs both)
 pnpm typecheck        # next typegen + tsc --noEmit
 pnpm test             # Vitest run (all tests)
-pnpm format           # Prettier format all files
+pnpm format           # oxfmt format all files
 pnpm exec vitest run test/<file>.test.ts  # Run single test file
 ```
 
 CI runs: install → lint → test → build (GitHub Actions, on push to main and PRs).
-Pre-commit hooks run Prettier + ESLint via Husky + lint-staged.
+Pre-commit hooks run oxfmt + oxlint via Husky + lint-staged.
 
 ## Architecture
 
-Next.js 16 App Router with React 19, TypeScript strict mode, Tailwind CSS 4, shadcn/ui (new-york style) + Radix UI primitives. Uses pnpm 10.25 and Node 24.13.
+Next.js 16 App Router with React 19, TypeScript strict mode, Tailwind CSS 4, shadcn/ui (new-york style) + Radix UI primitives. Uses pnpm 11.7 and Node 24.13.
 
 ### Data flow
 
@@ -68,7 +68,7 @@ Whitelist-based, multi-user ready. `STEAM_WHITELIST_IDS` (comma-separated Steam6
 - SQLite path resolution: `SQLITE_PATH` env → `/data/` → `.data/` fallback
 - Environment variables validated with Zod lazily on first access (`lib/env.ts`)
 - Structured logging via Pino (`lib/server/logger.ts`)
-- `@next/next/no-img-element` ESLint rule is disabled
+- `nextjs/no-img-element` oxlint rule is disabled (`.oxlintrc.json`)
 - `lib/steam-api.ts` must NOT import `server-only` modules (used by client components for types)
 - Tests live in `test/` directory (Vitest + @testing-library/react + jsdom)
 - All API routes and public functions have JSDoc documentation
