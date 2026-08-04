@@ -246,6 +246,54 @@ describe("useSteamExtras", () => {
   })
 })
 
+describe("useSteamHiddenGames", () => {
+  it("loads hidden games on mount", async () => {
+    mockFetchSequence(async () =>
+      ok({
+        games: [
+          {
+            appid: 222,
+            name: "Hidden Game",
+            playtime_forever: 50,
+            hidden_at: "2026-04-11T10:00:00.000Z",
+            source: "library",
+          },
+        ],
+      }),
+    )
+    const { useSteamHiddenGames } = await import("@/hooks/use-steam-data")
+    const { result } = renderHook(() => useSteamHiddenGames())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.games).toHaveLength(1)
+    expect(result.current.error).toBeNull()
+  })
+
+  it("sets error on non-ok response", async () => {
+    mockFetchSequence(async () => err(500))
+    const { useSteamHiddenGames } = await import("@/hooks/use-steam-data")
+    const { result } = renderHook(() => useSteamHiddenGames())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.error).toBe("Failed to fetch hidden games")
+    expect(result.current.games).toEqual([])
+  })
+
+  it("re-fetches on invalidateSteamData event", async () => {
+    let calls = 0
+    mockFetchSequence(async () => {
+      calls++
+      return ok({ games: [] })
+    })
+    const { useSteamHiddenGames } = await import("@/hooks/use-steam-data")
+    const { result } = renderHook(() => useSteamHiddenGames())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    const initial = calls
+    act(() => {
+      window.dispatchEvent(new CustomEvent("steam-data-invalidated"))
+    })
+    await waitFor(() => expect(calls).toBeGreaterThan(initial))
+  })
+})
+
 describe("useSteamAchievements", () => {
   it("returns empty + loading=false when appId is null", async () => {
     const fetchSpy = vi.fn()
