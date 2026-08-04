@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton"
 import { SurfaceCard } from "@/components/ui/surface-card"
 import { useSteamAchievementsBatch, useSteamGames } from "@/hooks/use-steam-data"
-import { getSteamHeaderImageUrl } from "@/lib/steam-api"
+import { getSteamHeaderImageUrl } from "@/lib/steam-image-urls"
 import { buildGamesWithStats, mapOwnedGamesToGameCards, sortGames } from "@/lib/games-mapping"
 import type { SteamGameCardModel } from "@/lib/types/steam"
 
