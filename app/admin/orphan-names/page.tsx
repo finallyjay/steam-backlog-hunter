@@ -37,9 +37,16 @@ export default function OrphanNamesPage() {
   }, [])
 
   useEffect(() => {
-    load()
-      .catch(() => setError("Failed to load orphan names"))
-      .finally(() => setLoading(false))
+    async function run() {
+      try {
+        await load()
+      } catch {
+        setError("Failed to load orphan names")
+      } finally {
+        setLoading(false)
+      }
+    }
+    void run()
   }, [load])
 
   const handleSave = async (appid: number) => {

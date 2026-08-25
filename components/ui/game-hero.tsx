@@ -88,10 +88,17 @@ export function GameHero({ appId, name, title, portraitUrl, children }: GameHero
   const [mode, setMode] = useState<HeroMode>("probing")
   const [bgUrl, setBgUrl] = useState<string | null>(null)
 
-  useEffect(() => {
-    let cancelled = false
+  // Reset probe state during render when the game changes (React's "adjust
+  // state on prop change" pattern) so the effect below only runs the probes.
+  const [prevAppId, setPrevAppId] = useState(appId)
+  if (prevAppId !== appId) {
+    setPrevAppId(appId)
     setMode("probing")
     setBgUrl(null)
+  }
+
+  useEffect(() => {
+    let cancelled = false
 
     Promise.all([probeImage(`${CDN}/${appId}/library_hero.jpg`), probeImage(`${CDN}/${appId}/logo.png`)]).then(
       ([heroOk, logoOk]) => {

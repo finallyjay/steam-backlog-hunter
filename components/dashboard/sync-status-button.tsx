@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { RefreshCw } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -48,23 +48,33 @@ export function useSyncStatus() {
   const [status, setStatus] = useState<SyncStatusResponse | null>(null)
   const [loading, setLoading] = useState(true)
 
-  async function loadStatus() {
+  const fetchStatus = useCallback(async () => {
+    let next: SyncStatusResponse | null = null
     try {
-      setLoading(true)
       const response = await fetch("/api/steam/sync", { cache: "no-store" })
-      if (!response.ok) return
-      const data = (await response.json()) as SyncStatusResponse
-      setStatus(data)
+      if (response.ok) {
+        next = (await response.json()) as SyncStatusResponse
+      }
     } catch {
       // ignore
-    } finally {
-      setLoading(false)
     }
-  }
+    if (next) setStatus(next)
+    setLoading(false)
+  }, [])
+
+  // Event-driven reloads flip the loading flag first; the mount fetch relies
+  // on the initial loading=true instead of setting state synchronously.
+  const loadStatus = useCallback(async () => {
+    setLoading(true)
+    await fetchStatus()
+  }, [fetchStatus])
 
   useEffect(() => {
-    void loadStatus()
-  }, [])
+    async function run() {
+      await fetchStatus()
+    }
+    void run()
+  }, [fetchStatus])
 
   const label =
     formatTimestamp(status?.lastStatsSyncAt ?? null) ??
