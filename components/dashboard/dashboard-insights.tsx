@@ -66,36 +66,36 @@ function ActivePieShape(props: PieSectorDataItem) {
   )
 }
 
-// Factory: returns a Tooltip component that closes over the total of all
-// chart values, so it can render each slice as both an absolute count and a
-// percentage of the whole.
-function createChartTooltip(total: number) {
-  return function ChartTooltip({
-    active,
-    payload,
-  }: {
-    active?: boolean
-    payload?: Array<{ name: string; value: number; payload: { color: string; name?: string } }>
-  }) {
-    if (!active || !payload?.length) return null
+// Tooltip for both chart kinds. Recharts clones the element passed as
+// `content` and injects `active`/`payload`; `total` comes from InsightCard so
+// each slice renders as both an absolute count and a percentage of the whole.
+function ChartTooltip({
+  total,
+  active,
+  payload,
+}: {
+  total: number
+  active?: boolean
+  payload?: Array<{ name: string; value: number; payload: { color: string; name?: string } }>
+}) {
+  if (!active || !payload?.length) return null
 
-    const item = payload[0]
-    const percent = total > 0 ? Math.round((item.value / total) * 100) : 0
-    const color = item.payload.color
-    return (
-      <div
-        className="border-surface-4 relative overflow-hidden rounded-xl border bg-slate-900/95 px-3 py-2 shadow-[0_18px_60px_-25px_rgba(0,0,0,0.85),0_2px_8px_-4px_rgba(0,0,0,0.45)] backdrop-blur-md"
-        style={{ borderTopColor: color, borderTopWidth: 2 }}
-      >
-        <div className="flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
-          <span className="text-muted-foreground text-sm">{item.payload.name ?? item.name}</span>
-          <span className="text-foreground ml-1 text-sm font-semibold tabular-nums">{item.value}</span>
-          <span className="text-muted-foreground/80 text-xs tabular-nums">({percent}%)</span>
-        </div>
+  const item = payload[0]
+  const percent = total > 0 ? Math.round((item.value / total) * 100) : 0
+  const color = item.payload.color
+  return (
+    <div
+      className="border-surface-4 relative overflow-hidden rounded-xl border bg-slate-900/95 px-3 py-2 shadow-[0_18px_60px_-25px_rgba(0,0,0,0.85),0_2px_8px_-4px_rgba(0,0,0,0.45)] backdrop-blur-md"
+      style={{ borderTopColor: color, borderTopWidth: 2 }}
+    >
+      <div className="flex items-center gap-2">
+        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
+        <span className="text-muted-foreground text-sm">{item.payload.name ?? item.name}</span>
+        <span className="text-foreground ml-1 text-sm font-semibold tabular-nums">{item.value}</span>
+        <span className="text-muted-foreground/80 text-xs tabular-nums">({percent}%)</span>
       </div>
-    )
-  }
+    </div>
+  )
 }
 
 function MetricLegend({ label, value, color, href }: { label: string; value: number; color: string; href?: string }) {
@@ -177,7 +177,6 @@ function InsightCard({
     fillUrl: `url(#${CHART_GRADIENT_IDS[index]})`,
   }))
   const total = chartData.reduce((sum, e) => sum + e.value, 0)
-  const TooltipContent = useMemo(() => createChartTooltip(total), [total])
 
   return (
     <div className="grid gap-5">
@@ -199,7 +198,7 @@ function InsightCard({
                   width={72}
                   tick={{ fill: "rgba(226,232,240,0.72)", fontSize: 12 }}
                 />
-                <Tooltip content={<TooltipContent />} cursor={{ fill: "rgba(255,255,255,0.05)" }} />
+                <Tooltip content={<ChartTooltip total={total} />} cursor={{ fill: "rgba(255,255,255,0.05)" }} />
                 <Bar dataKey="value" radius={4} barSize={20} animationBegin={0} animationDuration={500}>
                   {chartData.map((entry) => (
                     <Cell key={entry.name} fill={entry.fillUrl} />
@@ -225,7 +224,7 @@ function InsightCard({
                     <Cell key={entry.name} fill={entry.fillUrl} />
                   ))}
                 </Pie>
-                <Tooltip content={<TooltipContent />} />
+                <Tooltip content={<ChartTooltip total={total} />} />
               </PieChart>
             )}
           </ResponsiveContainer>

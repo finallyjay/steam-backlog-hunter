@@ -72,31 +72,45 @@ export default function ExtraGameDetailPage() {
   const [activeTab, setActiveTab] = useState<AchievementTab>("pending")
   const [search, setSearch] = useState("")
 
-  const load = useCallback(async () => {
+  // Reset fetch state during render when navigating to a different extra
+  // (React's "adjust state on prop change" pattern) so the fetch effect
+  // never sets state synchronously.
+  const [prevAppId, setPrevAppId] = useState(appId)
+  if (prevAppId !== appId) {
+    setPrevAppId(appId)
     setLoading(true)
     setError(null)
+  }
+
+  const load = useCallback(async () => {
+    let nextData: ExtraDetailResponse | null = null
+    let nextError: string | null = null
     try {
       const res = await fetch(`/api/steam/extras/${appId}`)
-      if (!res.ok) {
-        if (res.status === 404) {
-          setError("Extra game not found")
-        } else {
-          setError("Failed to load game details")
-        }
-        return
+      if (res.ok) {
+        nextData = (await res.json()) as ExtraDetailResponse
+      } else if (res.status === 404) {
+        nextError = "Extra game not found"
+      } else {
+        nextError = "Failed to load game details"
       }
-      const data = (await res.json()) as ExtraDetailResponse
-      setGame(data.game)
-      setAchievements(data.achievements)
     } catch {
-      setError("Network error")
-    } finally {
-      setLoading(false)
+      nextError = "Network error"
     }
+    if (nextData) {
+      setGame(nextData.game)
+      setAchievements(nextData.achievements)
+    } else {
+      setError(nextError)
+    }
+    setLoading(false)
   }, [appId])
 
   useEffect(() => {
-    void load()
+    async function run() {
+      await load()
+    }
+    void run()
   }, [load])
 
   useEffect(() => {

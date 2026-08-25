@@ -18,13 +18,10 @@ type SyncStatusResponse = {
 
 function useFirstSyncCheck(user: { steamId: string } | null) {
   const [needsSync, setNeedsSync] = useState(false)
-  const [checked, setChecked] = useState(false)
+  const [fetchDone, setFetchDone] = useState(false)
 
   useEffect(() => {
-    if (!user) {
-      setChecked(true)
-      return
-    }
+    if (!user) return
     let cancelled = false
     async function check() {
       try {
@@ -37,7 +34,7 @@ function useFirstSyncCheck(user: { steamId: string } | null) {
       } catch {
         // ignore
       } finally {
-        if (!cancelled) setChecked(true)
+        if (!cancelled) setFetchDone(true)
       }
     }
     void check()
@@ -47,6 +44,9 @@ function useFirstSyncCheck(user: { steamId: string } | null) {
   }, [user])
 
   const dismiss = useCallback(() => setNeedsSync(false), [])
+  // Without a user there is nothing to check, so derive "checked" instead of
+  // setting it from the effect.
+  const checked = fetchDone || !user
   return { needsSync, checked, dismiss }
 }
 

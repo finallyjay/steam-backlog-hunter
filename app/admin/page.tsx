@@ -46,9 +46,16 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (!user) return
-    loadUsers()
-      .catch(() => setError("Failed to load users"))
-      .finally(() => setLoadingUsers(false))
+    async function run() {
+      try {
+        await loadUsers()
+      } catch {
+        setError("Failed to load users")
+      } finally {
+        setLoadingUsers(false)
+      }
+    }
+    void run()
   }, [user, loadUsers])
 
   const handleAdd = async () => {
