@@ -97,7 +97,9 @@ export function useSteamAchievementsBatch(appIds: number[]) {
         hasLoadedRef.current = true
       } else {
         setError(errorMessage)
-        setAchievementsMap({})
+        if (!hasLoadedRef.current) {
+          setAchievementsMap({})
+        }
       }
       setLoading(false)
       setIsRefreshing(false)
@@ -195,7 +197,9 @@ export function useSteamGames(type: "recent" | "all" = "recent") {
         hasLoadedRef.current = true
       } else {
         setError(errorMessage)
-        setGames([])
+        if (!hasLoadedRef.current) {
+          setGames([])
+        }
       }
       setLoading(false)
       setIsRefreshing(false)
@@ -285,7 +289,9 @@ export function useSteamStats() {
       hasLoadedRef.current = true
     } else {
       setError(errorMessage)
-      setStats(null)
+      if (!hasLoadedRef.current) {
+        setStats(null)
+      }
     }
     setLoading(false)
     setIsRefreshing(false)
@@ -356,6 +362,8 @@ export function useSteamExtras() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const hasLoadedRef = useRef(false)
+
   const runLoad = useCallback(async () => {
     let nextGames: SteamExtraGame[] | null = null
     let errorMessage: string | null = null
@@ -369,9 +377,12 @@ export function useSteamExtras() {
     }
     if (nextGames) {
       setGames(nextGames)
+      hasLoadedRef.current = true
     } else {
       setError(errorMessage)
-      setGames([])
+      if (!hasLoadedRef.current) {
+        setGames([])
+      }
     }
     setLoading(false)
   }, [])
@@ -416,6 +427,8 @@ export function useSteamHiddenGames() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const hasLoadedRef = useRef(false)
+
   const runLoad = useCallback(async () => {
     let nextGames: SteamHiddenGame[] | null = null
     let errorMessage: string | null = null
@@ -429,9 +442,12 @@ export function useSteamHiddenGames() {
     }
     if (nextGames) {
       setGames(nextGames)
+      hasLoadedRef.current = true
     } else {
       setError(errorMessage)
-      setGames([])
+      if (!hasLoadedRef.current) {
+        setGames([])
+      }
     }
     setLoading(false)
   }, [])
@@ -516,7 +532,9 @@ export function useSteamAchievements(appId: number | null) {
         hasLoadedRef.current = true
       } else {
         setError(errorMessage)
-        setAchievements([])
+        if (!hasLoadedRef.current) {
+          setAchievements([])
+        }
       }
       setLoading(false)
       setIsRefreshing(false)
