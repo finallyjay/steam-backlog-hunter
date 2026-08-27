@@ -1,7 +1,14 @@
-import { describe, it, expect, beforeAll } from "vitest"
+import { describe, it, expect, beforeAll, afterEach, vi } from "vitest"
 import crypto from "node:crypto"
-import { signSession, verifySession } from "@/lib/server/session"
+import { signSession, verifySession, SESSION_MAX_AGE_SECONDS } from "@/lib/server/session"
 import type { SteamUser } from "@/lib/auth"
+
+/** Signs an arbitrary payload the same way session.ts does, for tests that need to construct tokens signSession() itself won't produce (e.g. an expired or exp-less token). */
+function signRaw(payload: unknown): string {
+  const encoded = Buffer.from(JSON.stringify(payload)).toString("base64url")
+  const sig = crypto.createHmac("sha256", "unit-test-session-secret").update(encoded).digest("base64url")
+  return `${encoded}.${sig}`
+}
 
 const USER: SteamUser = {
   steamId: "76561198023709299",
@@ -57,5 +64,52 @@ describe("session signing", () => {
     const payload = Buffer.from("not json{").toString("base64url")
     const sig = crypto.createHmac("sha256", "unit-test-session-secret").update(payload).digest("base64url")
     expect(verifySession(`${payload}.${sig}`)).toBeNull()
+  })
+})
+
+describe("session expiry", () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it("signs sessions with a future exp, and accepts them", () => {
+    const token = signSession(USER)
+    const [payload] = token.split(".")
+    const parsed = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"))
+
+    expect(parsed.exp).toBeGreaterThan(Date.now())
+    expect(parsed.exp).toBeLessThanOrEqual(Date.now() + SESSION_MAX_AGE_SECONDS * 1000)
+    expect(verifySession(token)).toEqual(USER)
+  })
+
+  it("rejects an expired token even with a valid signature", () => {
+    const expired = signRaw({ ...USER, exp: Date.now() - 1000 })
+    expect(verifySession(expired)).toBeNull()
+  })
+
+  it("accepts a token right up until its exp, then rejects it once past", () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(0)
+
+    const token = signSession(USER)
+
+    vi.setSystemTime(SESSION_MAX_AGE_SECONDS * 1000 - 1)
+    expect(verifySession(token)).toEqual(USER)
+
+    vi.setSystemTime(SESSION_MAX_AGE_SECONDS * 1000)
+    expect(verifySession(token)).toBeNull()
+  })
+
+  it("rejects legacy tokens signed before the exp field existed (no grace period)", () => {
+    // Policy: a signed payload with no `exp` at all is treated the same as an
+    // expired token, not honored for a grace period — see the doc comment on
+    // verifySession(). This also covers a forged payload that omits `exp`.
+    const legacy = signRaw(USER)
+    expect(verifySession(legacy)).toBeNull()
+  })
+
+  it("rejects a token with a non-numeric exp", () => {
+    const malformed = signRaw({ ...USER, exp: "not-a-number" })
+    expect(verifySession(malformed)).toBeNull()
   })
 })
