@@ -4,7 +4,7 @@ This is a personal project, but contributions are welcome. This guide captures t
 
 ## Setup
 
-Requires **Node 24.13+** and **pnpm 10.25+**.
+Requires **Node 24.13+** and **pnpm 11.7** (see `packageManager` in `package.json` — Corepack picks it up automatically).
 
 ```bash
 pnpm install
@@ -26,7 +26,7 @@ All changes go through **issue → branch → PR → merge**. Direct commits to 
 ## Code style
 
 - **TypeScript strict mode.** No `any` without a comment explaining why.
-- **Prettier + ESLint** run via Husky + lint-staged on every commit — don't fight the formatter.
+- **oxlint + oxfmt** run via Husky + lint-staged on every commit — don't fight the formatter.
 - **Path alias:** `@/*` maps to the project root.
 - **Default to no comments.** Only write one when the _why_ is non-obvious — hidden constraints, subtle invariants, workarounds for specific bugs.
 - **Don't explain what the code does** — well-named identifiers already do that.
@@ -42,7 +42,15 @@ All changes go through **issue → branch → PR → merge**. Direct commits to 
 
 ## Database changes
 
-Since this project is pre-production, schema changes are applied by editing `createBaseSchema` in `lib/server/sqlite.ts` directly rather than adding migrations. If your change reshapes existing tables, **delete your local `.data/steam-backlog-hunter.sqlite` file** before running the branch — the app will recreate the schema on next startup and resync owned games + achievements from Steam on first login.
+Schema evolution in `lib/server/sqlite.ts` has three layers, all applied on every `getSqliteDatabase()` call:
+
+1. **`createBaseSchema`** — `CREATE TABLE IF NOT EXISTS` statements defining the latest shape for fresh installs.
+2. **`addColumnIfMissing`** (via `applyAdditiveMigrations`) — additive-only column changes for existing databases (checks `PRAGMA table_info`, then `ALTER TABLE ... ADD COLUMN` if missing).
+3. **The `MIGRATIONS` array** (run by `runVersionedMigrations`) — one-off data backfills/fixups, tracked via SQLite's built-in `PRAGMA user_version`. Each entry runs once, in a transaction, the first time a database is opened at a lower version.
+
+To add a new column: add it to the relevant `CREATE TABLE` in `createBaseSchema` **and** add an `addColumnIfMissing` call in `applyAdditiveMigrations`, so both fresh and existing databases pick it up. To add a one-off data migration (backfill, cleanup, etc.): append an entry to the `MIGRATIONS` array with the next `version` number — never modify or reorder existing entries, since it's an append-only history.
+
+If your change reshapes existing tables in a way the additive layers can't express, you can still **delete your local `.data/steam-backlog-hunter.sqlite` file** before running the branch — the app will recreate the schema on next startup and resync owned games + achievements from Steam on first login.
 
 ## Commit messages
 

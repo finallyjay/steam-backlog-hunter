@@ -77,6 +77,7 @@ The app will be available at `http://localhost:3000`.
 | `SQLITE_PATH`         | No         | Custom SQLite database path (see [Database](#database))                         |
 | `STEAM_WHITELIST_IDS` | No         | Comma-separated Steam64 IDs for initial seed (managed via `/admin` after)       |
 | `SESSION_SECRET`      | Production | HMAC key for signing the session cookie (dev/test fall back to `STEAM_API_KEY`) |
+| `STEAM_API_LOCALE`    | No         | Locale sent to Steam as `l=` (default: `es`; e.g. `en`, `fr`, `de`)             |
 | `LOG_LEVEL`           | No         | Pino log level (default: `info`)                                                |
 
 ## Scripts
@@ -165,15 +166,37 @@ All data endpoints require authentication via `steam_user` httpOnly cookie. JSDo
 
 ### Steam Data
 
-| Method | Path                                         | Description                                           |
-| ------ | -------------------------------------------- | ----------------------------------------------------- |
-| `GET`  | `/api/steam/games?type=recent\|all`          | List owned or recently played games                   |
-| `GET`  | `/api/steam/achievements?appId=N`            | Get achievements for a game                           |
-| `GET`  | `/api/steam/achievements/batch?appIds=1,2,3` | Batch get achievements (max 200)                      |
-| `GET`  | `/api/steam/game/:id`                        | Get single game details                               |
-| `GET`  | `/api/steam/stats`                           | Get aggregated user stats                             |
-| `GET`  | `/api/steam/sync`                            | Get last sync timestamps                              |
-| `POST` | `/api/steam/sync`                            | Trigger full data sync (rate limited: 5/min per user) |
+| Method   | Path                                         | Description                                                         |
+| -------- | -------------------------------------------- | ------------------------------------------------------------------- |
+| `GET`    | `/api/steam/games?type=recent\|all`          | List owned or recently played games                                 |
+| `POST`   | `/api/steam/games/hide`                      | Hide a game from the library                                        |
+| `DELETE` | `/api/steam/games/hide`                      | Unhide a previously hidden game                                     |
+| `GET`    | `/api/steam/achievements?appId=N`            | Get achievements for a game                                         |
+| `GET`    | `/api/steam/achievements/batch?appIds=1,2,3` | Batch get achievements (max 200)                                    |
+| `GET`    | `/api/steam/game/:id`                        | Get single game details                                             |
+| `POST`   | `/api/steam/game/:id/sync`                   | Force-refresh a single game's achievement data from the Steam API   |
+| `GET`    | `/api/steam/extras`                          | List "extras" — played-but-not-owned games (`?hidden=1` for hidden) |
+| `GET`    | `/api/steam/extras/:id`                      | Get one extra game's detail + enriched achievements                 |
+| `GET`    | `/api/steam/stats`                           | Get aggregated user stats                                           |
+| `GET`    | `/api/steam/sync`                            | Get last sync timestamps                                            |
+| `POST`   | `/api/steam/sync`                            | Trigger full data sync (rate limited: 5/min per user)               |
+
+### Admin
+
+Admin-only routes, gated by `requireAdmin()` (the signed-in user's Steam ID must equal `ADMIN_STEAM_ID`).
+
+| Method   | Path                             | Description                                                             |
+| -------- | -------------------------------- | ----------------------------------------------------------------------- |
+| `GET`    | `/api/admin/users`               | List allowed users with profile info                                    |
+| `POST`   | `/api/admin/users`               | Add an allowed user                                                     |
+| `DELETE` | `/api/admin/users`               | Remove an allowed user                                                  |
+| `PATCH`  | `/api/admin/users`               | Refresh a user's Steam profile data                                     |
+| `GET`    | `/api/admin/pinned-games`        | List globally pinned appids                                             |
+| `POST`   | `/api/admin/pinned-games`        | Add an appid to the global pinned list                                  |
+| `DELETE` | `/api/admin/pinned-games`        | Remove an appid from the global pinned list                             |
+| `GET`    | `/api/admin/orphan-names`        | List appids with a NULL/empty `games.name` referenced by a user         |
+| `PUT`    | `/api/admin/orphan-names/:appid` | Set a manual name for an appid (freezes it as `name_source = 'manual'`) |
+| `DELETE` | `/api/admin/orphan-names/:appid` | Clear a manual name so auto-sync can resolve it again                   |
 
 ### Infrastructure
 
@@ -198,9 +221,13 @@ SQLite is the primary store. The schema auto-initializes on first run.
 
 ### Migrations
 
-Schema changes are managed through a **versioned migration system** (`lib/server/sqlite.ts`). A `schema_migrations` table tracks which migrations have run. Each migration executes exactly once, in order, inside a transaction.
+Schema evolution in `lib/server/sqlite.ts` happens in three layers, applied in order on every `getSqliteDatabase()` call:
 
-To add a new migration, append a function to the `migrations` array in `sqlite.ts`. Never modify existing migrations.
+1. **`createBaseSchema`** — `CREATE TABLE IF NOT EXISTS` statements that define the latest shape for fresh installs. Safe to re-run; a no-op once the tables exist.
+2. **`addColumnIfMissing`** (via `applyAdditiveMigrations`) — additive-only column changes for existing databases. Checks `PRAGMA table_info(<table>)` and runs `ALTER TABLE ... ADD COLUMN` only if the column isn't already there.
+3. **Versioned data migrations** (the `MIGRATIONS` array, run by `runVersionedMigrations`) — one-off data backfills/fixups tracked via SQLite's built-in `PRAGMA user_version` (no separate table). Each entry has a `version`, a `name`, and a `run(db)` function; on open, every migration whose `version` is greater than the stored `user_version` runs once inside a transaction, then bumps `user_version` to that migration's version.
+
+To add a new column: add it to the relevant `CREATE TABLE` in `createBaseSchema` **and** add an `addColumnIfMissing` call in `applyAdditiveMigrations` so existing databases pick it up. To add a one-off data migration: append an entry to the `MIGRATIONS` array with the next `version` number — never modify or reorder existing entries, since it's an append-only history.
 
 ### Path Resolution
 
@@ -210,7 +237,7 @@ To add a new migration, append a function to the `migrations` array in `sqlite.t
 
 ### Tables
 
-`steam_profile` · `games` · `user_games` · `recent_games_snapshot` · `stats_snapshot` · `schema_migrations`
+`steam_profile` · `games` · `user_games` · `recent_games_snapshot` · `stats_snapshot` · `hidden_games` · `allowed_users` · `game_achievements` · `user_achievements` · `pinned_games` · `extra_games` · `extra_game_achievements` · `app_catalog_meta`
 
 All user-specific tables are keyed by `steam_id` for multi-user isolation.
 
