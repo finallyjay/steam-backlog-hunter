@@ -169,4 +169,28 @@ describe("versioned migrations", () => {
     // user_version bumped, second open skips it.
     expect(row.name).toBe("ValveTestApp555")
   })
+
+  it("migration v4 drops the unused recent_games_snapshot table", async () => {
+    const { getSqliteDatabase } = await import("@/lib/server/sqlite")
+    const db = getSqliteDatabase()
+
+    // Simulate a pre-migration database that still has the dead table
+    // (it's no longer part of the base schema created on fresh installs).
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS recent_games_snapshot (
+        steam_id TEXT PRIMARY KEY,
+        games_json TEXT NOT NULL,
+        synced_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+    `)
+    db.exec("PRAGMA user_version = 3")
+    vi.resetModules()
+    await import("@/lib/server/sqlite").then((m) => m.getSqliteDatabase())
+
+    const table = db
+      .prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'recent_games_snapshot'`)
+      .get()
+    expect(table).toBeUndefined()
+  })
 })

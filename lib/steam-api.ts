@@ -242,22 +242,6 @@ export async function getOwnedGames(steamId: string): Promise<SteamGame[]> {
   }
 }
 
-/** Fetches the 25 most recently played games for a Steam user. */
-export async function getRecentlyPlayedGames(steamId: string): Promise<SteamGame[]> {
-  try {
-    const data = await steamAPIRequest("/IPlayerService/GetRecentlyPlayedGames/v1/", {
-      steamid: steamId,
-      count: "25",
-      l: steamLocale(),
-    })
-
-    return data.response?.games || []
-  } catch (error) {
-    logger.error({ err: error, steamIdHash: redactSteamId(steamId) }, "Error fetching recently played games")
-    return []
-  }
-}
-
 /** Fetches a player's achievements for a specific game, or null if unavailable. */
 export async function getPlayerAchievements(steamId: string, appId: number): Promise<GameAchievements | null> {
   try {
