@@ -30,7 +30,7 @@ Next.js 16 App Router with React 19, TypeScript strict mode, Tailwind CSS 4, sha
 - `lib/server/steam-stats-compute.ts` — stats aggregation and sync orchestration; computes from `user_games WHERE total_count > 0`
 - `lib/server/steam-store-utils.ts` — shared utilities (staleness checks, timestamps, profile management)
 - `lib/server/steam-store.ts` — barrel re-export of the above modules
-- `lib/server/sqlite.ts` — database schema and migrations (Node.js built-in `DatabaseSync`); tables: `steam_profile`, `games`, `user_games`, `recent_games_snapshot`, `stats_snapshot`, `hidden_games`, `allowed_users`, `game_achievements`, `user_achievements`, `pinned_games`, `extra_games`, `extra_game_achievements`, `app_catalog_meta`
+- `lib/server/sqlite.ts` — database schema and migrations (Node.js built-in `DatabaseSync`); tables: `steam_profile`, `games`, `user_games`, `stats_snapshot`, `hidden_games`, `allowed_users`, `game_achievements`, `user_achievements`, `pinned_games`, `extra_games`, `extra_game_achievements`, `app_catalog_meta`
 - `lib/steam-api.ts` — direct Steam Web API calls (shared between server and client for types/utilities)
 
 ### API routes (`app/api/`)

@@ -237,7 +237,7 @@ To add a new column: add it to the relevant `CREATE TABLE` in `createBaseSchema`
 
 ### Tables
 
-`steam_profile` · `games` · `user_games` · `recent_games_snapshot` · `stats_snapshot` · `hidden_games` · `allowed_users` · `game_achievements` · `user_achievements` · `pinned_games` · `extra_games` · `extra_game_achievements` · `app_catalog_meta`
+`steam_profile` · `games` · `user_games` · `stats_snapshot` · `hidden_games` · `allowed_users` · `game_achievements` · `user_achievements` · `pinned_games` · `extra_games` · `extra_game_achievements` · `app_catalog_meta`
 
 All user-specific tables are keyed by `steam_id` for multi-user isolation.
 
