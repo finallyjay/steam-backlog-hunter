@@ -95,6 +95,28 @@ describe("useSteamGames", () => {
     })
     await waitFor(() => expect(calls).toBeGreaterThan(initial))
   })
+
+  it("keeps previously loaded games and sets error when a background refresh fails", async () => {
+    let calls = 0
+    mockFetchSequence(async () => {
+      calls++
+      if (calls === 1) {
+        return ok({ games: [{ appid: 620, name: "Portal 2", playtime_forever: 100 }] })
+      }
+      return err(500)
+    })
+    const { useSteamGames } = await import("@/hooks/use-steam-data")
+    const { result } = renderHook(() => useSteamGames("recent"))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.games).toHaveLength(1)
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent("steam-data-invalidated"))
+    })
+    await waitFor(() => expect(result.current.error).toBe("Failed to fetch games"))
+    expect(result.current.games).toHaveLength(1)
+    expect(result.current.isRefreshing).toBe(false)
+  })
 })
 
 describe("useSteamAchievementsBatch", () => {
@@ -141,6 +163,28 @@ describe("useSteamAchievementsBatch", () => {
     const { result } = renderHook(() => useSteamAchievementsBatch([620]))
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(result.current.error).toBe("Failed to fetch achievements batch")
+    expect(result.current.achievementsMap).toEqual({})
+  })
+
+  it("keeps the previously loaded map and sets error when a background refresh fails", async () => {
+    let calls = 0
+    mockFetchSequence(async () => {
+      calls++
+      if (calls === 1) {
+        return ok({ achievementsMap: { "620": [] } })
+      }
+      return err(500)
+    })
+    const { useSteamAchievementsBatch } = await import("@/hooks/use-steam-data")
+    const { result } = renderHook(() => useSteamAchievementsBatch([620]))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.achievementsMap).toEqual({ 620: [] })
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent("steam-data-invalidated"))
+    })
+    await waitFor(() => expect(result.current.error).toBe("Failed to fetch achievements batch"))
+    expect(result.current.achievementsMap).toEqual({ 620: [] })
   })
 })
 
@@ -195,6 +239,25 @@ describe("useSteamStats", () => {
     })
     expect(urls.some((u) => u.includes("refresh=1"))).toBe(true)
   })
+
+  it("keeps previously loaded stats and sets error when a manual refresh fails", async () => {
+    let calls = 0
+    mockFetchSequence(async () => {
+      calls++
+      if (calls === 1) return ok(sampleStats)
+      return err(500)
+    })
+    const { useSteamStats } = await import("@/hooks/use-steam-data")
+    const { result } = renderHook(() => useSteamStats())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.stats?.totalGames).toBe(10)
+
+    await act(async () => {
+      await result.current.refetch({ force: true })
+    })
+    expect(result.current.error).toBe("Failed to fetch stats")
+    expect(result.current.stats?.totalGames).toBe(10)
+  })
 })
 
 describe("useSteamExtras", () => {
@@ -243,6 +306,38 @@ describe("useSteamExtras", () => {
       window.dispatchEvent(new CustomEvent("steam-data-invalidated"))
     })
     await waitFor(() => expect(calls).toBeGreaterThan(initial))
+  })
+
+  it("keeps previously loaded extras and sets error when a background refresh fails", async () => {
+    let calls = 0
+    mockFetchSequence(async () => {
+      calls++
+      if (calls === 1) {
+        return ok({
+          games: [
+            {
+              appid: 111,
+              name: "Refunded Game",
+              playtime_forever: 100,
+              rtime_first_played: 1_000_000_000,
+              rtime_last_played: 1_100_000_000,
+              synced_at: "2026-04-11T10:00:00.000Z",
+            },
+          ],
+        })
+      }
+      return err(500)
+    })
+    const { useSteamExtras } = await import("@/hooks/use-steam-data")
+    const { result } = renderHook(() => useSteamExtras())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.games).toHaveLength(1)
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent("steam-data-invalidated"))
+    })
+    await waitFor(() => expect(result.current.error).toBe("Failed to fetch extras"))
+    expect(result.current.games).toHaveLength(1)
   })
 })
 
