@@ -25,7 +25,7 @@
   },
   "packageManager": "pnpm@11.7.0",
   "engines": {
-    "node": ">=24.13.1 <25"
+    "node": ">=24 <25"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
