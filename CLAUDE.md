@@ -30,13 +30,14 @@ Next.js 16 App Router with React 19, TypeScript strict mode, Tailwind CSS 4, sha
 - `lib/server/steam-stats-compute.ts` — stats aggregation and sync orchestration; computes from `user_games WHERE total_count > 0`
 - `lib/server/steam-store-utils.ts` — shared utilities (staleness checks, timestamps, profile management)
 - `lib/server/steam-store.ts` — barrel re-export of the above modules
-- `lib/server/sqlite.ts` — database schema and versioned migrations (Node.js built-in `DatabaseSync`); tables: `steam_profile`, `games`, `user_games`, `recent_games_snapshot`, `stats_snapshot`, `schema_migrations`
+- `lib/server/sqlite.ts` — database schema and migrations (Node.js built-in `DatabaseSync`); tables: `steam_profile`, `games`, `user_games`, `recent_games_snapshot`, `stats_snapshot`, `hidden_games`, `allowed_users`, `game_achievements`, `user_achievements`, `pinned_games`, `extra_games`, `extra_game_achievements`, `app_catalog_meta`
 - `lib/steam-api.ts` — direct Steam Web API calls (shared between server and client for types/utilities)
 
 ### API routes (`app/api/`)
 
 - `auth/steam/` — Steam OpenID 2.0 login flow with CSRF nonce, whitelist enforcement, rate limiting; fetches level and badges at login
-- `steam/games`, `steam/achievements`, `steam/stats`, `steam/sync`, `steam/game/[id]` — data endpoints; all require authenticated session via `steam_user` httpOnly cookie
+- `steam/games`, `steam/games/hide`, `steam/achievements`, `steam/stats`, `steam/sync`, `steam/game/[id]`, `steam/game/[id]/sync`, `steam/extras`, `steam/extras/[id]` — data endpoints; all require authenticated session via `steam_user` httpOnly cookie
+- `admin/users`, `admin/pinned-games`, `admin/orphan-names` — admin-only endpoints gated by `requireAdmin()`
 - `health/` — infrastructure health check (no auth)
 
 ### Client state (`hooks/`)
@@ -69,9 +70,9 @@ Whitelist-based, multi-user ready. `STEAM_WHITELIST_IDS` (comma-separated Steam6
 - Environment variables validated with Zod lazily on first access (`lib/env.ts`)
 - Structured logging via Pino (`lib/server/logger.ts`)
 - `nextjs/no-img-element` oxlint rule is disabled (`.oxlintrc.json`)
-- `lib/steam-api.ts` must NOT import `server-only` modules (used by client components for types)
+- `lib/steam-api.ts` is `server-only` (logs via Pino, hashes Steam IDs before logging); client components only import _types_ from it (e.g. `SteamGame`), which TypeScript erases at compile time, so the server boundary holds. Runtime helpers a client needs (e.g. CDN image URL builders) live in the client-safe `lib/steam-image-urls.ts` instead
 - Tests live in `test/` directory (Vitest + @testing-library/react + jsdom)
 - All API routes and public functions have JSDoc documentation
-- Database migrations are versioned in `sqlite.ts` — add new migrations to the `migrations` array, never modify existing ones
+- Schema evolution in `sqlite.ts` has three layers: `createBaseSchema` (`CREATE TABLE IF NOT EXISTS`, latest shape for fresh installs), `addColumnIfMissing`/`applyAdditiveMigrations` (additive column changes for existing databases), and the versioned `MIGRATIONS` array tracked via `PRAGMA user_version` (one-off data backfills, run once each). Add new columns to both the `CREATE TABLE` and `applyAdditiveMigrations`; append new data migrations to `MIGRATIONS` — never modify or reorder existing entries
 - All changes go through issue → branch → PR → merge (never commit directly to main)
 - The "tracked games" concept has been removed — stats are computed from games with achievements (total_count > 0)
