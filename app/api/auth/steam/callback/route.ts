@@ -3,7 +3,7 @@ import crypto from "node:crypto"
 import { cookies } from "next/headers"
 import { isSteamIdWhitelisted } from "@/lib/whitelist"
 import { upsertProfile } from "@/lib/server/steam-store-utils"
-import { signSession } from "@/lib/server/session"
+import { signSession, SESSION_MAX_AGE_SECONDS } from "@/lib/server/session"
 import { logger } from "@/lib/server/logger"
 
 const STEAM_OPENID_URL = "https://steamcommunity.com/openid/login"
@@ -216,7 +216,7 @@ export async function GET(request: NextRequest) {
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",
         path: "/",
-        maxAge: 60 * 60 * 24 * 7, // 7 days
+        maxAge: SESSION_MAX_AGE_SECONDS, // 7 days — kept in sync with the signed exp in session.ts
       },
     )
 

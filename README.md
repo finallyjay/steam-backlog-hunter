@@ -69,15 +69,15 @@ The app will be available at `http://localhost:3000`.
 
 ## Environment Variables
 
-| Variable              | Required   | Description                                                               |
-| --------------------- | ---------- | ------------------------------------------------------------------------- |
-| `STEAM_API_KEY`       | Yes        | Steam Web API key ([get one here](https://steamcommunity.com/dev/apikey)) |
-| `ADMIN_STEAM_ID`      | Yes        | Steam64 ID with admin access (always allowed to sign in + `/admin`)       |
-| `NEXTAUTH_URL`        | Production | Your app's public URL (e.g. `https://steam.example.com`)                  |
-| `SQLITE_PATH`         | No         | Custom SQLite database path (see [Database](#database))                   |
-| `STEAM_WHITELIST_IDS` | No         | Comma-separated Steam64 IDs for initial seed (managed via `/admin` after) |
-| `SESSION_SECRET`      | No         | HMAC key for signing the session cookie (falls back to `STEAM_API_KEY`)   |
-| `LOG_LEVEL`           | No         | Pino log level (default: `info`)                                          |
+| Variable              | Required   | Description                                                                     |
+| --------------------- | ---------- | ------------------------------------------------------------------------------- |
+| `STEAM_API_KEY`       | Yes        | Steam Web API key ([get one here](https://steamcommunity.com/dev/apikey))       |
+| `ADMIN_STEAM_ID`      | Yes        | Steam64 ID with admin access (always allowed to sign in + `/admin`)             |
+| `NEXTAUTH_URL`        | Production | Your app's public URL (e.g. `https://steam.example.com`)                        |
+| `SQLITE_PATH`         | No         | Custom SQLite database path (see [Database](#database))                         |
+| `STEAM_WHITELIST_IDS` | No         | Comma-separated Steam64 IDs for initial seed (managed via `/admin` after)       |
+| `SESSION_SECRET`      | Production | HMAC key for signing the session cookie (dev/test fall back to `STEAM_API_KEY`) |
+| `LOG_LEVEL`           | No         | Pino log level (default: `info`)                                                |
 
 ## Scripts
 
