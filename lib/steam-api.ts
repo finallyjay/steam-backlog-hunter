@@ -258,7 +258,39 @@ export async function getRecentlyPlayedGames(steamId: string): Promise<SteamGame
   }
 }
 
-/** Fetches a player's achievements for a specific game, or null if unavailable. */
+/**
+ * Thrown by {@link getPlayerAchievements} when a request fails in a way that
+ * says nothing about whether the game actually has stats — rate limiting
+ * exhausted (429), a Steam-side server error (5xx), or a network failure.
+ *
+ * Unlike the definitive "no stats" case (a plain `null` return — see below),
+ * callers must NOT treat this as "this game has no achievements": doing so
+ * would cache that false conclusion for up to 7 days (ACHIEVEMENTS_STALE_MS)
+ * over what is most likely a momentary blip. Callers should catch this,
+ * avoid persisting anything, and let the next sync retry — see
+ * `getAchievementsForGame` in steam-achievements-sync.ts, the per-game
+ * workers in steam-stats-compute.ts and extra-games.ts, and
+ * ensurePinnedGamesSynced in pinned-games.ts.
+ */
+export class TransientSteamAPIError extends Error {
+  constructor(
+    message: string,
+    public readonly cause?: unknown,
+  ) {
+    super(message)
+    this.name = "TransientSteamAPIError"
+  }
+}
+
+/**
+ * Fetches a player's achievements for a specific game, or `null` when Steam
+ * gives a *definitive* answer that the game has no stats (400/403, or a 200
+ * response with `success: false`).
+ *
+ * @throws {TransientSteamAPIError} on rate-limit exhaustion (429), a Steam
+ *   server error (5xx), or a network failure — none of those mean "no
+ *   achievements", so they must not be conflated with the null case above.
+ */
 export async function getPlayerAchievements(steamId: string, appId: number): Promise<GameAchievements | null> {
   try {
     const data = await steamAPIRequest("/ISteamUserStats/GetPlayerAchievements/v1/", {
@@ -282,11 +314,14 @@ export async function getPlayerAchievements(steamId: string, appId: number): Pro
     // common for older titles, DLC-only entries, stats-only games, etc).
     // That's the signal the caller expects — a null return value — so don't
     // spam the console with "errors" for the normal case.
-    if (error instanceof SteamAPIError && (error.status === 400 || error.status === 403 || error.status === 500)) {
+    if (error instanceof SteamAPIError && (error.status === 400 || error.status === 403)) {
       return null
     }
-    logger.warn({ err: error, appId }, "Unexpected error fetching achievements")
-    return null
+    // Everything else — 429 with retries exhausted, 5xx, or a network
+    // failure — is transient: it says nothing about whether the game has
+    // achievements, so it must not be swallowed into the null case above.
+    logger.warn({ err: error, appId }, "Transient error fetching achievements — will retry on next sync")
+    throw new TransientSteamAPIError("Transient error fetching player achievements", error)
   }
 }
 

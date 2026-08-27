@@ -226,19 +226,42 @@ describe("getPlayerAchievements", () => {
     expect(loggerMock.error).not.toHaveBeenCalled()
   })
 
-  it("returns null *silently* on 500 (broken stats) — no console noise", async () => {
+  it("throws TransientSteamAPIError on 500 (Steam-side error) instead of returning null", async () => {
+    // A 500 says nothing about whether the game has stats — treating it the
+    // same as a definitive 400/403 would let a transient Steam-side error
+    // get persisted as "no achievements" for up to 7 days. See
+    // steam-achievements-sync.ts's getAchievementsForGame.
     mockFetchSequence([{ ok: false, status: 500, body: {} }])
-    const { getPlayerAchievements } = await import("@/lib/steam-api")
-    expect(await getPlayerAchievements("76561198023709299", 620)).toBeNull()
+    const { getPlayerAchievements, TransientSteamAPIError } = await import("@/lib/steam-api")
+    await expect(getPlayerAchievements("76561198023709299", 620)).rejects.toThrow(TransientSteamAPIError)
+    expect(loggerMock.warn).toHaveBeenCalled()
     expect(loggerMock.error).not.toHaveBeenCalled()
   })
 
-  it("returns null on network error and warns (not errors)", async () => {
+  it("throws TransientSteamAPIError on network error (and warns, not errors)", async () => {
     mockFetchRejecting(new Error("socket hangup"))
-    const { getPlayerAchievements } = await import("@/lib/steam-api")
-    expect(await getPlayerAchievements("76561198023709299", 620)).toBeNull()
+    const { getPlayerAchievements, TransientSteamAPIError } = await import("@/lib/steam-api")
+    await expect(getPlayerAchievements("76561198023709299", 620)).rejects.toThrow(TransientSteamAPIError)
     expect(loggerMock.warn).toHaveBeenCalled()
     expect(loggerMock.error).not.toHaveBeenCalled()
+  })
+
+  it("throws TransientSteamAPIError when 429 retries are exhausted", async () => {
+    mockFetchSequence([
+      { ok: false, status: 429, retryAfter: "0" },
+      { ok: false, status: 429, retryAfter: "0" },
+      { ok: false, status: 429, retryAfter: "0" },
+      { ok: false, status: 429, retryAfter: "0" },
+    ])
+    const { getPlayerAchievements, TransientSteamAPIError } = await import("@/lib/steam-api")
+    vi.useFakeTimers()
+    const promise = getPlayerAchievements("76561198023709299", 620)
+    // Attach a rejection handler before advancing timers so the eventual
+    // rejection is never briefly "unhandled" mid-flight.
+    const assertion = expect(promise).rejects.toThrow(TransientSteamAPIError)
+    await vi.runAllTimersAsync()
+    await assertion
+    expect(loggerMock.error).toHaveBeenCalled()
   })
 
   it("defaults achievements to [] when the response omits the array", async () => {
