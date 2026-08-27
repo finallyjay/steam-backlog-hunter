@@ -41,6 +41,9 @@ export default defineConfig({
         // Type-only / re-export barrels
         "lib/types/**",
         "lib/server/steam-store.ts",
+        // Interfaces only (SteamBadge/SteamUser); erased at compile time,
+        // so it has zero executable statements to cover.
+        "lib/auth.ts",
       ],
       // Baseline thresholds locked to the current honest numbers. Each
       // coverage PR ratchets these up; CI fails if a PR regresses below
