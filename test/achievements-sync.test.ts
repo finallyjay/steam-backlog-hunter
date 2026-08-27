@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { mkdtempSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { TransientSteamAPIError } from "@/lib/steam-api"
 
 vi.mock("@/lib/env", () => ({
   env: new Proxy(
@@ -207,6 +208,73 @@ describe("syncAchievementsForStats (per-game)", () => {
       .get(STEAM_ID, 440) as { achievements_synced_at: string | null; unlocked_count: number }
     expect(ok.achievements_synced_at).not.toBeNull()
     expect(ok.unlocked_count).toBe(1)
+  })
+
+  it("a transient failure on a has_community_visible_stats=null game does not mark it permanently broken", async () => {
+    // Regression test: before the fix, any thrown error from
+    // getPlayerAchievements (transient or not) still left the game
+    // never-synced — that part was already correct here, since this
+    // worker's try/catch already skips persisting on throw. The bug this
+    // guards is the *other* path (getAchievementsForGame persisting `[]` on
+    // a null return) plus the general risk of conflating transient and
+    // definitive failures. This test locks in that a transient error keeps
+    // the game retryable indefinitely, regardless of has_community_visible_stats.
+    const mockGetPlayerAchievements = vi
+      .fn()
+      .mockRejectedValueOnce(new TransientSteamAPIError("rate limited"))
+      .mockResolvedValueOnce({
+        steamID: STEAM_ID,
+        gameName: "Assassin's Creed",
+        achievements: [{ apiname: "ACH_ONE", achieved: 1, unlocktime: 1 }],
+        success: true,
+      })
+
+    vi.doMock("@/lib/steam-api", () => ({
+      getGlobalAchievementPercentages: vi.fn().mockResolvedValue(null),
+      getOwnedGames: vi.fn().mockResolvedValue([]),
+      getRecentlyPlayedGames: vi.fn().mockResolvedValue([]),
+      getPlayerAchievements: mockGetPlayerAchievements,
+      getGameSchema: vi.fn().mockResolvedValue(null),
+      getLastPlayedTimes: vi.fn().mockResolvedValue([]),
+    }))
+    vi.doMock("@/lib/server/steam-images", () => ({
+      ensureGameImages: vi.fn().mockResolvedValue(undefined),
+    }))
+
+    const db = await seedOwnedGames([{ appid: 15100, name: "Assassin's Creed", hasStats: null }])
+    const now = new Date().toISOString()
+    db.prepare(`UPDATE steam_profile SET last_owned_games_sync_at = ? WHERE steam_id = ?`).run(now, STEAM_ID)
+
+    const { getStatsForUser } = await import("@/lib/server/steam-stats-compute")
+
+    // First sync hits the transient failure.
+    await getStatsForUser(STEAM_ID, { forceRefresh: false })
+
+    const afterFirstSync = db
+      .prepare("SELECT achievements_synced_at FROM user_games WHERE steam_id = ? AND appid = ?")
+      .get(STEAM_ID, 15100) as { achievements_synced_at: string | null }
+    // Nothing was persisted over the transient error — still never-synced,
+    // not "verified broken".
+    expect(afterFirstSync.achievements_synced_at).toBeNull()
+
+    // Force the stats_snapshot cache to expire so syncAchievementsForStats runs again.
+    db.prepare(`DELETE FROM stats_snapshot WHERE steam_id = ?`).run(STEAM_ID)
+
+    // Second sync succeeds — proving the game gets retried instead of being
+    // stuck broken forever (which the old has_community_visible_stats===true-only
+    // recovery rule would have caused if the earlier blip had been persisted).
+    const stats = await getStatsForUser(STEAM_ID, { forceRefresh: false })
+    expect(mockGetPlayerAchievements).toHaveBeenCalledTimes(2)
+
+    const afterSecondSync = db
+      .prepare(
+        "SELECT total_count, unlocked_count, achievements_synced_at FROM user_games WHERE steam_id = ? AND appid = ?",
+      )
+      .get(STEAM_ID, 15100) as { total_count: number; unlocked_count: number; achievements_synced_at: string | null }
+    expect(afterSecondSync.total_count).toBe(1)
+    expect(afterSecondSync.unlocked_count).toBe(1)
+    expect(afterSecondSync.achievements_synced_at).not.toBeNull()
+    expect(stats.totalAchievements).toBe(1)
   })
 
   it("marks broken/retired games (null response) with total_count=0 so they stop retrying", async () => {

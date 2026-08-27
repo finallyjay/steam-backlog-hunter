@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import crypto from "node:crypto"
 
+import { getClientIp } from "@/lib/server/client-ip"
 import { rateLimit } from "@/lib/server/rate-limit"
 
 const STEAM_OPENID_URL = "https://steamcommunity.com/openid/login"
@@ -18,7 +19,7 @@ const STEAM_OPENID_URL = "https://steamcommunity.com/openid/login"
  * @throws 429 - Too many requests
  */
 export async function GET(request: NextRequest) {
-  const ip = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown"
+  const ip = getClientIp(request.headers)
   const { success } = rateLimit(`auth:${ip}`, 10, 60_000)
   if (!success) {
     return NextResponse.json({ error: "Too many requests" }, { status: 429 })

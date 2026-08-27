@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { mkdtempSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { TransientSteamAPIError } from "@/lib/steam-api"
 
 vi.mock("@/lib/env", () => ({
   env: new Proxy(
@@ -65,6 +66,7 @@ function mockSteamApi(mocks: {
     getPlayerAchievements: mocks.getPlayerAchievements ?? vi.fn().mockResolvedValue(null),
     getGameSchema: mocks.getGameSchema ?? vi.fn().mockResolvedValue(null),
     getLastPlayedTimes: vi.fn().mockResolvedValue([]),
+    TransientSteamAPIError,
   }))
   vi.doMock("@/lib/server/steam-images", () => ({
     ensureGameImages: vi.fn().mockResolvedValue(undefined),
@@ -256,5 +258,71 @@ describe("getAchievementsForGame", () => {
     const result = await getAchievementsForGame(STEAM_ID, APPID)
     expect(getPlayerAchievements).toHaveBeenCalled()
     expect(result?.gameName).toBe("Portal 2")
+  })
+})
+
+describe("getAchievementsForGame — transient failures must not be persisted as broken", () => {
+  it("serves the stale cached achievements instead of persisting a broken (0-count) result", async () => {
+    const getPlayerAchievements = vi.fn().mockRejectedValue(new TransientSteamAPIError("rate limited"))
+    mockSteamApi({ getPlayerAchievements })
+    const db = await seedProfileAndGame()
+    const now = new Date().toISOString()
+
+    // Seed a real, previously-synced achievement. Its sync timestamp is 8
+    // days old (past ACHIEVEMENTS_STALE_MS) so getAchievementsForGame will
+    // attempt to re-fetch — and hit the mocked transient failure.
+    db.prepare(
+      `INSERT INTO game_achievements (appid, apiname, display_name, description, icon, icon_gray, hidden, created_at, updated_at)
+       VALUES (?, 'ACH_ONE', 'One', 'First', 'icon.jpg', 'icon_bw.jpg', 0, ?, ?)`,
+    ).run(APPID, now, now)
+    db.prepare(
+      `INSERT INTO user_achievements (steam_id, appid, apiname, achieved, unlock_time, created_at, updated_at)
+       VALUES (?, ?, 'ACH_ONE', 1, 1700000000, ?, ?)`,
+    ).run(STEAM_ID, APPID, now, now)
+    const eightDaysAgoIso = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString()
+    db.prepare(
+      `UPDATE user_games SET achievements_synced_at = ?, total_count = 1, unlocked_count = 1 WHERE steam_id = ? AND appid = ?`,
+    ).run(eightDaysAgoIso, STEAM_ID, APPID)
+
+    const { getAchievementsForGame } = await import("@/lib/server/steam-achievements-sync")
+    const result = await getAchievementsForGame(STEAM_ID, APPID)
+
+    // The previously-synced achievement is served, not dropped.
+    expect(result?.achievements).toHaveLength(1)
+
+    // Crucially: nothing was re-persisted — total_count wasn't zeroed and
+    // achievements_synced_at wasn't bumped, so the transient blip doesn't
+    // read as "verified broken" and the next request retries again.
+    const row = db
+      .prepare("SELECT total_count, achievements_synced_at FROM user_games WHERE steam_id = ? AND appid = ?")
+      .get(STEAM_ID, APPID) as { total_count: number; achievements_synced_at: string }
+    expect(row.total_count).toBe(1)
+    expect(row.achievements_synced_at).toBe(eightDaysAgoIso)
+  })
+
+  it("returns null without persisting a broken marker when there is no prior cache", async () => {
+    const getPlayerAchievements = vi.fn().mockRejectedValue(new TransientSteamAPIError("network blip"))
+    mockSteamApi({ getPlayerAchievements })
+    const db = await seedProfileAndGame()
+
+    const { getAchievementsForGame } = await import("@/lib/server/steam-achievements-sync")
+    const result = await getAchievementsForGame(STEAM_ID, APPID)
+    expect(result).toBeNull()
+
+    // Nothing was persisted: still never-synced, not "verified broken".
+    const row = db
+      .prepare("SELECT total_count, achievements_synced_at FROM user_games WHERE steam_id = ? AND appid = ?")
+      .get(STEAM_ID, APPID) as { total_count: number | null; achievements_synced_at: string | null }
+    expect(row.achievements_synced_at).toBeNull()
+    expect(row.total_count).toBeNull()
+  })
+
+  it("propagates non-transient errors instead of swallowing them into a broken marker", async () => {
+    const getPlayerAchievements = vi.fn().mockRejectedValue(new Error("boom - programmer error"))
+    mockSteamApi({ getPlayerAchievements })
+    await seedProfileAndGame()
+
+    const { getAchievementsForGame } = await import("@/lib/server/steam-achievements-sync")
+    await expect(getAchievementsForGame(STEAM_ID, APPID)).rejects.toThrow("boom - programmer error")
   })
 })
