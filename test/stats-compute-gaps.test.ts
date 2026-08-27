@@ -50,7 +50,6 @@ function mockSteamApi() {
   vi.doMock("@/lib/steam-api", () => ({
     getGlobalAchievementPercentages: vi.fn().mockResolvedValue(null),
     getOwnedGames: vi.fn().mockResolvedValue([]),
-    getRecentlyPlayedGames: vi.fn().mockResolvedValue([]),
     getPlayerAchievements: vi.fn().mockResolvedValue(null),
     getGameSchema: vi.fn().mockResolvedValue(null),
     getLastPlayedTimes: vi.fn().mockResolvedValue([]),
@@ -140,7 +139,6 @@ describe("synchronizeUserData", () => {
           rtime_last_played: 1_800_000_000,
         },
       ]),
-      getRecentlyPlayedGames: vi.fn().mockResolvedValue([]),
       getPlayerAchievements: vi.fn().mockResolvedValue({
         steamID: STEAM_ID,
         gameName: "Portal 2",

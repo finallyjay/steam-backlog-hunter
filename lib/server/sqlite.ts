@@ -101,14 +101,6 @@ function createBaseSchema(db: DatabaseSync) {
       FOREIGN KEY (steam_id) REFERENCES steam_profile(steam_id)
     );
 
-    CREATE TABLE IF NOT EXISTS recent_games_snapshot (
-      steam_id TEXT PRIMARY KEY,
-      games_json TEXT NOT NULL,
-      synced_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL,
-      FOREIGN KEY (steam_id) REFERENCES steam_profile(steam_id)
-    );
-
     CREATE TABLE IF NOT EXISTS stats_snapshot (
       steam_id TEXT PRIMARY KEY,
       total_games INTEGER NOT NULL,
@@ -415,6 +407,20 @@ const MIGRATIONS: Array<{ version: number; name: string; run: (db: DatabaseSync)
         SET platforms_synced_at = NULL
         WHERE platforms IS NOT NULL AND release_year IS NULL;
       `)
+    },
+  },
+  {
+    version: 4,
+    name: "drop-recent-games-snapshot",
+    /**
+     * `recent_games_snapshot` was created for a caching path that was
+     * never wired up — recently-played games are served from `user_games`
+     * via `getRecentlyPlayedGamesForUser` in steam-games-sync.ts. Nothing
+     * ever read or wrote this table, so it's dropped here for existing
+     * databases; the base schema no longer creates it on fresh installs.
+     */
+    run(db) {
+      db.exec(`DROP TABLE IF EXISTS recent_games_snapshot;`)
     },
   },
 ]

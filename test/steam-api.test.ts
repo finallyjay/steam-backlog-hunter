@@ -152,35 +152,6 @@ describe("getOwnedGames", () => {
   })
 })
 
-describe("getRecentlyPlayedGames", () => {
-  it("returns the games array on success", async () => {
-    mockFetchSequence([{ body: { response: { games: [{ appid: 620, name: "Portal 2", playtime_forever: 0 }] } } }])
-    const { getRecentlyPlayedGames } = await import("@/lib/steam-api")
-    const games = await getRecentlyPlayedGames("76561198023709299")
-    expect(games).toHaveLength(1)
-  })
-
-  it("passes count=25 as a query parameter", async () => {
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      status: 200,
-      json: async () => ({ response: { games: [] } }),
-    })) as unknown as typeof fetch
-    globalThis.fetch = fetchMock
-    const { getRecentlyPlayedGames } = await import("@/lib/steam-api")
-    await getRecentlyPlayedGames("76561198023709299")
-    const url = (fetchMock as unknown as { mock: { calls: [[string, unknown]] } }).mock.calls[0][0]
-    expect(url).toContain("count=25")
-  })
-
-  it("returns an empty array on network failure", async () => {
-    mockFetchRejecting(new Error("EHOSTUNREACH"))
-    const { getRecentlyPlayedGames } = await import("@/lib/steam-api")
-    expect(await getRecentlyPlayedGames("76561198023709299")).toEqual([])
-    expect(loggerMock.error).toHaveBeenCalled()
-  })
-})
-
 describe("getPlayerAchievements", () => {
   it("returns the enriched achievements payload on success", async () => {
     mockFetchSequence([
@@ -351,8 +322,8 @@ describe("locale configuration (STEAM_API_LOCALE)", () => {
       json: async () => ({ response: { games: [] } }),
     })) as unknown as typeof fetch
     globalThis.fetch = fetchMock
-    const { getRecentlyPlayedGames } = await import("@/lib/steam-api")
-    await getRecentlyPlayedGames("76561198023709299")
+    const { getOwnedGames } = await import("@/lib/steam-api")
+    await getOwnedGames("76561198023709299")
     const url = (fetchMock as unknown as { mock: { calls: [[string, unknown]] } }).mock.calls[0][0]
     expect(url).toContain("l=en")
     expect(url).not.toContain("l=es")
