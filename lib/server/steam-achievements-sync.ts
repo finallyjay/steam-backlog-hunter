@@ -4,6 +4,8 @@ import {
   getGameSchema,
   getGlobalAchievementPercentages,
   getPlayerAchievements,
+  TransientSteamAPIError,
+  type GameAchievements,
   type GameSchema,
   type GlobalAchievementPercent,
   type SteamAchievement,
@@ -352,7 +354,28 @@ export async function getAchievementsForGame(steamId: string, appId: number, opt
     }
   }
 
-  const [playerAchievements] = await Promise.all([getPlayerAchievements(steamId, appId), ensureSchema(appId, options)])
+  let playerAchievements: GameAchievements | null
+  try {
+    const [result] = await Promise.all([getPlayerAchievements(steamId, appId), ensureSchema(appId, options)])
+    playerAchievements = result
+  } catch (error) {
+    if (!(error instanceof TransientSteamAPIError)) throw error
+
+    // A rate-limit/network/5xx blip says nothing about whether this game has
+    // achievements — don't persist over it (that would cache "broken" for up
+    // to ACHIEVEMENTS_STALE_MS). Serve whatever we already have instead, and
+    // leave achievements_synced_at untouched so the next request retries.
+    const cached = readStoredAchievementsList(steamId, appId)
+    if (cached) {
+      return {
+        steamID: steamId,
+        gameName: game.name,
+        achievements: cached,
+        success: true,
+      }
+    }
+    return null
+  }
 
   if (!playerAchievements) {
     // Mark as checked with 0 achievements so we don't retry broken/retired games
