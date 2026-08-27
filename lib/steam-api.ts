@@ -121,6 +121,14 @@ const MAX_BACKOFF_MS = 30_000
 // error) than to sleep for minutes — and retrying *before* the window closes
 // would just hit the same throttle again.
 const MAX_RETRY_AFTER_WAIT_MS = 60_000
+// Ceiling on the TOTAL time a single request will spend sleeping across all
+// of its retries. MAX_RETRY_AFTER_WAIT_MS only bounds each individual wait —
+// with MAX_STEAM_RETRIES=3, three back-to-back ~60s Retry-After waits could
+// still hold a request handler open for minutes, well past typical proxy/
+// gateway timeouts. This budget makes the request-handler-visible latency
+// predictable regardless of how many retries Valve's Retry-After values add
+// up to.
+const MAX_TOTAL_RETRY_WAIT_MS = 60_000
 
 class SteamAPIError extends Error {
   constructor(
@@ -182,7 +190,7 @@ async function steamAPIRequest(endpoint: string, params: Record<string, string>)
     url.searchParams.set(key, value)
   })
 
-  for (let attempt = 0; ; attempt++) {
+  for (let attempt = 0, totalWaitMs = 0; ; attempt++) {
     try {
       const response = await fetch(url.toString(), {
         cache: "no-store",
@@ -193,17 +201,22 @@ async function steamAPIRequest(endpoint: string, params: Record<string, string>)
       if (response.status === 429) {
         const retryAfterHeader = response.headers?.get?.("retry-after")
         const delay = attempt < MAX_STEAM_RETRIES ? nextBackoffMs(attempt, retryAfterHeader) : null
-        if (delay !== null) {
+        // Beyond the per-attempt ceiling above, also cap the *cumulative*
+        // sleep across all attempts (MAX_TOTAL_RETRY_WAIT_MS) — otherwise a
+        // request handler could stay open for minutes across several
+        // large-but-individually-valid Retry-After waits.
+        if (delay !== null && totalWaitMs + delay <= MAX_TOTAL_RETRY_WAIT_MS) {
           logger.warn(
             { endpoint, attempt: attempt + 1, delayMs: delay, retryAfter: retryAfterHeader ?? null },
             "Steam API rate limited (429) — backing off before retry",
           )
           await sleep(delay)
+          totalWaitMs += delay
           continue
         }
         logger.error(
           { endpoint, attempts: attempt + 1, retryAfter: retryAfterHeader ?? null },
-          "Steam API rate limited (429) — giving up (retries exhausted or Retry-After too long)",
+          "Steam API rate limited (429) — giving up (retries exhausted, Retry-After too long, or retry budget exhausted)",
         )
         throw new SteamAPIError(`Steam API rate limited: 429`, 429)
       }

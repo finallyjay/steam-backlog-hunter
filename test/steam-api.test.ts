@@ -421,4 +421,64 @@ describe("429 rate-limit backoff", () => {
       expect.any(String),
     )
   })
+
+  describe("cumulative retry budget (MAX_TOTAL_RETRY_WAIT_MS)", () => {
+    it("cuts off retries once the accumulated wait would exceed the total budget, even though each Retry-After is within the per-attempt ceiling", async () => {
+      // Two 40s waits are each within the 60s per-attempt ceiling, but back
+      // to back they'd total 80s — over the 60s cumulative budget — so the
+      // second retry must give up instead of sleeping again.
+      mockFetchSequence([
+        { ok: false, status: 429, retryAfter: "40" },
+        { ok: false, status: 429, retryAfter: "40" },
+      ])
+      const { getOwnedGames } = await import("@/lib/steam-api")
+      vi.useFakeTimers()
+      const promise = getOwnedGames("76561198023709299")
+      await vi.runAllTimersAsync()
+      const games = await promise
+      expect(games).toEqual([])
+      // Initial request + one retry the budget still allowed; the second 429
+      // is answered by giving up rather than a third fetch.
+      expect(globalThis.fetch).toHaveBeenCalledTimes(2)
+      expect(loggerMock.warn).toHaveBeenCalledTimes(1)
+      expect(loggerMock.error).toHaveBeenCalledWith(
+        expect.objectContaining({ retryAfter: "40" }),
+        expect.stringContaining("giving up"),
+      )
+    })
+
+    it("still retries normally while the accumulated wait stays within the total budget", async () => {
+      // Two 20s waits total 40s, under the 60s cumulative budget, so both
+      // retries proceed exactly like before this change.
+      mockFetchSequence([
+        { ok: false, status: 429, retryAfter: "20" },
+        { ok: false, status: 429, retryAfter: "20" },
+        { body: { response: { games: [{ appid: 620, name: "Portal 2", playtime_forever: 1 }] } } },
+      ])
+      const { getOwnedGames } = await import("@/lib/steam-api")
+      vi.useFakeTimers()
+      const promise = getOwnedGames("76561198023709299")
+      await vi.runAllTimersAsync()
+      const games = await promise
+      expect(games).toHaveLength(1)
+      expect(globalThis.fetch).toHaveBeenCalledTimes(3)
+      expect(loggerMock.warn).toHaveBeenCalledTimes(2)
+      expect(loggerMock.error).not.toHaveBeenCalled()
+    })
+
+    it("allows a single wait exactly equal to the total budget (only 'exceeds' cuts off, not 'meets')", async () => {
+      mockFetchSequence([{ ok: false, status: 429, retryAfter: "60" }, { body: { response: { games: [] } } }])
+      const { getOwnedGames } = await import("@/lib/steam-api")
+      vi.useFakeTimers()
+      const promise = getOwnedGames("76561198023709299")
+      await vi.runAllTimersAsync()
+      await promise
+      expect(globalThis.fetch).toHaveBeenCalledTimes(2)
+      expect(loggerMock.warn).toHaveBeenCalledWith(
+        expect.objectContaining({ delayMs: 60000, retryAfter: "60" }),
+        expect.any(String),
+      )
+      expect(loggerMock.error).not.toHaveBeenCalled()
+    })
+  })
 })
