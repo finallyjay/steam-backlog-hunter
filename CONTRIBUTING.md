@@ -66,4 +66,4 @@ Where type is one of `feat`, `fix`, `chore`, `docs`, `test`, `refactor`. Use `fe
 
 ## Architecture
 
-See `CLAUDE.md` at the repository root for an overview of the data flow (Steam API → SQLite → API routes → client hooks → UI), the key modules, and the auth model.
+See the [Architecture](README.md#architecture), [Authentication](README.md#authentication) and [Database](README.md#database) sections of the README for the data flow (Steam API → SQLite → API routes → client hooks → UI), the key modules and the auth model, and [`docs/API.md`](docs/API.md) for the route reference.
