@@ -1,5 +1,8 @@
 # Steam Backlog Hunter
 
+[![CI](https://github.com/finallyjay/steam-backlog-hunter/actions/workflows/ci.yml/badge.svg)](https://github.com/finallyjay/steam-backlog-hunter/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 A self-hosted dashboard for tracking your Steam library, monitoring achievement progress, and hunting down completions.
 
 ## Table of Contents
@@ -41,7 +44,7 @@ A self-hosted dashboard for tracking your Steam library, monitoring achievement 
 | Testing         | [Vitest](https://vitest.dev/) + Testing Library                                                                   |
 | Linting         | [oxlint](https://oxc.rs/docs/guide/usage/linter) + [oxfmt](https://oxc.rs/docs/guide/usage/formatter)             |
 | CI/CD           | GitHub Actions                                                                                                    |
-| Package Manager | pnpm (version pinned in `packageManager`)                                                                          |
+| Package Manager | pnpm (version pinned in `packageManager`)                                                                         |
 
 ## Prerequisites
 
