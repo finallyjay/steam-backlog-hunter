@@ -4,7 +4,7 @@ This is a personal project, but contributions are welcome. This guide captures t
 
 ## Setup
 
-Requires **Node 24.13+** and **pnpm 11.7** (see `packageManager` in `package.json` — Corepack picks it up automatically).
+Requires **Node 24** (see `.nvmrc`) and **pnpm** (the exact version is pinned in `packageManager` in `package.json` — Corepack picks it up automatically).
 
 ```bash
 pnpm install
@@ -21,7 +21,7 @@ All changes go through **issue → branch → PR → merge**. Direct commits to 
 2. **Create a branch**: `feat/<slug>`, `fix/<slug>`, `chore/<slug>`, `docs/<slug>`, or `refactor/<slug>`.
 3. **Push + open a PR**. The PR template will prompt you for a Summary and Test plan.
 4. **CI runs** `pnpm lint` + `pnpm test` + `pnpm build` via the `quality` check. All three must pass before merging.
-5. **Merge with a regular merge commit** — squash merges are not used, history is preserved on `main`.
+5. **Squash merge.** Every PR lands on `main` as a single commit whose message is the PR title, so keep the title in Conventional Commits form.
 
 ## Code style
 

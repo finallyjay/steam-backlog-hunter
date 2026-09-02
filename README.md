@@ -41,12 +41,12 @@ A self-hosted dashboard for tracking your Steam library, monitoring achievement 
 | Testing         | [Vitest](https://vitest.dev/) + Testing Library                                                                   |
 | Linting         | [oxlint](https://oxc.rs/docs/guide/usage/linter) + [oxfmt](https://oxc.rs/docs/guide/usage/formatter)             |
 | CI/CD           | GitHub Actions                                                                                                    |
-| Package Manager | pnpm 11.7                                                                                                         |
+| Package Manager | pnpm (version pinned in `packageManager`)                                                                          |
 
 ## Prerequisites
 
-- Node.js `24.13.1` (see `.nvmrc`)
-- pnpm `11.7.0` (see `packageManager` in `package.json` — Corepack picks it up automatically)
+- Node.js 24 (see `.nvmrc`; `engines` requires `>=24 <25`)
+- pnpm (see `packageManager` in `package.json` — Corepack picks it up automatically)
 
 ## Getting Started
 
@@ -266,7 +266,7 @@ Ensure `NEXTAUTH_URL` matches your public URL for Steam OpenID redirects.
 4. Pre-commit hooks will run oxfmt and oxlint automatically
 5. Create an issue first, then open a Pull Request that closes it
 
-CI runs `lint → test → build` on all PRs.
+CI runs `lint → test → build` on all PRs; pull requests are squash-merged.
 
 ## License
 
