@@ -3,6 +3,9 @@ updates:
   # npm/pnpm dependencies
   - package-ecosystem: "npm"
     directory: "/"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
@@ -16,6 +19,9 @@ updates:
   # GitHub Actions used by the CI workflow
   - package-ecosystem: "github-actions"
     directory: "/"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
     schedule:
       interval: "weekly"
     groups:
