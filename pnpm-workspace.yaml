@@ -3,16 +3,9 @@
 allowBuilds:
   sharp: true
 
+# Both were published less than 24h before their bump on 2026-09-13, inside
+# pnpm's built-in minimumReleaseAge window. Drop this whole block once they
+# have aged (zod 4.6.4 is the younger one: published 2026-09-13 00:12 UTC).
 minimumReleaseAgeExclude:
-  - '@next/env@16.3.0'
-  - '@next/swc-darwin-arm64@16.3.0'
-  - '@next/swc-darwin-x64@16.3.0'
-  - '@next/swc-linux-arm64-gnu@16.3.0'
-  - '@next/swc-linux-arm64-musl@16.3.0'
-  - '@next/swc-linux-x64-gnu@16.3.0'
-  - '@next/swc-linux-x64-musl@16.3.0'
-  - '@next/swc-win32-arm64-msvc@16.3.0'
-  - '@next/swc-win32-x64-msvc@16.3.0'
-  - next@16.3.0
   - tailwind-merge@3.7.0
   - zod@4.6.4
