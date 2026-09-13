@@ -61,4 +61,5 @@ dist/
 
 # Claude Code skill bundles (installed locally via autoskills or similar)
 .claude/skills/
+.claude/settings.local.json
 skills-lock.json
