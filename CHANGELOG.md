@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-09-15
+
 ### Added
 
 - Achievement change detection (#325). When Steam's achievement set for a game differs from
@@ -45,6 +47,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   rather than wiping them.
 - `STEAM_API_LOCALE` environment variable to override the locale (`l=`) sent to Steam.
   Defaults to `es` to preserve previous behaviour.
+- Official Discord and Telegram logos on the `/admin/notifications` channel headers (#335),
+  replacing the generic lucide placeholders.
 
 ### Changed
 
@@ -60,11 +64,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   version updates; refreshed the dependency lockfile (Vite 8 drops esbuild dev advisories,
   jsdom 29, lucide-react 1.x, and a large minor/patch group across the tree).
 
+### Fixed
+
+- Transient Steam failures (429 exhausted, 5xx, network errors) in `getPlayerAchievements`
+  are no longer persisted as "broken game" with `total_count = 0`; only definitive 400/403
+  responses are cached that way, so a momentary blip no longer hides a game's achievements
+  for up to seven days (#292).
+- A failed background refresh (tab regaining focus, `steam-data-invalidated`) no longer
+  wipes already-rendered games, stats or achievements; the previous data is kept and only
+  `error` is set (#293).
+- 429 retries now share a 60s cumulative wait budget per request, so a chain of large
+  `Retry-After` values can no longer hold a request handler open past proxy timeouts (#297).
+- `useSteamHiddenGames` subscribes to the `steam-data-invalidated` event like its sibling
+  hooks, so hidden games refresh after a sync (#282).
+
 ### Security
 
 - Hardened the OpenID sign-in callback with stricter nonce and `return_to` validation to
-  prevent open-redirect and replay abuse.
-- Session cookie is now signed with an HMAC to detect tampering.
+  prevent open-redirect and replay abuse; a wrong-length nonce now redirects with
+  `auth_failed` instead of crashing the route (#279).
+- Session cookie is now signed with an HMAC to detect tampering (#257), and the signed
+  payload carries an expiry so a stolen token is no longer valid indefinitely. Tokens
+  issued before this change are rejected and users log in again once. `SESSION_SECRET`
+  is now required in production (#291).
+- The Steam login rate limiter derives the client IP from the trusted proxy hop instead of
+  the raw `x-forwarded-for` value, so clients can no longer bypass it by spoofing the
+  header (#294).
 - Bumped `undici` to 7.28.0 to pick up upstream security advisories.
 
 ## [0.10.15] - 2026-05-12
@@ -86,7 +111,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Platforms sync now requests `filters=platforms` (the `basic` filter excludes the field),
   so windows/mac/linux support is populated correctly.
 
-[Unreleased]: https://github.com/finallyjay/steam-backlog-hunter/compare/v0.10.15...HEAD
+[Unreleased]: https://github.com/finallyjay/steam-backlog-hunter/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/finallyjay/steam-backlog-hunter/compare/v0.10.15...v0.11.0
 [0.10.15]: https://github.com/finallyjay/steam-backlog-hunter/compare/v0.10.14...v0.10.15
 [0.10.14]: https://github.com/finallyjay/steam-backlog-hunter/compare/v0.10.13...v0.10.14
 [0.10.13]: https://github.com/finallyjay/steam-backlog-hunter/releases/tag/v0.10.13
