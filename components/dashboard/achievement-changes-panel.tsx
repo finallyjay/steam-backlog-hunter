@@ -14,10 +14,15 @@ import { cn } from "@/lib/utils"
 
 const MAX_ROWS = 8
 
+// Fixed locale so the string is identical wherever it renders. (The panel
+// only mounts after a client fetch, so it never hydrates server markup, but
+// a deterministic format keeps that true even if a consumer changes.)
+const DETECTED_AT_FORMAT = new Intl.DateTimeFormat("en-US", { day: "numeric", month: "short", year: "numeric" })
+
 function formatDetectedAt(iso: string): string {
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return ""
-  return date.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })
+  return DETECTED_AT_FORMAT.format(date)
 }
 
 function ChangeRow({
@@ -127,6 +132,7 @@ export function AchievementChangesPanel() {
               variant="ghost"
               size="sm"
               className="text-muted-foreground hover:text-foreground gap-1.5"
+              aria-label="Mark all achievement changes as seen"
               onClick={handleMarkAll}
               disabled={busy}
             >

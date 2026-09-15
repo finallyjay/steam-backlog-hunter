@@ -102,13 +102,28 @@ describe("AchievementChangesNotifier", () => {
     expect(toastMock).toHaveBeenCalledTimes(1)
   })
 
-  it("announces again when a new change appears", () => {
-    useAchievementChangesMock.mockReturnValue(hookReturn([change({ id: 1 })]))
+  it("announces only the new change when one appears, describing just that one", () => {
+    useAchievementChangesMock.mockReturnValue(hookReturn([change({ id: 1, added: ["A", "B"] })]))
     const { rerender } = render(<AchievementChangesNotifier />)
     expect(toastMock).toHaveBeenCalledTimes(1)
 
-    useAchievementChangesMock.mockReturnValue(hookReturn([change({ id: 1 }), change({ id: 2, appId: 730 })]))
+    useAchievementChangesMock.mockReturnValue(
+      hookReturn([change({ id: 1, added: ["A", "B"] }), change({ id: 2, appId: 730, added: ["X"] })]),
+    )
     rerender(<AchievementChangesNotifier />)
     expect(toastMock).toHaveBeenCalledTimes(2)
+    const second = toastMock.mock.calls[1]?.[0] as { description: string }
+    expect(second.description).toBe("1 new achievement across 1 game.")
+  })
+
+  it("does not re-announce the remaining changes when one is dismissed", () => {
+    useAchievementChangesMock.mockReturnValue(hookReturn([change({ id: 1 }), change({ id: 2, appId: 730 })]))
+    const { rerender } = render(<AchievementChangesNotifier />)
+    expect(toastMock).toHaveBeenCalledTimes(1)
+
+    // Dismissing id 1 shrinks the unseen set; id 2 was already announced.
+    useAchievementChangesMock.mockReturnValue(hookReturn([change({ id: 2, appId: 730 })]))
+    rerender(<AchievementChangesNotifier />)
+    expect(toastMock).toHaveBeenCalledTimes(1)
   })
 })

@@ -82,8 +82,8 @@ describe("AchievementChangesPanel", () => {
     expect(screen.getByText("+2 new")).toBeInTheDocument()
     expect(screen.getByText("Was perfect")).toBeInTheDocument()
     expect(screen.getByText("1 retired")).toBeInTheDocument()
-    expect(screen.getByText(/2 → 3 achievements · /)).toBeInTheDocument()
-    expect(screen.getByText(/5 → 4 achievements · /)).toBeInTheDocument()
+    expect(screen.getByText("2 → 3 achievements · Sep 5, 2026")).toBeInTheDocument()
+    expect(screen.getByText("5 → 4 achievements · Sep 5, 2026")).toBeInTheDocument()
 
     const links = screen.getAllByRole("link")
     expect(links.some((l) => l.getAttribute("href") === "/game/620")).toBe(true)
@@ -120,7 +120,7 @@ describe("AchievementChangesPanel", () => {
     fireEvent.click(screen.getByLabelText("Mark Portal 2 change as seen"))
     await waitFor(() => expect(markSeen).toHaveBeenCalledWith([1]))
 
-    fireEvent.click(screen.getByRole("button", { name: /mark all as seen/i }))
+    fireEvent.click(screen.getByRole("button", { name: "Mark all achievement changes as seen" }))
     await waitFor(() => expect(markSeen).toHaveBeenCalledWith())
   })
 
@@ -128,7 +128,7 @@ describe("AchievementChangesPanel", () => {
     useAchievementChangesMock.mockReturnValue(hookReturn([change({ id: 1, seenAt: "2026-09-06T00:00:00.000Z" })]))
     render(<AchievementChangesPanel />)
 
-    expect(screen.queryByRole("button", { name: /mark all as seen/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: /mark all/i })).not.toBeInTheDocument()
     expect(screen.queryByText("View in library")).not.toBeInTheDocument()
     expect(screen.queryByLabelText(/unseen changes/)).not.toBeInTheDocument()
   })

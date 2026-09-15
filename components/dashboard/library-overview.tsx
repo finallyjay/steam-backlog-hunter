@@ -67,7 +67,7 @@ export function LibraryOverview({
   initialPlayed,
 }: LibraryOverviewProps = {}) {
   const { games: ownedGames, loading, error } = useSteamGames("all")
-  const { byAppId: changesByAppId } = useAchievementChanges()
+  const { byAppId: changesByAppId, loading: changesLoading } = useAchievementChanges()
 
   const parsedState = VALID_STATES.includes(initialFilter as GamesState) ? (initialFilter as GamesState) : "all"
   const parsedOrder = VALID_ORDERS.includes(initialOrder as GamesOrder) ? (initialOrder as GamesOrder) : "completed"
@@ -204,7 +204,9 @@ export function LibraryOverview({
   const displayedGames = useMemo(() => visibleGames.slice(0, displayCount), [visibleGames, displayCount])
   const hasMore = displayCount < visibleGames.length
 
-  const listLoading = loading || achievementsLoading
+  // The new-achievements filter has nothing to match against until the
+  // changes store has loaded — show the skeleton instead of a false "no games".
+  const listLoading = loading || achievementsLoading || (state === "new-achievements" && changesLoading)
   const totalCount = gamesWithStats.length
   const filteredCount = visibleGames.length
 

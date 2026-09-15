@@ -9,54 +9,57 @@ import { useToast } from "@/hooks/use-toast"
 
 const ANNOUNCED_STORAGE_KEY = "sbh:achievement-changes:announced"
 
-function readAnnouncedKey(): string | null {
+function readAnnouncedIds(): Set<number> {
   try {
-    return window.sessionStorage.getItem(ANNOUNCED_STORAGE_KEY)
+    const raw = window.sessionStorage.getItem(ANNOUNCED_STORAGE_KEY)
+    const parsed: unknown = raw ? JSON.parse(raw) : []
+    return new Set(Array.isArray(parsed) ? parsed.filter((id): id is number => Number.isInteger(id)) : [])
   } catch {
-    return null
+    return new Set()
   }
 }
 
-function writeAnnouncedKey(key: string) {
+function writeAnnouncedIds(ids: Set<number>) {
   try {
-    window.sessionStorage.setItem(ANNOUNCED_STORAGE_KEY, key)
+    window.sessionStorage.setItem(ANNOUNCED_STORAGE_KEY, JSON.stringify([...ids]))
   } catch {
     // Private mode / quota — fall back to the in-memory ref only.
   }
 }
 
 /**
- * Fires a single toast when the user has unseen achievement changes.
+ * Fires a toast when the user has unseen achievement changes that have not
+ * been announced yet.
  *
  * Renders nothing. Mounted once in the client layout for authenticated pages.
- * The set of unseen ids is remembered in sessionStorage so a page reload or
- * client navigation doesn't re-announce the same changes; a *new* change
- * (different id set) after a sync is announced again.
+ * Announced change ids are remembered in sessionStorage, so a reload, a
+ * client navigation, or the user dismissing *one* change (which shrinks the
+ * unseen set) never re-announces the rest. Only ids never announced before
+ * (e.g. a new change after a sync) trigger a toast, and the toast describes
+ * just those.
  */
 export function AchievementChangesNotifier() {
   const { unseen, loading } = useAchievementChanges()
   const router = useRouter()
   const { toast } = useToast()
-  const announcedKeyRef = useRef<string | null>(null)
+  const announcedRef = useRef<Set<number> | null>(null)
 
   useEffect(() => {
     if (loading || unseen.length === 0) return
 
-    const key = unseen
-      .map((change) => change.id)
-      .sort((a, b) => a - b)
-      .join(",")
-    if (announcedKeyRef.current === null) {
-      announcedKeyRef.current = readAnnouncedKey()
+    if (announcedRef.current === null) {
+      announcedRef.current = readAnnouncedIds()
     }
-    if (announcedKeyRef.current === key) return
-    announcedKeyRef.current = key
-    writeAnnouncedKey(key)
+    const announced = announcedRef.current
+    const fresh = unseen.filter((change) => !announced.has(change.id))
+    if (fresh.length === 0) return
+    for (const change of fresh) announced.add(change.id)
+    writeAnnouncedIds(announced)
 
-    const gameCount = new Set(unseen.map((change) => change.appId)).size
-    const added = unseen.reduce((sum, change) => sum + change.added.length, 0)
-    const removed = unseen.reduce((sum, change) => sum + change.removed.length, 0)
-    const lostPerfect = unseen.filter((change) => change.wasPerfect).length
+    const gameCount = new Set(fresh.map((change) => change.appId)).size
+    const added = fresh.reduce((sum, change) => sum + change.added.length, 0)
+    const removed = fresh.reduce((sum, change) => sum + change.removed.length, 0)
+    const lostPerfect = fresh.filter((change) => change.wasPerfect).length
 
     const parts: string[] = []
     if (added > 0) parts.push(`${added} new achievement${added === 1 ? "" : "s"}`)
