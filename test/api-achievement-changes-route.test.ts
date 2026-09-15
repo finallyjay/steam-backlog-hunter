@@ -97,12 +97,15 @@ describe("GET /api/steam/achievements/changes", () => {
     expect(listAchievementChanges).toHaveBeenCalledWith(mockUser.steamId, { unseenOnly: true, limit: 5 })
   })
 
-  it("ignores a non-numeric limit", async () => {
+  it("ignores a non-numeric or non-integer limit", async () => {
     vi.mocked(getCurrentUser).mockResolvedValue(mockUser)
     vi.mocked(listAchievementChanges).mockReturnValue([])
 
-    await GET(makeGet("?limit=abc"))
-    expect(listAchievementChanges).toHaveBeenCalledWith(mockUser.steamId, { unseenOnly: false, limit: undefined })
+    for (const limit of ["abc", "1.5", "0", "-3"]) {
+      const response = await GET(makeGet(`?limit=${limit}`))
+      expect(response.status).toBe(200)
+      expect(listAchievementChanges).toHaveBeenLastCalledWith(mockUser.steamId, { unseenOnly: false, limit: undefined })
+    }
   })
 
   it("returns 500 when the store throws", async () => {
@@ -151,6 +154,16 @@ describe("PATCH /api/steam/achievements/changes", () => {
 
     const response = await PATCH(makePatch("{not json"))
     expect(response.status).toBe(400)
+    expect(markAchievementChangesSeen).not.toHaveBeenCalled()
+  })
+
+  it("rejects a non-object JSON body instead of marking everything seen", async () => {
+    vi.mocked(getCurrentUser).mockResolvedValue(mockUser)
+
+    for (const body of ["null", "[]", '"value"', "42"]) {
+      const response = await PATCH(makePatch(body))
+      expect(response.status).toBe(400)
+    }
     expect(markAchievementChangesSeen).not.toHaveBeenCalled()
   })
 

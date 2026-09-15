@@ -125,7 +125,8 @@ export function listAchievementChanges(
 ): AchievementChangeView[] {
   const db = getSqliteDatabase()
   const unseenOnly = options?.unseenOnly ?? false
-  const limit = Math.max(1, Math.min(options?.limit ?? 100, 500))
+  // SQLite rejects a REAL bound to LIMIT with "datatype mismatch", so coerce.
+  const limit = Math.max(1, Math.min(Math.floor(options?.limit ?? 100), 500))
 
   const rows = db
     .prepare(

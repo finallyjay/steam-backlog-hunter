@@ -401,6 +401,8 @@ describe("listAchievementChanges / markAchievementChangesSeen", () => {
     expect(unseen.map((c) => c.detectedAt)).toEqual(["2026-09-05T00:00:00.000Z", "2026-09-01T00:00:00.000Z"])
 
     expect(listAchievementChanges(STEAM_ID, { limit: 1 })).toHaveLength(1)
+    // A fractional limit must not reach SQLite's LIMIT clause as a REAL.
+    expect(listAchievementChanges(STEAM_ID, { limit: 1.5 })).toHaveLength(1)
   })
 
   it("marks only the given ids, only for the owning user, and leaves already-seen rows untouched", async () => {
