@@ -23,6 +23,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `N retired` / `Was perfect` chips (with a warning tint for games that dropped from 100%),
   `/games` gains a `new-achievements` completion filter, and the game detail page shows a
   banner with a "Got it" action and flags the newly added achievement rows.
+- Scheduled achievement scan (#327). `POST /api/cron/achievements-scan`, authenticated with
+  `Authorization: Bearer $CRON_SECRET` (new optional env var; endpoint answers 503 when unset),
+  re-syncs achievements for every whitelisted user with a completed library sync so schema
+  changes are detected without anyone opening the app. Games are visited perfect → in-progress
+  → not started with an optional `maxGamesPerUser` cap, one run at a time (409 while busy), and
+  the last run is recorded in `achievement_scan_meta` (readable via `GET`). A GitHub Actions
+  workflow (`achievements-scan.yml`) calls it daily when the `ACHIEVEMENTS_SCAN_URL` and
+  `CRON_SECRET` secrets are set.
 - Explicit HTTP 429 handling in the Steam API client (`lib/steam-api.ts`): rate-limited
   requests are now retried with exponential backoff, honouring the `Retry-After` header in
   full when Valve sends one (only the exponential fallback is capped). Previously a 429 was

@@ -72,16 +72,17 @@ The app will be available at `http://localhost:3000`.
 
 ## Environment Variables
 
-| Variable              | Required   | Description                                                                     |
-| --------------------- | ---------- | ------------------------------------------------------------------------------- |
-| `STEAM_API_KEY`       | Yes        | Steam Web API key ([get one here](https://steamcommunity.com/dev/apikey))       |
-| `ADMIN_STEAM_ID`      | Yes        | Steam64 ID with admin access (always allowed to sign in + `/admin`)             |
-| `NEXTAUTH_URL`        | Production | Your app's public URL (e.g. `https://steam.example.com`)                        |
-| `SQLITE_PATH`         | No         | Custom SQLite database path (see [Database](#database))                         |
-| `STEAM_WHITELIST_IDS` | No         | Comma-separated Steam64 IDs for initial seed (managed via `/admin` after)       |
-| `SESSION_SECRET`      | Production | HMAC key for signing the session cookie (dev/test fall back to `STEAM_API_KEY`) |
-| `STEAM_API_LOCALE`    | No         | Locale sent to Steam as `l=` (default: `es`; e.g. `en`, `fr`, `de`)             |
-| `LOG_LEVEL`           | No         | Pino log level (default: `info`)                                                |
+| Variable              | Required   | Description                                                                                         |
+| --------------------- | ---------- | --------------------------------------------------------------------------------------------------- |
+| `STEAM_API_KEY`       | Yes        | Steam Web API key ([get one here](https://steamcommunity.com/dev/apikey))                           |
+| `ADMIN_STEAM_ID`      | Yes        | Steam64 ID with admin access (always allowed to sign in + `/admin`)                                 |
+| `NEXTAUTH_URL`        | Production | Your app's public URL (e.g. `https://steam.example.com`)                                            |
+| `SQLITE_PATH`         | No         | Custom SQLite database path (see [Database](#database))                                             |
+| `STEAM_WHITELIST_IDS` | No         | Comma-separated Steam64 IDs for initial seed (managed via `/admin` after)                           |
+| `SESSION_SECRET`      | Production | HMAC key for signing the session cookie (dev/test fall back to `STEAM_API_KEY`)                     |
+| `STEAM_API_LOCALE`    | No         | Locale sent to Steam as `l=` (default: `es`; e.g. `en`, `fr`, `de`)                                 |
+| `CRON_SECRET`         | No         | Bearer token for the scheduled achievement scan (see [Scheduled scan](#scheduled-achievement-scan)) |
+| `LOG_LEVEL`           | No         | Pino log level (default: `info`)                                                                    |
 
 ## Scripts
 
@@ -211,6 +212,28 @@ pnpm start
 ```
 
 Ensure `NEXTAUTH_URL` matches your public URL for Steam OpenID redirects.
+
+### Scheduled achievement scan
+
+Achievements are normally only re-synced when someone opens the app. To detect games that
+gained or retired achievements while nobody was looking, expose the scan endpoint and call it
+on a schedule:
+
+1. Set `CRON_SECRET` (at least 16 characters, e.g. `openssl rand -hex 32`).
+2. Call the endpoint once a day (a 1000-game library is roughly 1000 Steam calls per pass):
+
+   ```bash
+   curl -sS -X POST "https://steam.example.com/api/cron/achievements-scan" \
+     -H "Authorization: Bearer $CRON_SECRET" -H "Content-Type: application/json" -d '{}'
+   ```
+
+   The body accepts an optional `{ "maxGamesPerUser": 200 }` cap; games are visited perfect
+   games first, then in-progress, then not started, so a cap still covers what matters most.
+   `GET` with the same header returns the last run and whether a scan is in progress.
+
+The repo ships `.github/workflows/achievements-scan.yml`, which does this daily from GitHub
+Actions when the `ACHIEVEMENTS_SCAN_URL` and `CRON_SECRET` repository secrets are set (it
+skips silently otherwise). Any system cron or hosting scheduler that can run `curl` works too.
 
 ## Contributing
 

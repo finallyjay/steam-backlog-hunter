@@ -27,11 +27,12 @@ Next.js 16 App Router with React 19, TypeScript strict mode, Tailwind CSS 4, sha
 
 - `lib/server/steam-games-sync.ts` — game ownership sync and persistence
 - `lib/server/steam-achievements-sync.ts` — achievement data sync, schema management; broken games (400/403/500) are persisted with empty achievements to avoid retries
+- `lib/server/achievement-scan.ts` — library-wide scan for the cron endpoint: whitelisted users with a completed sync, games ordered perfect → in-progress → not started, bounded concurrency, single in-flight run, last-run record in `achievement_scan_meta`
 - `lib/server/achievement-changes.ts` — records/lists achievement schema diffs (new or retired achievements) per user in `achievement_changes`; written by `persistSchema`, read via `GET/PATCH /api/steam/achievements/changes`
 - `lib/server/steam-stats-compute.ts` — stats aggregation and sync orchestration; computes from `user_games WHERE total_count > 0`
 - `lib/server/steam-store-utils.ts` — shared utilities (staleness checks, timestamps, profile management)
 - `lib/server/steam-store.ts` — barrel re-export of the above modules
-- `lib/server/sqlite.ts` — database schema and migrations (Node.js built-in `DatabaseSync`); tables: `steam_profile`, `games`, `user_games`, `stats_snapshot`, `hidden_games`, `allowed_users`, `game_achievements`, `user_achievements`, `pinned_games`, `extra_games`, `extra_game_achievements`, `app_catalog_meta`, `achievement_changes`
+- `lib/server/sqlite.ts` — database schema and migrations (Node.js built-in `DatabaseSync`); tables: `steam_profile`, `games`, `user_games`, `stats_snapshot`, `hidden_games`, `allowed_users`, `game_achievements`, `user_achievements`, `pinned_games`, `extra_games`, `extra_game_achievements`, `app_catalog_meta`, `achievement_changes`, `achievement_scan_meta`
 - `lib/steam-api.ts` — direct Steam Web API calls (shared between server and client for types/utilities)
 
 ### API routes (`app/api/`)
@@ -39,6 +40,7 @@ Next.js 16 App Router with React 19, TypeScript strict mode, Tailwind CSS 4, sha
 - `auth/steam/` — Steam OpenID 2.0 login flow with CSRF nonce, whitelist enforcement, rate limiting; fetches level and badges at login
 - `steam/games`, `steam/games/hide`, `steam/achievements`, `steam/achievements/changes`, `steam/stats`, `steam/sync`, `steam/game/[id]`, `steam/game/[id]/sync`, `steam/extras`, `steam/extras/[id]` — data endpoints; all require authenticated session via `steam_user` httpOnly cookie
 - `admin/users`, `admin/pinned-games`, `admin/orphan-names` — admin-only endpoints gated by `requireAdmin()`
+- `cron/achievements-scan` — `POST` runs the scan, `GET` reports the last run; no session, authenticated with `Authorization: Bearer $CRON_SECRET` (503 when unset). Triggered by `.github/workflows/achievements-scan.yml` or any external scheduler
 - `health/` — infrastructure health check (no auth)
 
 ### Client state (`hooks/`)
