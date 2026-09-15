@@ -5,8 +5,9 @@ import { Apple, Archive, Clock, EyeOff, Monitor, Terminal, Trophy } from "lucide
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { GameImage } from "@/components/ui/game-image"
 import { Progress } from "@/components/ui/progress"
+import { AchievementChangeChips } from "@/components/ui/achievement-change-chips"
 import { cn, formatPlaytime } from "@/lib/utils"
-import type { SteamAchievementView } from "@/lib/types/steam"
+import type { AchievementChangeSummary, SteamAchievementView } from "@/lib/types/steam"
 
 interface GameCardProps {
   id: number | string
@@ -42,6 +43,13 @@ interface GameCardProps {
    * editions, e.g. GTA III appid 12230) and renders an "Archive" badge.
    */
   releaseYear?: number | null
+  /**
+   * Unseen achievement changes for this game (new or retired achievements
+   * detected since the user last acknowledged them). Renders "+N new" /
+   * "N retired" / "Was perfect" chips next to the title, and tints the card
+   * with the warning colour when a formerly perfect game is no longer 100%.
+   */
+  changeSummary?: Pick<AchievementChangeSummary, "added" | "removed" | "wasPerfect"> | null
 }
 
 // Responsive thumbnail container: portrait (2:3 Steam library capsule)
@@ -67,6 +75,7 @@ export function GameCard({
   actions,
   platforms,
   releaseYear,
+  changeSummary,
 }: GameCardProps) {
   // Use detailed achievements if available, fall back to server-side counts
   const hasDetail = achievements.length > 0
@@ -77,6 +86,8 @@ export function GameCard({
   if (percent >= 80) progressColor = "bg-success"
   else if (percent >= 40) progressColor = "bg-warning"
   const isCompleted = serverPerfect || (total > 0 && unlocked === total)
+  const hasChanges = Boolean(changeSummary && (changeSummary.added > 0 || changeSummary.removed > 0))
+  const lostPerfect = Boolean(changeSummary?.wasPerfect) && !isCompleted
   const mainContent = (
     <div className="flex items-stretch gap-4">
       <div className={GAME_CARD_THUMB_CLASSES}>
@@ -96,7 +107,17 @@ export function GameCard({
         />
       </div>
       <div className="min-w-0 flex-1">
-        <h3 className="flex items-center gap-2 truncate text-lg font-semibold tracking-tight lg:text-xl">{name}</h3>
+        <h3 className="flex min-w-0 items-center gap-2 text-lg font-semibold tracking-tight lg:text-xl">
+          <span className="truncate">{name}</span>
+          {hasChanges && changeSummary ? (
+            <AchievementChangeChips
+              added={changeSummary.added}
+              removed={changeSummary.removed}
+              wasPerfect={lostPerfect}
+              className="shrink-0"
+            />
+          ) : null}
+        </h3>
         {(playtime !== undefined || !achievementsLoading) && (
           <div className="text-muted-foreground mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
             {playtime !== undefined ? (
@@ -165,7 +186,9 @@ export function GameCard({
         "group relative gap-0 overflow-hidden rounded-lg px-4 py-4 shadow-none backdrop-blur-none transition-all duration-300 hover:-translate-y-0.5",
         isCompleted
           ? "bg-success/10 hover:border-success/40"
-          : "bg-surface-1 hover:border-accent/45 hover:bg-surface-2",
+          : lostPerfect
+            ? "bg-warning/10 hover:border-warning/40"
+            : "bg-surface-1 hover:border-accent/45 hover:bg-surface-2",
       )}
     >
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />

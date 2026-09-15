@@ -9,6 +9,7 @@ import { usePageTitle } from "@/components/ui/page-title-context"
 import { Toaster } from "@/components/ui/toaster"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { FirstSyncModal } from "@/components/first-sync-modal"
+import { AchievementChangesNotifier } from "@/components/achievement-changes-notifier"
 
 type SyncStatusResponse = {
   lastOwnedGamesSyncAt: string | null
@@ -66,6 +67,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         Skip to content
       </a>
       {isAuthPage && needsSync && checked && <FirstSyncModal onComplete={dismiss} />}
+      {isAuthPage && user && <AchievementChangesNotifier />}
       {/* Show header on all pages except the root (login) */}
       {isAuthPage &&
         (loading ? (

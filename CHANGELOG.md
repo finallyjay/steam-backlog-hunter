@@ -17,6 +17,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the stored schema lacks (previously the counters could say 51/52 for up to 30 days while the
   game page still listed 51). New `GET /api/steam/achievements/changes` (`?unseen=1`) and
   `PATCH /api/steam/achievements/changes` (mark seen) endpoints expose the log for the UI.
+- In-app notifications for achievement changes (#326). A toast on load summarises unseen
+  changes (once per browser session for a given set), the dashboard gets an "Achievement
+  changes" panel with per-row and mark-all acknowledgement, game cards show `+N new` /
+  `N retired` / `Was perfect` chips (with a warning tint for games that dropped from 100%),
+  `/games` gains a `new-achievements` completion filter, and the game detail page shows a
+  banner with a "Got it" action and flags the newly added achievement rows.
 - Explicit HTTP 429 handling in the Steam API client (`lib/steam-api.ts`): rate-limited
   requests are now retried with exponential backoff, honouring the `Retry-After` header in
   full when Valve sends one (only the exponential fallback is capped). Previously a 429 was
