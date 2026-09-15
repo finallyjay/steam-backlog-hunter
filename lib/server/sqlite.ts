@@ -230,6 +230,10 @@ function createBaseSchema(db: DatabaseSync) {
       was_perfect INTEGER NOT NULL DEFAULT 0,
       detected_at TEXT NOT NULL,
       seen_at TEXT,
+      -- startedAt of the scheduled scan that recorded this row, or NULL when
+      -- it came from an in-app sync. Lets the scan summarise exactly its own
+      -- findings even if a manual sync runs at the same time.
+      scan_started_at TEXT,
       FOREIGN KEY (steam_id) REFERENCES steam_profile(steam_id),
       FOREIGN KEY (appid) REFERENCES games(appid)
     );
@@ -266,6 +270,7 @@ function createBaseSchema(db: DatabaseSync) {
     CREATE INDEX IF NOT EXISTS idx_stats_snapshot_steam_id ON stats_snapshot(steam_id);
     CREATE INDEX IF NOT EXISTS idx_extra_games_steam_id ON extra_games(steam_id);
     CREATE INDEX IF NOT EXISTS idx_achievement_changes_steam_id_seen ON achievement_changes(steam_id, seen_at);
+    CREATE INDEX IF NOT EXISTS idx_achievement_changes_scan ON achievement_changes(scan_started_at);
   `)
 }
 
@@ -356,6 +361,10 @@ function applyAdditiveMigrations(db: DatabaseSync) {
   // used by the UI as a secondary disambiguator when same-named editions
   // share identical platform support.
   addColumnIfMissing(db, "games", "release_year", "INTEGER")
+  // Attribution of achievement_changes rows to the scheduled scan that
+  // produced them (NULL for in-app syncs). See CREATE TABLE comment above.
+  addColumnIfMissing(db, "achievement_changes", "scan_started_at", "TEXT")
+  db.exec("CREATE INDEX IF NOT EXISTS idx_achievement_changes_scan ON achievement_changes(scan_started_at)")
   runVersionedMigrations(db)
 }
 

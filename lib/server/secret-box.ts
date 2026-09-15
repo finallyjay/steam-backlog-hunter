@@ -1,6 +1,6 @@
 import "server-only"
 
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto"
+import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "node:crypto"
 
 import { env } from "@/lib/env"
 import { logger } from "@/lib/server/logger"
@@ -12,10 +12,20 @@ import { logger } from "@/lib/server/logger"
 // read back as "not configured" and must be re-entered in /admin.
 const VERSION = "v1"
 const IV_BYTES = 12
+const KEY_BYTES = 32
+// Fixed, app-specific salt: the input is a high-entropy server secret, not a
+// user password, so a per-value salt buys nothing; scrypt is used so the
+// derivation is deliberately expensive should the secret ever be weak.
+const KDF_SALT = "steam-backlog-hunter:secret-box:v1"
+
+let cachedKey: { material: string; key: Buffer } | null = null
 
 function deriveKey(): Buffer {
   const material = env.SESSION_SECRET || env.STEAM_API_KEY
-  return createHash("sha256").update(`steam-backlog-hunter:secret-box:${material}`).digest()
+  if (cachedKey && cachedKey.material === material) return cachedKey.key
+  const key = scryptSync(material, KDF_SALT, KEY_BYTES)
+  cachedKey = { material, key }
+  return key
 }
 
 /** Encrypts a UTF-8 string. Output is `v1:<iv>:<tag>:<ciphertext>` (base64url parts). */

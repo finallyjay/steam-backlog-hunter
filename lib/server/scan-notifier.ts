@@ -41,8 +41,12 @@ type ChangeRow = {
   was_perfect: number
 }
 
-/** Changes recorded since `sinceIso`, joined with game and profile names for display. */
-export function listChangesSince(sinceIso: string): ScanChangeLine[] {
+/**
+ * Changes recorded by the scan identified by `scanStartedAt`, joined with
+ * game and profile names for display. Rows from an in-app sync that happened
+ * to run during the scan carry no scan attribution and are excluded.
+ */
+export function listChangesForScan(scanStartedAt: string): ScanChangeLine[] {
   const db = getSqliteDatabase()
   const rows = db
     .prepare(
@@ -51,11 +55,11 @@ export function listChangesSince(sinceIso: string): ScanChangeLine[] {
       FROM achievement_changes ac
       JOIN games g ON g.appid = ac.appid
       LEFT JOIN steam_profile p ON p.steam_id = ac.steam_id
-      WHERE ac.detected_at >= ?
+      WHERE ac.scan_started_at = ?
       ORDER BY ac.was_perfect DESC, g.name COLLATE NOCASE
     `,
     )
-    .all(sinceIso) as ChangeRow[]
+    .all(scanStartedAt) as ChangeRow[]
 
   return rows.map((row) => ({
     personaName: row.persona_name,
@@ -186,14 +190,16 @@ export async function notifyScanResult(summary: ScanSummaryForNotification): Pro
   try {
     settings = getNotificationSettings()
   } catch (error) {
-    logger.warn({ err: error }, "Scan notification: could not read settings")
-    return skipped
+    // Not an intentional skip: the operator may have channels enabled that
+    // we simply couldn't read. Surface it as a failure on both.
+    logger.error({ err: error }, "Scan notification: could not read settings")
+    return { discord: "failed", telegram: "failed" }
   }
   if (!settings.discord.enabled && !settings.telegram.enabled) return skipped
 
   let changes: ScanChangeLine[] = []
   try {
-    changes = listChangesSince(summary.startedAt)
+    changes = listChangesForScan(summary.startedAt)
   } catch (error) {
     logger.warn({ err: error }, "Scan notification: could not load change details; sending counts only")
   }

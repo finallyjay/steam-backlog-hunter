@@ -30,7 +30,7 @@ Next.js 16 App Router with React 19, TypeScript strict mode, Tailwind CSS 4, sha
 - `lib/server/achievement-scan.ts` — library-wide scan for the cron endpoint: whitelisted users with a completed sync, games ordered perfect → in-progress → not started, bounded concurrency, single in-flight run, last-run record in `achievement_scan_meta`
 - `lib/server/scan-notifier.ts` — posts the scan summary to Discord (webhook) and/or Telegram (Bot API, optional `message_thread_id`) for channels enabled in `notification_settings`; never throws, reports per-channel status on the scan result
 - `lib/server/notification-settings.ts` — single-row `notification_settings` (enabled flags, chat/thread id) with secrets sealed by `lib/server/secret-box.ts` (AES-256-GCM keyed from `SESSION_SECRET`); masked view for the admin UI, replace-if-present secrets on save
-- `lib/server/achievement-changes.ts` — records/lists achievement schema diffs (new or retired achievements) per user in `achievement_changes`; written by `persistSchema`, read via `GET/PATCH /api/steam/achievements/changes`
+- `lib/server/achievement-changes.ts` — records/lists achievement schema diffs (new or retired achievements) per user in `achievement_changes`; written by `persistSchema`, read via `GET/PATCH /api/steam/achievements/changes`; rows record `scan_started_at` when written inside the scheduled scan (`lib/server/scan-context.ts`, AsyncLocalStorage) so the scan summary covers only its own findings
 - `lib/server/steam-stats-compute.ts` — stats aggregation and sync orchestration; computes from `user_games WHERE total_count > 0`
 - `lib/server/steam-store-utils.ts` — shared utilities (staleness checks, timestamps, profile management)
 - `lib/server/steam-store.ts` — barrel re-export of the above modules

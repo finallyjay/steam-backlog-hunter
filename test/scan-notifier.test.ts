@@ -64,13 +64,15 @@ async function seedChanges() {
   db.prepare(`INSERT INTO games (appid, name, created_at, updated_at) VALUES (620, 'Portal 2', ?, ?)`).run(now, now)
   db.prepare(`INSERT INTO games (appid, name, created_at, updated_at) VALUES (730, 'CS2', ?, ?)`).run(now, now)
   const insert = db.prepare(
-    `INSERT INTO achievement_changes (steam_id, appid, added, removed, total_before, total_after, was_perfect, detected_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO achievement_changes (steam_id, appid, added, removed, total_before, total_after, was_perfect, detected_at, scan_started_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   )
-  insert.run(STEAM_ID, 730, '["X"]', "[]", 3, 4, 0, now)
-  insert.run(STEAM_ID, 620, '["A","B"]', '["OLD"]', 2, 3, 1, now)
-  // Older change from a previous scan must not be included.
-  insert.run(STEAM_ID, 730, '["Z"]', "[]", 2, 3, 0, "2026-09-01T00:00:00.000Z")
+  insert.run(STEAM_ID, 730, '["X"]', "[]", 3, 4, 0, now, summary.startedAt)
+  insert.run(STEAM_ID, 620, '["A","B"]', '["OLD"]', 2, 3, 1, now, summary.startedAt)
+  // A previous scan's change must not be included…
+  insert.run(STEAM_ID, 730, '["Z"]', "[]", 2, 3, 0, "2026-09-01T00:00:00.000Z", "2026-09-01T00:00:00.000Z")
+  // …nor one an in-app sync recorded while this scan was running.
+  insert.run(STEAM_ID, 620, '["MANUAL"]', "[]", 3, 4, 0, now, null)
   return db
 }
 
@@ -136,11 +138,11 @@ describe("buildScanNotification", () => {
   })
 })
 
-describe("listChangesSince", () => {
-  it("returns changes since the given time with names, perfect games first", async () => {
+describe("listChangesForScan", () => {
+  it("returns only this scan's changes with names, perfect games first", async () => {
     await seedChanges()
-    const { listChangesSince } = await import("@/lib/server/scan-notifier")
-    expect(listChangesSince("2026-09-15T06:00:00.000Z")).toEqual([
+    const { listChangesForScan } = await import("@/lib/server/scan-notifier")
+    expect(listChangesForScan(summary.startedAt)).toEqual([
       { personaName: "Jay", gameName: "Portal 2", added: 2, removed: 1, wasPerfect: true },
       { personaName: "Jay", gameName: "CS2", added: 1, removed: 0, wasPerfect: false },
     ])
@@ -224,6 +226,18 @@ describe("notifyScanResult", () => {
     const content = String(calls[0]?.body.content)
     expect(content).toContain("2 achievement changes detected")
     expect(content).not.toContain("•")
+  })
+})
+
+describe("notifyScanResult settings failure", () => {
+  it("reports both channels as failed when settings cannot be read", async () => {
+    const { getSqliteDatabase } = await import("@/lib/server/sqlite")
+    getSqliteDatabase().exec("DROP TABLE notification_settings")
+    const calls = captureFetch()
+    const { notifyScanResult } = await import("@/lib/server/scan-notifier")
+
+    expect(await notifyScanResult(summary)).toEqual({ discord: "failed", telegram: "failed" })
+    expect(calls).toHaveLength(0)
   })
 })
 

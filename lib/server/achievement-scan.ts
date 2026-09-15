@@ -7,6 +7,7 @@ import { nowIso } from "@/lib/server/steam-store-utils"
 import { invalidateStatsCache } from "@/lib/steam-stats"
 import { getSteamWhitelist } from "@/lib/whitelist"
 import { notifyScanResult, type ScanNotificationStatus } from "@/lib/server/scan-notifier"
+import { runWithScanContext } from "@/lib/server/scan-context"
 import { logger } from "@/lib/server/logger"
 
 const SCAN_CONCURRENCY = 4
@@ -161,11 +162,12 @@ export function listScanGames(steamId: string, maxGames?: number): number[] {
   return rows.map((row) => row.appid)
 }
 
-function countChangesSince(steamId: string, sinceIso: string): number {
+/** Changes this scan recorded for the user (rows tagged with its startedAt via the scan context). */
+function countChangesForScan(steamId: string, scanStartedAt: string): number {
   const db = getSqliteDatabase()
   const row = db
-    .prepare(`SELECT COUNT(*) AS n FROM achievement_changes WHERE steam_id = ? AND detected_at >= ?`)
-    .get(steamId, sinceIso) as { n: number }
+    .prepare(`SELECT COUNT(*) AS n FROM achievement_changes WHERE steam_id = ? AND scan_started_at = ?`)
+    .get(steamId, scanStartedAt) as { n: number }
   return row.n
 }
 
@@ -210,7 +212,7 @@ async function scanUser(steamId: string, startedAt: string, maxGames?: number): 
   return {
     steamId,
     gamesScanned: appIds.length,
-    changesDetected: countChangesSince(steamId, startedAt),
+    changesDetected: countChangesForScan(steamId, startedAt),
     failures,
   }
 }
@@ -298,7 +300,9 @@ export async function runAchievementScan(options?: { maxGamesPerUser?: number })
   if (!tryAcquireScanLease(startedAt)) {
     throw new ScanInProgressError()
   }
-  inFlightScan = doRunAchievementScan(startedAt, options).finally(() => {
+  // Every async continuation inside the scan sees this context, so the
+  // achievement_changes rows it records are attributed to this run.
+  inFlightScan = runWithScanContext(startedAt, () => doRunAchievementScan(startedAt, options)).finally(() => {
     inFlightScan = null
   })
   return inFlightScan

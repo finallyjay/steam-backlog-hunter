@@ -3,6 +3,7 @@ import "server-only"
 import type { AchievementChangeView } from "@/lib/types/steam"
 import { getSqliteDatabase } from "@/lib/server/sqlite"
 import { nowIso, parseJson } from "@/lib/server/steam-store-utils"
+import { getScanContext } from "@/lib/server/scan-context"
 import { logger } from "@/lib/server/logger"
 
 type AchievementChangeRow = {
@@ -97,13 +98,25 @@ export function recordAchievementChanges(
 
   const insert = db.prepare(`
     INSERT INTO achievement_changes (
-      steam_id, appid, added, removed, total_before, total_after, was_perfect, detected_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      steam_id, appid, added, removed, total_before, total_after, was_perfect, detected_at, scan_started_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `)
   const added = JSON.stringify(change.added)
   const removed = JSON.stringify(change.removed)
+  // Attribute the rows to the scheduled scan running this sync, if any.
+  const scanStartedAt = getScanContext()?.startedAt ?? null
   for (const owner of owners) {
-    insert.run(owner.steam_id, appId, added, removed, owner.total_count, change.totalAfter, owner.perfect_game, now)
+    insert.run(
+      owner.steam_id,
+      appId,
+      added,
+      removed,
+      owner.total_count,
+      change.totalAfter,
+      owner.perfect_game,
+      now,
+      scanStartedAt,
+    )
   }
 
   logger.info(

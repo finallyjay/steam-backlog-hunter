@@ -138,6 +138,32 @@ describe("diffApinames", () => {
   })
 })
 
+describe("scan attribution", () => {
+  it("tags rows with the scheduled scan's startedAt only inside the scan context", async () => {
+    const getSchema = vi.fn().mockResolvedValue(schemaOf(["ACH_ONE", "ACH_TWO", "ACH_THREE"]))
+    mockSteamApi({ getGameSchema: getSchema })
+    const db = await seedProfileAndGame()
+    seedStoredSchema(db, ["ACH_ONE", "ACH_TWO"])
+    seedUserProgress(db, STEAM_ID, 2, 2)
+
+    const { ensureSchema } = await import("@/lib/server/steam-achievements-sync")
+    const { runWithScanContext } = await import("@/lib/server/scan-context")
+
+    await runWithScanContext("2026-09-15T06:00:00.000Z", () => ensureSchema(APPID, { forceRefresh: true }))
+    // Simulate a later in-app sync finding one more achievement.
+    getSchema.mockResolvedValue(schemaOf(["ACH_ONE", "ACH_TWO", "ACH_THREE", "ACH_FOUR"]))
+    await ensureSchema(APPID, { forceRefresh: true })
+
+    const rows = db
+      .prepare("SELECT added, scan_started_at FROM achievement_changes WHERE steam_id = ? ORDER BY id")
+      .all(STEAM_ID) as Array<{ added: string; scan_started_at: string | null }>
+    expect(rows).toEqual([
+      { added: '["ACH_THREE"]', scan_started_at: "2026-09-15T06:00:00.000Z" },
+      { added: '["ACH_FOUR"]', scan_started_at: null },
+    ])
+  })
+})
+
 describe("persistSchema change detection (via ensureSchema)", () => {
   it("records new achievements for a previously perfect game and keeps the old total as before", async () => {
     const getSchema = vi.fn().mockResolvedValue(schemaOf(["ACH_ONE", "ACH_TWO", "ACH_THREE"]))
