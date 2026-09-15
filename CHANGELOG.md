@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `/admin/notifications` page and channel titles are larger: the page heading now matches
+  the other admin pages (`text-2xl`) and the Discord/Telegram card headings use the section
+  heading size (`text-lg`), so they no longer read smaller than the inputs below them (#341).
+
 ## [0.11.0] - 2026-09-15
 
 ### Added
