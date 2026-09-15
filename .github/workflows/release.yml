@@ -17,7 +17,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Check tag matches package.json version
         run: |
@@ -34,7 +36,7 @@ jobs:
           version="${GITHUB_REF_NAME#v}"
           # Everything between "## [<version>]" and the next "## [" heading.
           awk -v v="$version" '
-            $0 ~ "^## \\[" v "\\]" { found = 1; next }
+            $0 == "## [" v "]" || index($0, "## [" v "] - ") == 1 { found = 1; next }
             found && /^## \[/ { exit }
             found { print }
           ' CHANGELOG.md > release-notes.md
