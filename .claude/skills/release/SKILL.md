@@ -12,12 +12,14 @@ CLAUDE.md ("Releases"); this skill only executes.
 ## 1. Inspect
 
 ```bash
+test -z "$(git status --porcelain)" || { echo "working tree is dirty"; exit 1; }
 git checkout main && git pull -q origin main
 git describe --tags --abbrev=0                 # last tag
 awk '/^## \[Unreleased\]/{f=1;next} /^## \[/{exit} f' CHANGELOG.md   # pending entries
 ```
 
-Stop and tell the user if `Unreleased` is empty or if the working tree is dirty.
+Stop and tell the user if the working tree is dirty (before touching branches) or if
+`Unreleased` is empty.
 
 ## 2. Propose the version
 
@@ -47,10 +49,18 @@ On a branch `release/vX.Y.Z`:
 Only after the PR is squash-merged and the user has confirmed:
 
 ```bash
+test -z "$(git status --porcelain)" || { echo "working tree is dirty"; exit 1; }
 git checkout main && git pull -q origin main
 test "$(node -p "require('./package.json').version")" = "X.Y.Z"
 git tag -a vX.Y.Z -m "vX.Y.Z" && git push origin vX.Y.Z
-gh run list --workflow=release.yml --limit 1      # wait for success
+
+# Wait for the Release run created by this tag push (not just the latest run).
+tag_commit="$(git rev-parse "vX.Y.Z^{commit}")"
+until run_id="$(gh run list --workflow=release.yml --commit="$tag_commit" --limit 1 --json databaseId --jq '.[0].databaseId')" &&
+      [ -n "$run_id" ]; do
+  sleep 5
+done
+gh run watch "$run_id" --exit-status
 gh release view vX.Y.Z --json url --jq .url
 ```
 
