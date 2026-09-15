@@ -14,6 +14,7 @@ import type { SteamAchievementView } from "@/lib/types/steam"
 import { getSqliteDatabase } from "@/lib/server/sqlite"
 import { nowIso, isStale } from "@/lib/server/steam-store-utils"
 import { ensureOwnedGamesSynced, getStoredGame } from "@/lib/server/steam-games-sync"
+import { diffApinames, recordAchievementChanges } from "@/lib/server/achievement-changes"
 
 const ACHIEVEMENTS_STALE_MS = 7 * 24 * 60 * 60 * 1000
 const SCHEMA_STALE_MS = 30 * 24 * 60 * 60 * 1000
@@ -233,10 +234,24 @@ export function persistAchievements(steamId: string, appId: number, achievements
  * schema row. Pass `null` when the endpoint failed or returned nothing — we
  * still refresh the schema but leave `global_percent` as-is for rows we
  * already have (UPSERT only sets it when we have a value).
+ *
+ * Change detection: when we already had a non-empty schema stored *and*
+ * Steam returned a non-empty one, the two apiname sets are diffed. Retired
+ * apinames are deleted from `game_achievements` and `user_achievements`
+ * (they would otherwise linger as permanently-locked ghosts), and one
+ * `achievement_changes` row is written per owning user via
+ * `recordAchievementChanges`. A `null`/empty schema is deliberately *not*
+ * treated as "everything was removed": GetSchemaForGame returns nothing for
+ * some delisted titles that still answer GetPlayerAchievements, and a
+ * transient miss must not wipe good data.
  */
 function persistSchema(appId: number, schema: GameSchema | null, percentages: GlobalAchievementPercent[] | null) {
   const db = getSqliteDatabase()
   const now = nowIso()
+
+  const storedApinames = (
+    db.prepare(`SELECT apiname FROM game_achievements WHERE appid = ?`).all(appId) as Array<{ apiname: string }>
+  ).map((row) => row.apiname)
 
   const percentByName = new Map<string, number>()
   if (percentages) {
@@ -270,8 +285,10 @@ function persistSchema(appId: number, schema: GameSchema | null, percentages: Gl
           updated_at = excluded.updated_at
       `)
 
+      const incomingApinames: string[] = []
       for (const achievement of achievements) {
         if (!achievement.name) continue
+        incomingApinames.push(achievement.name)
         upsert.run(
           appId,
           achievement.name,
@@ -285,6 +302,22 @@ function persistSchema(appId: number, schema: GameSchema | null, percentages: Gl
           now,
         )
       }
+
+      if (storedApinames.length > 0 && incomingApinames.length > 0) {
+        const { added, removed } = diffApinames(storedApinames, incomingApinames)
+        if (removed.length > 0) {
+          const placeholders = removed.map(() => "?").join(",")
+          db.prepare(`DELETE FROM game_achievements WHERE appid = ? AND apiname IN (${placeholders})`).run(
+            appId,
+            ...removed,
+          )
+          db.prepare(`DELETE FROM user_achievements WHERE appid = ? AND apiname IN (${placeholders})`).run(
+            appId,
+            ...removed,
+          )
+        }
+        recordAchievementChanges(appId, { added, removed, totalAfter: incomingApinames.length })
+      }
     }
 
     db.exec("COMMIT")
@@ -297,10 +330,14 @@ function persistSchema(appId: number, schema: GameSchema | null, percentages: Gl
 /**
  * Ensures the game schema is synced, fetching from Steam API if stale or missing.
  *
- * Runs for its side effect on `game_achievements` — the return value is not
- * consumed by any caller, since read paths go through the normalized tables.
+ * Runs for its side effect on `game_achievements`; read paths go through the
+ * normalized tables.
+ *
+ * @returns `true` when Steam was actually queried in this call, `false` when
+ *          the stored schema was fresh enough to skip. Callers use this to
+ *          avoid re-fetching a schema that was refreshed moments ago.
  */
-export async function ensureSchema(appId: number, options?: { forceRefresh?: boolean }): Promise<void> {
+export async function ensureSchema(appId: number, options?: { forceRefresh?: boolean }): Promise<boolean> {
   const forceRefresh = options?.forceRefresh ?? false
   const db = getSqliteDatabase()
   const row = db.prepare(`SELECT schema_synced_at FROM games WHERE appid = ?`).get(appId) as
@@ -308,7 +345,7 @@ export async function ensureSchema(appId: number, options?: { forceRefresh?: boo
     | undefined
 
   if (!forceRefresh && row?.schema_synced_at && !isStale(row.schema_synced_at, SCHEMA_STALE_MS)) {
-    return
+    return false
   }
 
   // Schema + global rarity in parallel. Rarity is an independent endpoint
@@ -317,6 +354,62 @@ export async function ensureSchema(appId: number, options?: { forceRefresh?: boo
   // two data sets in sync without a second call cadence.
   const [schema, percentages] = await Promise.all([getGameSchema(appId), getGlobalAchievementPercentages(appId)])
   persistSchema(appId, schema, percentages)
+  return true
+}
+
+/**
+ * Returns true when the apinames Steam reports for the player differ from
+ * the schema rows we have stored. Only meaningful once a schema exists
+ * locally: with no stored rows there is nothing to compare against, and the
+ * regular (or forced) `ensureSchema` path already handles first population.
+ */
+function isSchemaOutOfSync(appId: number, achievements: SteamAchievement[]): boolean {
+  const db = getSqliteDatabase()
+  const stored = (
+    db.prepare(`SELECT apiname FROM game_achievements WHERE appid = ?`).all(appId) as Array<{ apiname: string }>
+  ).map((row) => row.apiname)
+  if (stored.length === 0) return false
+
+  const incoming = achievements.map((a) => a.apiname).filter((name): name is string => Boolean(name))
+  const { added, removed } = diffApinames(stored, incoming)
+  return added.length > 0 || removed.length > 0
+}
+
+/**
+ * Fetches a game's player achievements and schema from Steam and persists
+ * both. Shared by the single-game path (`getAchievementsForGame`) and the
+ * library-wide sync worker in `steam-stats-compute.ts`.
+ *
+ * Player progress and schema are fetched in parallel. If the player payload
+ * then reveals apinames the stored schema doesn't know about (or vice
+ * versa) and the schema was *not* just refreshed in this call, a forced
+ * schema refresh runs before persisting. That closes the gap between the
+ * 7-day progress cadence and the 30-day schema cadence: a game that gained
+ * achievements gets its schema, counts and an `achievement_changes` row in
+ * the same sync instead of up to a month later.
+ *
+ * Errors from the Steam client propagate unchanged so each caller keeps
+ * its own retry/serve-cached policy.
+ *
+ * @returns The raw player achievements payload, or `null` when Steam reports
+ *          the game has none (persisted as the known-broken sentinel)
+ */
+export async function syncGameAchievements(
+  steamId: string,
+  appId: number,
+  options?: { forceRefresh?: boolean },
+): Promise<GameAchievements | null> {
+  const [playerAchievements, schemaFetched] = await Promise.all([
+    getPlayerAchievements(steamId, appId),
+    ensureSchema(appId, options),
+  ])
+
+  if (playerAchievements && !schemaFetched && isSchemaOutOfSync(appId, playerAchievements.achievements)) {
+    await ensureSchema(appId, { forceRefresh: true })
+  }
+
+  persistAchievements(steamId, appId, playerAchievements?.achievements ?? [])
+  return playerAchievements
 }
 
 /**
@@ -356,8 +449,7 @@ export async function getAchievementsForGame(steamId: string, appId: number, opt
 
   let playerAchievements: GameAchievements | null
   try {
-    const [result] = await Promise.all([getPlayerAchievements(steamId, appId), ensureSchema(appId, options)])
-    playerAchievements = result
+    playerAchievements = await syncGameAchievements(steamId, appId, options)
   } catch (error) {
     if (!(error instanceof TransientSteamAPIError)) throw error
 
@@ -377,13 +469,9 @@ export async function getAchievementsForGame(steamId: string, appId: number, opt
     return null
   }
 
-  if (!playerAchievements) {
-    // Mark as checked with 0 achievements so we don't retry broken/retired games
-    persistAchievements(steamId, appId, [])
-    return null
-  }
-
-  persistAchievements(steamId, appId, playerAchievements.achievements)
+  // A null payload was already persisted as the 0-achievement sentinel by
+  // syncGameAchievements so broken/retired games aren't retried every request.
+  if (!playerAchievements) return null
 
   const achievements = readStoredAchievementsList(steamId, appId)
   return {

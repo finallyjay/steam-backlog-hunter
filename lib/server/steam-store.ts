@@ -12,3 +12,5 @@ export {
 export { getBatchStoredAchievements, getAchievementsForGame } from "@/lib/server/steam-achievements-sync"
 
 export { getStatsForUser, getUserSyncStatus, synchronizeUserData } from "@/lib/server/steam-stats-compute"
+
+export { listAchievementChanges, markAchievementChangesSeen } from "@/lib/server/achievement-changes"

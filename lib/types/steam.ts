@@ -47,3 +47,28 @@ export type SteamAchievementsResponse = {
   achievements: SteamAchievementView[]
   success: boolean
 }
+
+/**
+ * One detected achievement schema change for a game the user owns.
+ * Produced when Steam's achievement set for the game differs from what
+ * was stored (post-launch additions or retired achievements).
+ */
+export interface AchievementChangeView {
+  id: number
+  appId: number
+  gameName: string
+  /** apinames present in Steam's schema but not in our stored copy. */
+  added: string[]
+  /** apinames we had stored that Steam no longer returns. */
+  removed: string[]
+  totalBefore: number | null
+  totalAfter: number
+  /** true when the game was 100% completed before the change. */
+  wasPerfect: boolean
+  detectedAt: string
+  seenAt: string | null
+}
+
+export type AchievementChangesResponse = {
+  changes: AchievementChangeView[]
+}

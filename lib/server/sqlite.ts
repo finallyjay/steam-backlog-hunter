@@ -212,10 +212,33 @@ function createBaseSchema(db: DatabaseSync) {
       entry_count INTEGER NOT NULL
     );
 
+    -- Audit log of achievement schema changes detected per user. One row
+    -- per (user, game) each time the set of apinames Steam returns differs
+    -- from what we had stored: games gaining post-launch achievements (a
+    -- perfect game silently dropping to N-1/N) or retiring them. Written
+    -- by persistSchema in steam-achievements-sync.ts; seen_at is set by
+    -- the client once the user has acknowledged the change.
+    CREATE TABLE IF NOT EXISTS achievement_changes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      steam_id TEXT NOT NULL,
+      appid INTEGER NOT NULL,
+      -- JSON arrays of apinames.
+      added TEXT NOT NULL,
+      removed TEXT NOT NULL,
+      total_before INTEGER,
+      total_after INTEGER NOT NULL,
+      was_perfect INTEGER NOT NULL DEFAULT 0,
+      detected_at TEXT NOT NULL,
+      seen_at TEXT,
+      FOREIGN KEY (steam_id) REFERENCES steam_profile(steam_id),
+      FOREIGN KEY (appid) REFERENCES games(appid)
+    );
+
     CREATE INDEX IF NOT EXISTS idx_user_games_steam_id ON user_games(steam_id);
     CREATE INDEX IF NOT EXISTS idx_user_games_steam_id_owned ON user_games(steam_id, owned);
     CREATE INDEX IF NOT EXISTS idx_stats_snapshot_steam_id ON stats_snapshot(steam_id);
     CREATE INDEX IF NOT EXISTS idx_extra_games_steam_id ON extra_games(steam_id);
+    CREATE INDEX IF NOT EXISTS idx_achievement_changes_steam_id_seen ON achievement_changes(steam_id, seen_at);
   `)
 }
 
