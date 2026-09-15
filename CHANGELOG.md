@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-09-15
+
 ### Fixed
 
 - Extras sync no longer drops games the account launched but never accumulated minutes
@@ -127,7 +129,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Platforms sync now requests `filters=platforms` (the `basic` filter excludes the field),
   so windows/mac/linux support is populated correctly.
 
-[Unreleased]: https://github.com/finallyjay/steam-backlog-hunter/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/finallyjay/steam-backlog-hunter/compare/v0.11.1...HEAD
+[0.11.1]: https://github.com/finallyjay/steam-backlog-hunter/compare/v0.11.0...v0.11.1
 [0.11.0]: https://github.com/finallyjay/steam-backlog-hunter/compare/v0.10.15...v0.11.0
 [0.10.15]: https://github.com/finallyjay/steam-backlog-hunter/compare/v0.10.14...v0.10.15
 [0.10.14]: https://github.com/finallyjay/steam-backlog-hunter/compare/v0.10.13...v0.10.14
