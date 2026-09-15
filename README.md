@@ -1,7 +1,13 @@
 # Steam Backlog Hunter
 
-[![CI](https://github.com/finallyjay/steam-backlog-hunter/actions/workflows/ci.yml/badge.svg)](https://github.com/finallyjay/steam-backlog-hunter/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![CI](https://img.shields.io/github/actions/workflow/status/finallyjay/steam-backlog-hunter/ci.yml?branch=main&label=CI&logo=githubactions&logoColor=white)](https://github.com/finallyjay/steam-backlog-hunter/actions/workflows/ci.yml)
+[![CodeQL](https://img.shields.io/github/actions/workflow/status/finallyjay/steam-backlog-hunter/dynamic/github-code-scanning/codeql?branch=main&label=CodeQL&logo=github&logoColor=white)](https://github.com/finallyjay/steam-backlog-hunter/security/code-scanning)
+[![Release](https://img.shields.io/github/v/release/finallyjay/steam-backlog-hunter?logo=github&label=release)](https://github.com/finallyjay/steam-backlog-hunter/releases/latest)
+[![Next.js](https://img.shields.io/github/package-json/dependency-version/finallyjay/steam-backlog-hunter/next?logo=nextdotjs&logoColor=white&label=Next.js)](package.json)
+[![TypeScript](https://img.shields.io/github/package-json/dependency-version/finallyjay/steam-backlog-hunter/dev/typescript?logo=typescript&logoColor=white&label=TypeScript)](package.json)
+[![Node.js](https://img.shields.io/badge/Node.js-24-5FA04E?logo=nodedotjs&logoColor=white)](.nvmrc)
+[![pnpm](https://img.shields.io/badge/pnpm-12-F69220?logo=pnpm&logoColor=white)](package.json)
+[![License](https://img.shields.io/github/license/finallyjay/steam-backlog-hunter?label=license)](LICENSE)
 
 A self-hosted dashboard for tracking your Steam library, monitoring achievement progress, and hunting down completions.
 
@@ -251,6 +257,18 @@ repository secrets to run it daily.
 5. Create an issue first, then open a Pull Request that closes it
 
 CI runs `lint → test → build` on all PRs; pull requests are squash-merged.
+
+### Releasing
+
+Versions follow [SemVer](https://semver.org/) and every change lands in the `Unreleased` section of
+[`CHANGELOG.md`](CHANGELOG.md) with its PR. To cut a release:
+
+1. On a branch, move `Unreleased` to `## [X.Y.Z] - YYYY-MM-DD`, update the compare links at the bottom
+   and bump `version` in `package.json`; merge the PR.
+2. Tag the merge commit and push the tag: `git tag vX.Y.Z && git push origin vX.Y.Z`.
+
+The `Release` workflow checks the tag against `package.json` and publishes the GitHub release with
+that changelog section as its notes.
 
 ## License
 
