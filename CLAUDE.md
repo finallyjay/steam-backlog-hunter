@@ -45,6 +45,7 @@ Next.js 16 App Router with React 19, TypeScript strict mode, Tailwind CSS 4, sha
 
 - `use-current-user.ts` — global user state with pub/sub listener pattern, request deduplication, and visibility-based revalidation
 - `use-steam-data.ts` — `useSteamGames`, `useSteamAchievementsBatch`, `useSteamStats` with loading/refreshing states and cooldown between manual refreshes
+- `use-achievement-changes.ts` — module-level shared store (`useSyncExternalStore`) for `achievement_changes`; one fetch per session, refetch on `steam-data-invalidated`, optimistic `markSeen` with rollback. Consumed by the layout toast notifier, the dashboard panel, the `/games` `new-achievements` filter and the `/game/[id]` banner
 
 ### Auth model
 
@@ -54,7 +55,7 @@ Whitelist-based, multi-user ready. `STEAM_WHITELIST_IDS` (comma-separated Steam6
 
 - `/` — landing/login
 - `/dashboard` — profile, insights (donuts), recent games
-- `/games` — full library with state filters, sort, achievements toggle; supports `?filter=` and `?order=` query params
+- `/games` — full library with state filters, sort, achievements toggle; supports `?filter=` (including `new-achievements`) and `?order=` query params
 - `/game/[id]` — individual game achievement breakdown
 
 ### Design system

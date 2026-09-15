@@ -1,6 +1,8 @@
 "use client"
 
 import { useSteamAchievements, useSteamGames } from "@/hooks/use-steam-data"
+import { useAchievementChanges } from "@/hooks/use-achievement-changes"
+import { AchievementChangeChips } from "@/components/ui/achievement-change-chips"
 import { GameHero } from "@/components/ui/game-hero"
 import { AchievementRow } from "@/components/ui/achievement-row"
 import { useCurrentUser } from "@/hooks/use-current-user"
@@ -14,7 +16,7 @@ import { Button } from "@/components/ui/button"
 import { InputFrame } from "@/components/ui/input-frame"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ExternalLink, Lock, RefreshCw, Search, Trophy } from "lucide-react"
+import { Check, ExternalLink, Lock, RefreshCw, Search, Sparkles, Trophy } from "lucide-react"
 import { formatPlaytime } from "@/lib/utils"
 
 type AchievementTab = "pending" | "unlocked"
@@ -50,6 +52,10 @@ export default function GameDetailPage() {
   const { achievements, loading: loadingAchievements, error: errorAchievements } = useSteamAchievements(appId)
   const { games, loading: loadingGames } = useSteamGames("all")
   const { user, loading: loadingUser } = useCurrentUser()
+  const { byAppId: changesByAppId, markSeen: markChangesSeen } = useAchievementChanges()
+  const changeSummary = changesByAppId.get(appId) ?? null
+  const newApinames = useMemo(() => new Set(changeSummary?.addedApinames ?? []), [changeSummary])
+  const [acknowledging, setAcknowledging] = useState(false)
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<AchievementTab>("pending")
   const [syncing, setSyncing] = useState(false)
@@ -86,6 +92,13 @@ export default function GameDetailPage() {
     } finally {
       setSyncing(false)
     }
+  }
+
+  const handleAcknowledgeChanges = async () => {
+    if (!changeSummary) return
+    setAcknowledging(true)
+    await markChangesSeen(changeSummary.ids)
+    setAcknowledging(false)
   }
 
   const effectiveAchievements = syncedAchievements ?? achievements
@@ -146,7 +159,7 @@ export default function GameDetailPage() {
     return (
       <ul className="grid gap-3">
         {list.map((ach) => (
-          <AchievementRow key={ach.apiname} achievement={ach} />
+          <AchievementRow key={ach.apiname} achievement={ach} isNew={newApinames.has(ach.apiname)} />
         ))}
       </ul>
     )
@@ -168,6 +181,34 @@ export default function GameDetailPage() {
         ) : (
           <GameHero appId={game.appid} name={game.name} portraitUrl={game.image_portrait_url}>
             <div className="text-muted-foreground text-sm">{formatPlaytime(game.playtime_forever / 60)} played</div>
+
+            {changeSummary && (changeSummary.added > 0 || changeSummary.removed > 0) && (
+              <div
+                className="border-accent/40 bg-accent/10 flex flex-wrap items-center gap-3 rounded-lg border px-4 py-3 text-sm"
+                data-testid="achievement-changes-banner"
+              >
+                <Sparkles className="text-accent h-4 w-4 shrink-0" aria-hidden="true" />
+                <span className="min-w-0 flex-1">
+                  Achievements changed since your last visit.
+                  {changeSummary.wasPerfect ? " This game was 100% complete." : ""}
+                </span>
+                <AchievementChangeChips
+                  added={changeSummary.added}
+                  removed={changeSummary.removed}
+                  wasPerfect={changeSummary.wasPerfect}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={handleAcknowledgeChanges}
+                  disabled={acknowledging}
+                >
+                  <Check className="h-4 w-4" />
+                  Got it
+                </Button>
+              </div>
+            )}
 
             {!loadingAchievements && total > 0 && (
               <div className="space-y-2">

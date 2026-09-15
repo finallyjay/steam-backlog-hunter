@@ -48,6 +48,8 @@ function rarityBadgeClass(percent: number): string {
 
 interface AchievementRowProps {
   achievement: SteamAchievementView
+  /** Flags an achievement added to the game since the user's last acknowledged sync. */
+  isNew?: boolean
 }
 
 /**
@@ -62,12 +64,21 @@ interface AchievementRowProps {
  * rarity badge is always shown when globalPercent is known — rarity is
  * metadata about the game, not the hidden achievement's identity.
  */
-export function AchievementRow({ achievement: ach }: AchievementRowProps) {
+export function AchievementRow({ achievement: ach, isNew = false }: AchievementRowProps) {
   const [revealed, setRevealed] = useState(false)
   const isUnlocked = ach.achieved === 1
   const showFullText = isUnlocked || ach.hidden !== 1 || revealed
 
   const timestamp = isUnlocked && ach.unlocktime ? formatUnlockTimestamp(ach.unlocktime) : null
+
+  const newBadge = isNew ? (
+    <span
+      className="bg-accent/15 text-accent border-accent/40 inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-xs font-medium"
+      aria-label="New achievement"
+    >
+      New
+    </span>
+  ) : null
 
   const rarityBadge =
     ach.globalPercent != null ? (
@@ -94,6 +105,7 @@ export function AchievementRow({ achievement: ach }: AchievementRowProps) {
           <>
             <div className="flex min-w-0 items-center gap-2">
               <span className="truncate font-semibold">{ach.displayName}</span>
+              {newBadge}
               {rarityBadge}
             </div>
             {ach.description && <div className="text-muted-foreground text-sm">{ach.description}</div>}
@@ -102,6 +114,7 @@ export function AchievementRow({ achievement: ach }: AchievementRowProps) {
           <>
             <div className="flex min-w-0 items-center gap-2">
               <span className="text-muted-foreground truncate font-semibold italic">Logro oculto</span>
+              {newBadge}
               {rarityBadge}
             </div>
             <button

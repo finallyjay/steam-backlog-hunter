@@ -221,4 +221,42 @@ describe("GameCard", () => {
     expect(screen.getByText("9/10 (90%)")).toBeInTheDocument()
     expect(container.querySelector(".bg-success")).toBeInTheDocument()
   })
+
+  it("renders change chips and a warning tint for a formerly perfect game", () => {
+    const { container } = render(
+      <GameCard
+        id={620}
+        name="Portal 2"
+        image="/steam-icon.png"
+        serverTotal={3}
+        serverUnlocked={2}
+        changeSummary={{ added: 1, removed: 0, wasPerfect: true }}
+      />,
+    )
+    expect(screen.getByText("+1 new")).toBeInTheDocument()
+    expect(screen.getByText("Was perfect")).toBeInTheDocument()
+    expect(container.querySelector("[data-game-id]")).toHaveClass("bg-warning/10")
+  })
+
+  it("does not show the perfect chip or tint when the game is still complete", () => {
+    const { container } = render(
+      <GameCard
+        id={620}
+        name="Portal 2"
+        image="/steam-icon.png"
+        serverTotal={3}
+        serverUnlocked={3}
+        serverPerfect
+        changeSummary={{ added: 1, removed: 0, wasPerfect: true }}
+      />,
+    )
+    expect(screen.getByText("+1 new")).toBeInTheDocument()
+    expect(screen.queryByText("Was perfect")).not.toBeInTheDocument()
+    expect(container.querySelector("[data-game-id]")).toHaveClass("bg-success/10")
+  })
+
+  it("renders no chips without a change summary", () => {
+    render(<GameCard id={620} name="Portal 2" image="/steam-icon.png" serverTotal={3} serverUnlocked={2} />)
+    expect(screen.queryByText(/new$/)).not.toBeInTheDocument()
+  })
 })

@@ -2,15 +2,20 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-const { useSteamGamesMock, useSteamAchievementsBatchMock } = vi.hoisted(() => ({
+const { useSteamGamesMock, useSteamAchievementsBatchMock, useAchievementChangesMock } = vi.hoisted(() => ({
   useSteamGamesMock: vi.fn(),
   useSteamAchievementsBatchMock: vi.fn(),
+  useAchievementChangesMock: vi.fn(),
 }))
 
 vi.mock("@/hooks/use-steam-data", () => ({
   useSteamGames: useSteamGamesMock,
   useSteamAchievementsBatch: useSteamAchievementsBatchMock,
   invalidateSteamData: vi.fn(),
+}))
+
+vi.mock("@/hooks/use-achievement-changes", () => ({
+  useAchievementChanges: useAchievementChangesMock,
 }))
 
 // shadcn Select wraps Radix, which uses Portal/ResizeObserver — both painful
@@ -112,6 +117,15 @@ beforeEach(() => {
     isRefreshing: false,
     lastUpdated: null,
     error: null,
+    refetch: vi.fn(),
+  })
+  useAchievementChangesMock.mockReturnValue({
+    changes: [],
+    unseen: [],
+    byAppId: new Map(),
+    loading: false,
+    error: null,
+    markSeen: vi.fn(),
     refetch: vi.fn(),
   })
   // jsdom doesn't implement IntersectionObserver
@@ -543,5 +557,96 @@ describe("LibraryOverview", () => {
       expect(screen.queryByText("Team Fortress 2")).not.toBeInTheDocument()
     })
     expect(screen.getByText("Portal 2")).toBeInTheDocument()
+  })
+
+  it("filters to games with unseen achievement changes and passes chips to their cards", () => {
+    useSteamGamesMock.mockReturnValue({
+      games: [
+        buildGame({ appid: 620, name: "Portal 2", unlocked_count: 2, total_count: 3 }),
+        buildGame({ appid: 730, name: "CS2", unlocked_count: 1, total_count: 5 }),
+      ],
+      loading: false,
+      isRefreshing: false,
+      lastUpdated: null,
+      error: null,
+      refetch: vi.fn(),
+    })
+    useAchievementChangesMock.mockReturnValue({
+      changes: [],
+      unseen: [],
+      byAppId: new Map([
+        [620, { appId: 620, added: 1, removed: 0, wasPerfect: true, ids: [1], addedApinames: ["ACH_NEW"] }],
+      ]),
+      loading: false,
+      error: null,
+      markSeen: vi.fn(),
+      refetch: vi.fn(),
+    })
+
+    render(<LibraryOverview initialFilter="new-achievements" />)
+
+    expect(screen.getByText("Portal 2")).toBeInTheDocument()
+    expect(screen.queryByText("CS2")).not.toBeInTheDocument()
+    expect(screen.getByText("+1 new")).toBeInTheDocument()
+    expect(screen.getByText("Was perfect")).toBeInTheDocument()
+    expect(screen.getByText("1 of 2 games")).toBeInTheDocument()
+  })
+
+  it("shows the loading skeleton for the new-achievements filter until changes have loaded", () => {
+    useSteamGamesMock.mockReturnValue({
+      games: [buildGame({ appid: 620, name: "Portal 2", unlocked_count: 2, total_count: 3 })],
+      loading: false,
+      isRefreshing: false,
+      lastUpdated: null,
+      error: null,
+      refetch: vi.fn(),
+    })
+    useAchievementChangesMock.mockReturnValue({
+      changes: [],
+      unseen: [],
+      byAppId: new Map(),
+      loading: true,
+      error: null,
+      markSeen: vi.fn(),
+      refetch: vi.fn(),
+    })
+
+    render(<LibraryOverview initialFilter="new-achievements" />)
+    expect(screen.getByText("Loading...")).toBeInTheDocument()
+    expect(screen.queryByText("No games match the current filters.")).not.toBeInTheDocument()
+  })
+
+  it("surfaces the changes load error for the new-achievements filter", () => {
+    useSteamGamesMock.mockReturnValue({
+      games: [buildGame({ appid: 620, name: "Portal 2", unlocked_count: 2, total_count: 3 })],
+      loading: false,
+      isRefreshing: false,
+      lastUpdated: null,
+      error: null,
+      refetch: vi.fn(),
+    })
+    useAchievementChangesMock.mockReturnValue({
+      changes: [],
+      unseen: [],
+      byAppId: new Map(),
+      loading: false,
+      error: "Failed to fetch achievement changes",
+      markSeen: vi.fn(),
+      refetch: vi.fn(),
+    })
+
+    render(<LibraryOverview initialFilter="new-achievements" />)
+    expect(screen.getByText("Failed to fetch achievement changes")).toBeInTheDocument()
+    expect(screen.queryByText("No games match the current filters.")).not.toBeInTheDocument()
+
+    cleanup()
+    // Other filters are unaffected by the changes store failing.
+    render(<LibraryOverview initialFilter="all" />)
+    expect(screen.getByText("Portal 2")).toBeInTheDocument()
+  })
+
+  it("offers the new-achievements option in the completion filter", () => {
+    render(<LibraryOverview />)
+    expect(screen.getByRole("option", { name: "New achievements" })).toBeInTheDocument()
   })
 })

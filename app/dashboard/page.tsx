@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation"
 import { UserProfile } from "@/components/dashboard/user-profile"
 import { RecentGames } from "@/components/dashboard/recent-games"
 import { DashboardInsights } from "@/components/dashboard/dashboard-insights"
+import { AchievementChangesPanel } from "@/components/dashboard/achievement-changes-panel"
 import { PageContainer } from "@/components/ui/page-container"
 import { usePageTitle } from "@/components/ui/page-title-context"
 import { DashboardSkeleton } from "@/components/skeletons/dashboard-skeleton"
@@ -62,6 +63,12 @@ export default function DashboardPage() {
         <div
           className="animate-in fade-in slide-in-from-bottom-4 fill-mode-both"
           style={{ animationDuration: "500ms", animationDelay: "160ms" }}
+        >
+          <AchievementChangesPanel />
+        </div>
+        <div
+          className="animate-in fade-in slide-in-from-bottom-4 fill-mode-both"
+          style={{ animationDuration: "500ms", animationDelay: "240ms" }}
         >
           <RecentGames />
         </div>

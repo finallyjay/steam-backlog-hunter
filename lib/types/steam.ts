@@ -72,3 +72,21 @@ export interface AchievementChangeView {
 export type AchievementChangesResponse = {
   changes: AchievementChangeView[]
 }
+
+/**
+ * Per-game rollup of a user's *unseen* achievement changes, used for card
+ * badges, the library filter and the detail-page banner.
+ */
+export interface AchievementChangeSummary {
+  appId: number
+  /** Total apinames added across all unseen changes for the game. */
+  added: number
+  /** Total apinames retired across all unseen changes for the game. */
+  removed: number
+  /** true when any unseen change caught the game at 100% before it changed. */
+  wasPerfect: boolean
+  /** Ids of the unseen change rows, for marking them seen in one call. */
+  ids: number[]
+  /** Added apinames, so the detail page can flag the individual rows. */
+  addedApinames: string[]
+}

@@ -8,24 +8,26 @@ import { InputFrame } from "@/components/ui/input-frame"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { SurfaceCard } from "@/components/ui/surface-card"
+import { useAchievementChanges } from "@/hooks/use-achievement-changes"
 import { useSteamAchievementsBatch, useSteamGames } from "@/hooks/use-steam-data"
 import { getSteamHeaderImageUrl } from "@/lib/steam-image-urls"
 import { buildGamesWithStats, mapOwnedGamesToGameCards, sortGames } from "@/lib/games-mapping"
 import type { SteamGameCardModel } from "@/lib/types/steam"
 
 type GamesOrder = "completed" | "alphabetical" | "achievementsAsc" | "achievementsDesc"
-type GamesState = "all" | "started" | "perfect" | "notstarted"
+type GamesState = "all" | "started" | "perfect" | "notstarted" | "new-achievements"
 type PlayedFilter = "all" | "played" | "notplayed"
 type AchievementScope = "with" | "without" | "all"
 
 const VALID_ORDERS: GamesOrder[] = ["completed", "alphabetical", "achievementsAsc", "achievementsDesc"]
-const VALID_STATES: GamesState[] = ["all", "started", "perfect", "notstarted"]
+const VALID_STATES: GamesState[] = ["all", "started", "perfect", "notstarted", "new-achievements"]
 
 const STATE_OPTIONS: { value: GamesState; label: string }[] = [
   { value: "all", label: "All states" },
   { value: "started", label: "In Progress" },
   { value: "perfect", label: "Perfect" },
   { value: "notstarted", label: "Not Started" },
+  { value: "new-achievements", label: "New achievements" },
 ]
 
 const PLAYED_OPTIONS: { value: PlayedFilter; label: string }[] = [
@@ -65,6 +67,7 @@ export function LibraryOverview({
   initialPlayed,
 }: LibraryOverviewProps = {}) {
   const { games: ownedGames, loading, error } = useSteamGames("all")
+  const { byAppId: changesByAppId, loading: changesLoading, error: changesError } = useAchievementChanges()
 
   const parsedState = VALID_STATES.includes(initialFilter as GamesState) ? (initialFilter as GamesState) : "all"
   const parsedOrder = VALID_ORDERS.includes(initialOrder as GamesOrder) ? (initialOrder as GamesOrder) : "completed"
@@ -147,6 +150,9 @@ export function LibraryOverview({
       case "notstarted":
         filtered = filtered.filter((game) => game.totalAchievements > 0 && game.percent === 0)
         break
+      case "new-achievements":
+        filtered = filtered.filter((game) => changesByAppId.has(game.id))
+        break
     }
 
     // Played filter: a game counts as "played" if Steam reports any playtime
@@ -169,7 +175,7 @@ export function LibraryOverview({
     }
 
     return filtered
-  }, [gamesWithStats, state, achievementScope, playedFilter, locallyHidden, search])
+  }, [gamesWithStats, state, achievementScope, playedFilter, locallyHidden, search, changesByAppId])
 
   const PAGE_SIZE = 30
   const [page, setPage] = useState(0)
@@ -198,7 +204,12 @@ export function LibraryOverview({
   const displayedGames = useMemo(() => visibleGames.slice(0, displayCount), [visibleGames, displayCount])
   const hasMore = displayCount < visibleGames.length
 
-  const listLoading = loading || achievementsLoading
+  // The new-achievements filter has nothing to match against until the
+  // changes store has loaded — show the skeleton instead of a false "no games".
+  const listLoading = loading || achievementsLoading || (state === "new-achievements" && changesLoading)
+  // Without the changes store the new-achievements filter has nothing to
+  // match; surface its load failure rather than a misleading "no games".
+  const listError = error ?? (state === "new-achievements" ? changesError : null)
   const totalCount = gamesWithStats.length
   const filteredCount = visibleGames.length
 
@@ -366,8 +377,8 @@ export function LibraryOverview({
             </SurfaceCard>
           ))}
         </div>
-      ) : error ? (
-        <p className="text-destructive py-8 text-center">{error}</p>
+      ) : listError ? (
+        <p className="text-destructive py-8 text-center">{listError}</p>
       ) : visibleGames.length === 0 ? (
         <SurfaceCard variant="empty">
           <p className="text-muted-foreground">No games match the current filters.</p>
@@ -402,6 +413,7 @@ export function LibraryOverview({
                   onHide={handleHideGame}
                   platforms={duplicateNames.has(game.name.trim().toLowerCase()) ? game.platforms : null}
                   releaseYear={duplicateNames.has(game.name.trim().toLowerCase()) ? game.releaseYear : null}
+                  changeSummary={changesByAppId.get(game.id) ?? null}
                 />
               </div>
             )
