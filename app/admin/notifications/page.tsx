@@ -1,8 +1,10 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import { Bell, Check, MessageSquare, Send } from "lucide-react"
+import { Bell, Check, Send } from "lucide-react"
 
+import { DiscordIcon } from "@/components/icons/discord-icon"
+import { TelegramIcon } from "@/components/icons/telegram-icon"
 import { Button } from "@/components/ui/button"
 import { InputFrame } from "@/components/ui/input-frame"
 import { LoadingMessage } from "@/components/ui/loading-message"
@@ -171,7 +173,7 @@ export default function NotificationsAdminPage() {
       <SurfaceCard className="space-y-4">
         <div className="flex items-center justify-between gap-4">
           <h2 className="flex items-center gap-2 font-semibold">
-            <MessageSquare className="h-4 w-4" />
+            <DiscordIcon className="h-4 w-4" />
             Discord
           </h2>
           <div className="flex items-center gap-2 text-sm">
@@ -223,7 +225,7 @@ export default function NotificationsAdminPage() {
       <SurfaceCard className="space-y-4">
         <div className="flex items-center justify-between gap-4">
           <h2 className="flex items-center gap-2 font-semibold">
-            <Send className="h-4 w-4" />
+            <TelegramIcon className="h-4 w-4" />
             Telegram
           </h2>
           <div className="flex items-center gap-2 text-sm">
