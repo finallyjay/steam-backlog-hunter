@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useSyncExternalStore } from "react"
 
+import { useCurrentUser } from "@/hooks/use-current-user"
 import { summarizeUnseenChanges } from "@/lib/achievement-changes-summary"
 import type { AchievementChangesResponse, AchievementChangeView } from "@/lib/types/steam"
 
@@ -20,9 +21,17 @@ type AchievementChangesState = {
    * error for the whole session.
    */
   loaded: boolean
+  /** Steam ID the cached `changes` belong to; a different user resets the store. */
+  forSteamId: string | null
 }
 
-const INITIAL_STATE: AchievementChangesState = { changes: [], loading: true, error: null, loaded: false }
+const INITIAL_STATE: AchievementChangesState = {
+  changes: [],
+  loading: true,
+  error: null,
+  loaded: false,
+  forSteamId: null,
+}
 
 // Module-level store shared by every consumer (layout notifier, dashboard
 // panel, library filter, detail banner) so one fetch serves them all and a
@@ -30,6 +39,7 @@ const INITIAL_STATE: AchievementChangesState = { changes: [], loading: true, err
 const listeners = new Set<() => void>()
 let state: AchievementChangesState = INITIAL_STATE
 let inFlightRequest: Promise<void> | null = null
+let queuedReload: Promise<void> | null = null
 
 function emitState(next: AchievementChangesState) {
   state = next
@@ -52,14 +62,34 @@ function getServerSnapshot() {
 }
 
 /**
- * Loads the user's achievement changes into the shared store.
+ * Loads the given user's achievement changes into the shared store.
  *
- * Deduplicates concurrent callers and skips the request entirely once loaded
- * unless `force` is set (sync completion, visibility, manual refetch).
+ * Deduplicates concurrent callers and skips the request once loaded for the
+ * same user unless `force` is set (sync completion, manual refetch). A
+ * forced load requested while a request is active is queued to run once it
+ * settles, so data invalidated mid-fetch is never missed. Switching users
+ * discards the previous user's cache before fetching.
  */
-export async function loadAchievementChanges(options?: { force?: boolean }): Promise<void> {
-  if (inFlightRequest) return inFlightRequest
-  if (!options?.force && state.loaded) return
+export async function loadAchievementChanges(options: { steamId: string; force?: boolean }): Promise<void> {
+  const { steamId } = options
+  const userChanged = state.forSteamId !== null && state.forSteamId !== steamId
+  const force = Boolean(options.force) || userChanged
+
+  if (inFlightRequest) {
+    if (!force) return inFlightRequest
+    if (!queuedReload) {
+      queuedReload = inFlightRequest.then(() => {
+        queuedReload = null
+        return loadAchievementChanges({ steamId, force: true })
+      })
+    }
+    return queuedReload
+  }
+  if (!force && state.loaded) return
+
+  if (userChanged) {
+    emitState({ ...INITIAL_STATE, forSteamId: steamId })
+  }
 
   inFlightRequest = (async () => {
     let next: AchievementChangeView[] | null = null
@@ -80,9 +110,9 @@ export async function loadAchievementChanges(options?: { force?: boolean }): Pro
       inFlightRequest = null
     }
     if (next) {
-      emitState({ changes: next, loading: false, error: null, loaded: true })
+      emitState({ changes: next, loading: false, error: null, loaded: true, forSteamId: steamId })
     } else {
-      emitState({ ...state, loading: false, error: errorMessage, loaded: false })
+      emitState({ ...state, loading: false, error: errorMessage, loaded: false, forSteamId: steamId })
     }
   })()
 
@@ -90,21 +120,25 @@ export async function loadAchievementChanges(options?: { force?: boolean }): Pro
 }
 
 /**
- * Marks changes as seen, optimistically updating the store and rolling back
- * if the request fails.
+ * Marks changes as seen, optimistically updating the store. On failure only
+ * the rows this call flipped are reverted (a concurrent acknowledgement's
+ * optimistic values are left alone) and a forced reload reconciles the
+ * store with the server.
  *
  * @param ids - Specific change ids; omit to acknowledge every unseen change
  * @returns true when the server accepted the update
  */
 export async function markAchievementChangesSeen(ids?: number[]): Promise<boolean> {
-  const previous = state
   const seenAt = new Date().toISOString()
   const targets = ids === undefined ? null : new Set(ids)
+  const flipped = new Set<number>()
   emitState({
     ...state,
-    changes: state.changes.map((change) =>
-      !change.seenAt && (targets === null || targets.has(change.id)) ? { ...change, seenAt } : change,
-    ),
+    changes: state.changes.map((change) => {
+      if (change.seenAt || (targets !== null && !targets.has(change.id))) return change
+      flipped.add(change.id)
+      return { ...change, seenAt }
+    }),
   })
 
   try {
@@ -118,47 +152,67 @@ export async function markAchievementChangesSeen(ids?: number[]): Promise<boolea
     }
     return true
   } catch {
-    emitState(previous)
+    emitState({
+      ...state,
+      changes: state.changes.map((change) =>
+        flipped.has(change.id) && change.seenAt === seenAt ? { ...change, seenAt: null } : change,
+      ),
+    })
+    if (state.forSteamId) {
+      void loadAchievementChanges({ steamId: state.forSteamId, force: true })
+    }
     return false
   }
 }
 
-/** Test-only: drops cached state so each test starts from a cold store. */
+/** Drops cached state (logout, tests) so the next consumer starts cold. */
 export function resetAchievementChangesStore() {
   inFlightRequest = null
-  state = INITIAL_STATE
-  listeners.forEach((listener) => listener())
+  queuedReload = null
+  emitState(INITIAL_STATE)
 }
 
 /**
- * Subscribes to the user's achievement changes.
+ * Subscribes to the current user's achievement changes.
  *
- * Fetches once per session on first mount, refetches when a Steam sync
- * completes (`steam-data-invalidated`), and exposes the unseen subset plus a
- * per-game rollup for badges and filters.
+ * Fetches once per session per user on first mount, refetches when a Steam
+ * sync completes (`steam-data-invalidated`), resets when the authenticated
+ * user changes or signs out, and exposes the unseen subset plus a per-game
+ * rollup for badges and filters.
  */
 export function useAchievementChanges() {
   const snapshot = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
+  const { user, loading: userLoading } = useCurrentUser()
+  const steamId = user?.steamId ?? null
 
   useEffect(() => {
-    void loadAchievementChanges()
-  }, [])
+    if (steamId) {
+      void loadAchievementChanges({ steamId })
+    } else if (!userLoading && state.forSteamId !== null) {
+      // Signed out: don't keep the previous account's records around.
+      resetAchievementChangesStore()
+    }
+  }, [steamId, userLoading])
 
   useEffect(() => {
+    if (!steamId) return
     function handleInvalidate() {
-      void loadAchievementChanges({ force: true })
+      void loadAchievementChanges({ steamId: steamId as string, force: true })
     }
     window.addEventListener(STEAM_DATA_INVALIDATED_EVENT, handleInvalidate)
     return () => {
       window.removeEventListener(STEAM_DATA_INVALIDATED_EVENT, handleInvalidate)
     }
-  }, [])
+  }, [steamId])
 
   const unseen = useMemo(() => snapshot.changes.filter((change) => !change.seenAt), [snapshot.changes])
   const byAppId = useMemo(() => summarizeUnseenChanges(snapshot.changes), [snapshot.changes])
 
   const markSeen = useCallback((ids?: number[]) => markAchievementChangesSeen(ids), [])
-  const refetch = useCallback(() => loadAchievementChanges({ force: true }), [])
+  const refetch = useCallback(
+    () => (steamId ? loadAchievementChanges({ steamId, force: true }) : Promise.resolve()),
+    [steamId],
+  )
 
   return {
     changes: snapshot.changes,

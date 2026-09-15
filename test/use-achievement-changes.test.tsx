@@ -4,6 +4,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import type { AchievementChangeView } from "@/lib/types/steam"
 
+const { currentUserMock } = vi.hoisted(() => ({
+  currentUserMock: { user: { steamId: "76561198023709299" } as { steamId: string } | null, loading: false },
+}))
+
+vi.mock("@/hooks/use-current-user", () => ({
+  useCurrentUser: () => currentUserMock,
+}))
+
 const ORIGINAL_FETCH = globalThis.fetch
 
 function ok(body: unknown) {
@@ -32,6 +40,8 @@ function change(overrides: Partial<AchievementChangeView>): AchievementChangeVie
 
 beforeEach(() => {
   vi.resetModules()
+  currentUserMock.user = { steamId: "76561198023709299" }
+  currentUserMock.loading = false
 })
 
 afterEach(() => {
@@ -153,6 +163,86 @@ describe("useAchievementChanges", () => {
     })
     expect(accepted).toBe(false)
     expect(result.current.unseen).toHaveLength(1)
+  })
+
+  it("reverts only the rows this call flipped when the server rejects", async () => {
+    // Server-side truth: ids acknowledged by a successful PATCH stay seen on
+    // the next GET, so the reconciling reload after a failure keeps them.
+    const serverSeen = new Set<number>()
+    globalThis.fetch = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === "PATCH") {
+        const { ids } = JSON.parse(String(init.body)) as { ids: number[] }
+        if (ids[0] === 1) return err(500)
+        for (const id of ids) serverSeen.add(id)
+        return ok({ updated: ids.length })
+      }
+      return ok({
+        changes: [change({ id: 1 }), change({ id: 2, appId: 730 })].map((c) =>
+          serverSeen.has(c.id) ? { ...c, seenAt: "2026-09-15T00:00:00.000Z" } : c,
+        ),
+      })
+    }) as unknown as typeof fetch
+    const { useAchievementChanges } = await import("@/hooks/use-achievement-changes")
+
+    const { result } = renderHook(() => useAchievementChanges())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    await act(async () => {
+      await Promise.all([result.current.markSeen([1]), result.current.markSeen([2])])
+    })
+    // Row 1's failure must not undo row 2's successful acknowledgement,
+    // neither in the optimistic rollback nor after the reconciling reload.
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.changes.find((c) => c.id === 1)?.seenAt).toBeNull()
+    expect(result.current.changes.find((c) => c.id === 2)?.seenAt).not.toBeNull()
+  })
+
+  it("resets and refetches when the authenticated user changes, and clears on sign-out", async () => {
+    const fetchMock = vi.fn(async () => ok({ changes: [change({ id: 1 })] }))
+    globalThis.fetch = fetchMock as unknown as typeof fetch
+    const { useAchievementChanges } = await import("@/hooks/use-achievement-changes")
+
+    const { result, rerender } = renderHook(() => useAchievementChanges())
+    await waitFor(() => expect(result.current.changes).toHaveLength(1))
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+
+    currentUserMock.user = { steamId: "76561198000000009" }
+    rerender()
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    currentUserMock.user = null
+    rerender()
+    await waitFor(() => expect(result.current.changes).toHaveLength(0))
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it("queues a forced reload requested while the initial fetch is in flight", async () => {
+    let release: () => void = () => {}
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    let calls = 0
+    globalThis.fetch = vi.fn(async () => {
+      calls++
+      if (calls === 1) {
+        await gate
+        return ok({ changes: [] })
+      }
+      return ok({ changes: [change({ id: 1 })] })
+    }) as unknown as typeof fetch
+    const { useAchievementChanges } = await import("@/hooks/use-achievement-changes")
+
+    const { result } = renderHook(() => useAchievementChanges())
+    // Sync finishes while the first request is still pending.
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent("steam-data-invalidated"))
+      window.dispatchEvent(new CustomEvent("steam-data-invalidated"))
+    })
+    release()
+    await waitFor(() => expect(result.current.changes).toHaveLength(1))
+    // Exactly one queued reload, not one per event.
+    expect(calls).toBe(2)
   })
 
   it("refetches when steam data is invalidated", async () => {
