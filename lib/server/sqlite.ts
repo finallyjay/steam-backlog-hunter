@@ -270,7 +270,8 @@ function createBaseSchema(db: DatabaseSync) {
     CREATE INDEX IF NOT EXISTS idx_stats_snapshot_steam_id ON stats_snapshot(steam_id);
     CREATE INDEX IF NOT EXISTS idx_extra_games_steam_id ON extra_games(steam_id);
     CREATE INDEX IF NOT EXISTS idx_achievement_changes_steam_id_seen ON achievement_changes(steam_id, seen_at);
-    CREATE INDEX IF NOT EXISTS idx_achievement_changes_scan ON achievement_changes(scan_started_at);
+    -- idx_achievement_changes_scan is created in applyAdditiveMigrations, after
+    -- the scan_started_at column is guaranteed to exist on older databases.
   `)
 }
 

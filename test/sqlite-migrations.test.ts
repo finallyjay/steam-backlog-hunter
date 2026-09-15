@@ -32,6 +32,42 @@ afterEach(() => {
   rmSync(tmpDir, { recursive: true, force: true })
 })
 
+describe("additive migrations on pre-existing tables", () => {
+  it("opens a database whose achievement_changes table predates scan_started_at", async () => {
+    // Shape of the table as created by #328, before the scan attribution
+    // column existed. The base schema's CREATE TABLE IF NOT EXISTS must not
+    // reference the new column in an index, or opening this file throws.
+    const { DatabaseSync } = await import("node:sqlite")
+    const legacy = new DatabaseSync(process.env.SQLITE_PATH as string)
+    legacy.exec(`
+      CREATE TABLE achievement_changes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        steam_id TEXT NOT NULL,
+        appid INTEGER NOT NULL,
+        added TEXT NOT NULL,
+        removed TEXT NOT NULL,
+        total_before INTEGER,
+        total_after INTEGER NOT NULL,
+        was_perfect INTEGER NOT NULL DEFAULT 0,
+        detected_at TEXT NOT NULL,
+        seen_at TEXT
+      );
+    `)
+    legacy.close()
+
+    const { getSqliteDatabase } = await import("@/lib/server/sqlite")
+    const db = getSqliteDatabase()
+    const columns = (db.prepare("PRAGMA table_info(achievement_changes)").all() as Array<{ name: string }>).map(
+      (c) => c.name,
+    )
+    expect(columns).toContain("scan_started_at")
+    const indexes = (db.prepare("PRAGMA index_list(achievement_changes)").all() as Array<{ name: string }>).map(
+      (i) => i.name,
+    )
+    expect(indexes).toContain("idx_achievement_changes_scan")
+  })
+})
+
 describe("versioned migrations", () => {
   it("bumps PRAGMA user_version to the latest migration after first open", async () => {
     const { getSqliteDatabase } = await import("@/lib/server/sqlite")
