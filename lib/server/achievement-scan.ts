@@ -6,6 +6,8 @@ import { syncGameAchievements } from "@/lib/server/steam-achievements-sync"
 import { nowIso } from "@/lib/server/steam-store-utils"
 import { invalidateStatsCache } from "@/lib/steam-stats"
 import { getSteamWhitelist } from "@/lib/whitelist"
+import { notifyScanResult, type ScanNotificationStatus } from "@/lib/server/scan-notifier"
+import { runWithScanContext } from "@/lib/server/scan-context"
 import { logger } from "@/lib/server/logger"
 
 const SCAN_CONCURRENCY = 4
@@ -38,6 +40,8 @@ export type AchievementScanResult = {
   changesDetected: number
   failures: number
   users: AchievementScanUserResult[]
+  /** Per-channel delivery status of the outbound summary (see scan-notifier). */
+  notifications: ScanNotificationStatus
 }
 
 export type AchievementScanMeta = {
@@ -158,11 +162,12 @@ export function listScanGames(steamId: string, maxGames?: number): number[] {
   return rows.map((row) => row.appid)
 }
 
-function countChangesSince(steamId: string, sinceIso: string): number {
+/** Changes this scan recorded for the user (rows tagged with its startedAt via the scan context). */
+function countChangesForScan(steamId: string, scanStartedAt: string): number {
   const db = getSqliteDatabase()
   const row = db
-    .prepare(`SELECT COUNT(*) AS n FROM achievement_changes WHERE steam_id = ? AND detected_at >= ?`)
-    .get(steamId, sinceIso) as { n: number }
+    .prepare(`SELECT COUNT(*) AS n FROM achievement_changes WHERE steam_id = ? AND scan_started_at = ?`)
+    .get(steamId, scanStartedAt) as { n: number }
   return row.n
 }
 
@@ -207,7 +212,7 @@ async function scanUser(steamId: string, startedAt: string, maxGames?: number): 
   return {
     steamId,
     gamesScanned: appIds.length,
-    changesDetected: countChangesSince(steamId, startedAt),
+    changesDetected: countChangesForScan(steamId, startedAt),
     failures,
   }
 }
@@ -222,6 +227,7 @@ function summarize(startedAt: string, startedMs: number, results: AchievementSca
     changesDetected: results.reduce((sum, r) => sum + r.changesDetected, 0),
     failures: results.reduce((sum, r) => sum + r.failures, 0),
     users: results,
+    notifications: { discord: "skipped", telegram: "skipped" },
   }
 }
 
@@ -254,6 +260,9 @@ async function doRunAchievementScan(
 
   const result = summarize(startedAt, startedMs, results)
   writeScanMeta(result)
+  // Outbound summary (Discord/Telegram) only when something changed; the
+  // notifier never throws, so a delivery problem can't fail the scan.
+  result.notifications = await notifyScanResult(result)
   logger.info(
     {
       usersScanned: result.usersScanned,
@@ -291,7 +300,9 @@ export async function runAchievementScan(options?: { maxGamesPerUser?: number })
   if (!tryAcquireScanLease(startedAt)) {
     throw new ScanInProgressError()
   }
-  inFlightScan = doRunAchievementScan(startedAt, options).finally(() => {
+  // Every async continuation inside the scan sees this context, so the
+  // achievement_changes rows it records are attributed to this run.
+  inFlightScan = runWithScanContext(startedAt, () => doRunAchievementScan(startedAt, options)).finally(() => {
     inFlightScan = null
   })
   return inFlightScan
