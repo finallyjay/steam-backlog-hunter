@@ -126,7 +126,7 @@ describe("ensureSchema", () => {
     mockSteamApi({ getGameSchema: getSchema })
     await seedProfileAndGame()
     const { ensureSchema } = await import("@/lib/server/steam-achievements-sync")
-    await expect(ensureSchema(APPID)).resolves.toBeUndefined()
+    await expect(ensureSchema(APPID)).resolves.toBe(true)
   })
 
   it("skips achievements with an empty name", async () => {

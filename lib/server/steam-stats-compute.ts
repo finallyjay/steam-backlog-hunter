@@ -1,7 +1,6 @@
 import "server-only"
 
 import type { SteamStatsResponse } from "@/lib/types/steam"
-import { getPlayerAchievements } from "@/lib/steam-api"
 import { getSqliteDatabase } from "@/lib/server/sqlite"
 import { isStale, upsertProfile, getProfileSync, roundPercent } from "@/lib/server/steam-store-utils"
 import {
@@ -12,9 +11,8 @@ import {
 import { logger } from "@/lib/server/logger"
 import {
   ACHIEVEMENTS_STALE_MS,
-  ensureSchema,
   getStoredAchievements,
-  persistAchievements,
+  syncGameAchievements,
 } from "@/lib/server/steam-achievements-sync"
 
 export const OWNED_GAMES_STALE_MS = 24 * 60 * 60 * 1000
@@ -232,11 +230,7 @@ async function doSyncAchievementsForStats(
       if (index >= stale.length) return
       const game = stale[index]
       try {
-        const [playerAchievements] = await Promise.all([
-          getPlayerAchievements(steamId, game.appid),
-          ensureSchema(game.appid),
-        ])
-        persistAchievements(steamId, game.appid, playerAchievements?.achievements ?? [])
+        await syncGameAchievements(steamId, game.appid)
       } catch (error) {
         logger.warn({ err: error, appId: game.appid }, "Per-game achievements sync failed — will retry on next sync")
       }

@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Achievement change detection (#325). When Steam's achievement set for a game differs from
+  the stored schema (post-launch additions or retired achievements), the diff is recorded per
+  owning user in a new `achievement_changes` table, retired apinames are removed from
+  `game_achievements`/`user_achievements` instead of lingering as permanently-locked ghosts,
+  and the schema is force-refreshed in the same sync when the player payload reveals apinames
+  the stored schema lacks (previously the counters could say 51/52 for up to 30 days while the
+  game page still listed 51). New `GET /api/steam/achievements/changes` (`?unseen=1`) and
+  `PATCH /api/steam/achievements/changes` (mark seen) endpoints expose the log for the UI.
 - Explicit HTTP 429 handling in the Steam API client (`lib/steam-api.ts`): rate-limited
   requests are now retried with exponential backoff, honouring the `Retry-After` header in
   full when Valve sends one (only the exponential fallback is capped). Previously a 429 was
