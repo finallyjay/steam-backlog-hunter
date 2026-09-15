@@ -234,6 +234,19 @@ function createBaseSchema(db: DatabaseSync) {
       FOREIGN KEY (appid) REFERENCES games(appid)
     );
 
+    -- Single-row record of the last scheduled achievement scan
+    -- (POST /api/cron/achievements-scan). finished_at is NULL while a scan
+    -- is in progress. Lets operators confirm the cron is actually firing.
+    CREATE TABLE IF NOT EXISTS achievement_scan_meta (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      started_at TEXT NOT NULL,
+      finished_at TEXT,
+      users_scanned INTEGER NOT NULL DEFAULT 0,
+      games_scanned INTEGER NOT NULL DEFAULT 0,
+      changes_detected INTEGER NOT NULL DEFAULT 0,
+      failures INTEGER NOT NULL DEFAULT 0
+    );
+
     CREATE INDEX IF NOT EXISTS idx_user_games_steam_id ON user_games(steam_id);
     CREATE INDEX IF NOT EXISTS idx_user_games_steam_id_owned ON user_games(steam_id, owned);
     CREATE INDEX IF NOT EXISTS idx_stats_snapshot_steam_id ON stats_snapshot(steam_id);

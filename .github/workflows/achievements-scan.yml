@@ -1,0 +1,49 @@
+name: Achievements scan
+
+# Calls POST /api/cron/achievements-scan on the deployed app once a day so
+# games that gained or retired achievements are detected without anyone
+# opening the app. Requires two repository secrets:
+#
+#   ACHIEVEMENTS_SCAN_URL  public origin of the deployment, e.g. https://steam.example.com
+#   CRON_SECRET            same value as the app's CRON_SECRET env var
+#
+# When either is missing the job exits successfully without calling anything,
+# so forks and fresh clones don't get a red run every morning.
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+    inputs:
+      maxGamesPerUser:
+        description: "Optional cap on games visited per user (1-5000)"
+        required: false
+        type: string
+
+permissions: {}
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Trigger scan
+        env:
+          APP_URL: ${{ secrets.ACHIEVEMENTS_SCAN_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          MAX_GAMES_PER_USER: ${{ inputs.maxGamesPerUser }}
+        run: |
+          if [ -z "$APP_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "::notice::ACHIEVEMENTS_SCAN_URL or CRON_SECRET secret is not set; skipping scan."
+            exit 0
+          fi
+          if [ -n "$MAX_GAMES_PER_USER" ]; then
+            body="{\"maxGamesPerUser\": $MAX_GAMES_PER_USER}"
+          else
+            body="{}"
+          fi
+          curl --fail-with-body -sS --max-time 2100 \
+            -X POST "${APP_URL%/}/api/cron/achievements-scan" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -H "Content-Type: application/json" \
+            -d "$body"

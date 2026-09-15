@@ -15,6 +15,9 @@ const envSchema = z
     // secret) so sessions are signed out of the box — see the superRefine
     // below, which enforces the production requirement.
     SESSION_SECRET: z.string().optional(),
+    // Bearer token for the scheduled achievement scan endpoint
+    // (POST /api/cron/achievements-scan). Unset = endpoint disabled (503).
+    CRON_SECRET: z.string().min(16, "CRON_SECRET must be at least 16 characters").optional(),
     NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   })
   .superRefine((data, ctx) => {
