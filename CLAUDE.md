@@ -40,7 +40,7 @@ Next.js 16 App Router with React 19, TypeScript strict mode, Tailwind CSS 4, sha
 - `auth/steam/` — Steam OpenID 2.0 login flow with CSRF nonce, whitelist enforcement, rate limiting; fetches level and badges at login
 - `steam/games`, `steam/games/hide`, `steam/achievements`, `steam/achievements/changes`, `steam/stats`, `steam/sync`, `steam/game/[id]`, `steam/game/[id]/sync`, `steam/extras`, `steam/extras/[id]` — data endpoints; all require authenticated session via `steam_user` httpOnly cookie
 - `admin/users`, `admin/pinned-games`, `admin/orphan-names` — admin-only endpoints gated by `requireAdmin()`
-- `cron/achievements-scan` — `POST` runs the scan, `GET` reports the last run; no session, authenticated with `Authorization: Bearer $CRON_SECRET` (503 when unset). Triggered by `.github/workflows/achievements-scan.yml` or any external scheduler
+- `cron/achievements-scan` — `POST` runs the scan, `GET` reports the last run; no session, authenticated with `Authorization: Bearer $CRON_SECRET` (503 when unset). Triggered by an external scheduler (Dokploy schedule in production); `.github/workflows/achievements-scan.yml` is a manual-only example
 - `health/` — infrastructure health check (no auth)
 
 ### Client state (`hooks/`)
