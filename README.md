@@ -231,9 +231,10 @@ on a schedule:
    games first, then in-progress, then not started, so a cap still covers what matters most.
    `GET` with the same header returns the last run and whether a scan is in progress.
 
-The repo ships `.github/workflows/achievements-scan.yml`, which does this daily from GitHub
-Actions when the `ACHIEVEMENTS_SCAN_URL` and `CRON_SECRET` repository secrets are set (it
-skips silently otherwise). Any system cron or hosting scheduler that can run `curl` works too.
+Any system cron or hosting scheduler that can run `curl` works (this deployment uses a Dokploy
+schedule). `.github/workflows/achievements-scan.yml` is a manual-only example of doing the same
+from GitHub Actions: add a `schedule` trigger and the `ACHIEVEMENTS_SCAN_URL` and `CRON_SECRET`
+repository secrets to run it daily.
 
 ## Contributing
 

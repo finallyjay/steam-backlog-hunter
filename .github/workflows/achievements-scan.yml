@@ -1,18 +1,21 @@
 name: Achievements scan
 
-# Calls POST /api/cron/achievements-scan on the deployed app once a day so
-# games that gained or retired achievements are detected without anyone
-# opening the app. Requires two repository secrets:
+# Example of triggering POST /api/cron/achievements-scan from GitHub Actions.
+# This repo's deployment schedules the scan from the hosting platform instead,
+# so the workflow is manual-only (Run workflow button). To run it daily from
+# GitHub, add a schedule trigger, e.g.:
+#
+#   schedule:
+#     - cron: "0 6 * * *"
+#
+# Requires two repository secrets:
 #
 #   ACHIEVEMENTS_SCAN_URL  public origin of the deployment, e.g. https://steam.example.com
 #   CRON_SECRET            same value as the app's CRON_SECRET env var
 #
-# When either is missing the job exits successfully without calling anything,
-# so forks and fresh clones don't get a red run every morning.
+# When either is missing the job exits successfully without calling anything.
 
 on:
-  schedule:
-    - cron: "0 6 * * *"
   workflow_dispatch:
     inputs:
       maxGamesPerUser:

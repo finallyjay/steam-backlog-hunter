@@ -28,9 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   re-syncs achievements for every whitelisted user with a completed library sync so schema
   changes are detected without anyone opening the app. Games are visited perfect → in-progress
   → not started with an optional `maxGamesPerUser` cap, one run at a time (409 while busy), and
-  the last run is recorded in `achievement_scan_meta` (readable via `GET`). A GitHub Actions
-  workflow (`achievements-scan.yml`) calls it daily when the `ACHIEVEMENTS_SCAN_URL` and
-  `CRON_SECRET` secrets are set.
+  the last run is recorded in `achievement_scan_meta` (readable via `GET`). A manual-only
+  GitHub Actions workflow (`achievements-scan.yml`) is included as an example scheduler.
 - Explicit HTTP 429 handling in the Steam API client (`lib/steam-api.ts`): rate-limited
   requests are now retried with exponential backoff, honouring the `Retry-After` header in
   full when Valve sends one (only the exponential fallback is capped). Previously a 429 was
