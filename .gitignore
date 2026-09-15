@@ -60,6 +60,7 @@ dist/
 .pnpm-store/
 
 # Claude Code skill bundles (installed locally via autoskills or similar)
-.claude/skills/
+.claude/skills/*
+!.claude/skills/release/
 .claude/settings.local.json
 skills-lock.json

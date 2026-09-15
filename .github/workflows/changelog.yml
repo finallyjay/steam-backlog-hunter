@@ -1,0 +1,39 @@
+name: Changelog
+
+# Fails feature and fix PRs that do not touch CHANGELOG.md, so the
+# `Unreleased` section always reflects what has shipped and cutting a
+# release is a matter of moving it. Add the `skip-changelog` label when a
+# feat/fix genuinely has nothing user-facing to record.
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  entry:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require a CHANGELOG entry for feat/fix PRs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITLE: ${{ github.event.pull_request.title }}
+          LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          if ! printf '%s' "$TITLE" | grep -Eq '^(feat|fix)(\([^)]*\))?!?:'; then
+            echo "Title is not feat/fix; no changelog entry required."
+            exit 0
+          fi
+          case ",$LABELS," in
+            *,skip-changelog,*) echo "skip-changelog label present."; exit 0 ;;
+          esac
+          if gh api "repos/$REPO/pulls/$PR/files" --paginate --jq '.[].filename' | grep -qx 'CHANGELOG.md'; then
+            echo "CHANGELOG.md updated."
+            exit 0
+          fi
+          echo "::error::feat/fix PRs must add an entry under 'Unreleased' in CHANGELOG.md (or carry the skip-changelog label)."
+          exit 1
