@@ -30,6 +30,14 @@ describe("AdminSubNav", () => {
     render(<AdminSubNav />)
     expect(screen.getByRole("link", { name: /Users/i })).toHaveAttribute("href", "/admin")
     expect(screen.getByRole("link", { name: /Orphan names/i })).toHaveAttribute("href", "/admin/orphan-names")
+    expect(screen.getByRole("link", { name: /Notifications/i })).toHaveAttribute("href", "/admin/notifications")
+  })
+
+  it("marks the Notifications tab active when on /admin/notifications", () => {
+    pathnameRef.current = "/admin/notifications"
+    render(<AdminSubNav />)
+    expect(screen.getByRole("link", { name: /Notifications/i }).className).toContain("bg-accent")
+    expect(screen.getByRole("link", { name: /Users/i }).className).not.toContain("bg-accent")
   })
 
   it("marks the Users tab active when on /admin", () => {

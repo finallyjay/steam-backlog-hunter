@@ -65,6 +65,7 @@ const sampleResult = {
   changesDetected: 2,
   failures: 0,
   users: [],
+  notifications: { discord: "skipped" as const, telegram: "skipped" as const },
 }
 
 beforeEach(() => {

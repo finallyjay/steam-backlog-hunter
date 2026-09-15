@@ -247,6 +247,20 @@ function createBaseSchema(db: DatabaseSync) {
       failures INTEGER NOT NULL DEFAULT 0
     );
 
+    -- Single-row outbound notification config edited from /admin/notifications.
+    -- Secrets (webhook URL, bot token) are stored encrypted by
+    -- lib/server/secret-box.ts; the other columns are plain.
+    CREATE TABLE IF NOT EXISTS notification_settings (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      discord_enabled INTEGER NOT NULL DEFAULT 0,
+      discord_webhook_url_enc TEXT,
+      telegram_enabled INTEGER NOT NULL DEFAULT 0,
+      telegram_bot_token_enc TEXT,
+      telegram_chat_id TEXT,
+      telegram_thread_id TEXT,
+      updated_at TEXT NOT NULL
+    );
+
     CREATE INDEX IF NOT EXISTS idx_user_games_steam_id ON user_games(steam_id);
     CREATE INDEX IF NOT EXISTS idx_user_games_steam_id_owned ON user_games(steam_id, owned);
     CREATE INDEX IF NOT EXISTS idx_stats_snapshot_steam_id ON stats_snapshot(steam_id);

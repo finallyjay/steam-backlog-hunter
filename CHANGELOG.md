@@ -30,6 +30,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   → not started with an optional `maxGamesPerUser` cap, one run at a time (409 while busy), and
   the last run is recorded in `achievement_scan_meta` (readable via `GET`). A manual-only
   GitHub Actions workflow (`achievements-scan.yml`) is included as an example scheduler.
+- Discord and Telegram notifications from the scheduled scan (#333), configured in a new
+  `/admin/notifications` tab: enable each channel independently, store the webhook URL / bot
+  token (encrypted at rest with `SESSION_SECRET`, never shown again) plus the Telegram chat id
+  and optional topic/thread id, and send a test message. When a scan detects changes it posts
+  a per-game summary; delivery never fails the scan and the scan response carries a
+  per-channel `notifications` status.
 - Explicit HTTP 429 handling in the Steam API client (`lib/steam-api.ts`): rate-limited
   requests are now retried with exponential backoff, honouring the `Retry-After` header in
   full when Valve sends one (only the exponential fallback is capped). Previously a 429 was

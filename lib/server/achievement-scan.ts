@@ -6,6 +6,7 @@ import { syncGameAchievements } from "@/lib/server/steam-achievements-sync"
 import { nowIso } from "@/lib/server/steam-store-utils"
 import { invalidateStatsCache } from "@/lib/steam-stats"
 import { getSteamWhitelist } from "@/lib/whitelist"
+import { notifyScanResult, type ScanNotificationStatus } from "@/lib/server/scan-notifier"
 import { logger } from "@/lib/server/logger"
 
 const SCAN_CONCURRENCY = 4
@@ -38,6 +39,8 @@ export type AchievementScanResult = {
   changesDetected: number
   failures: number
   users: AchievementScanUserResult[]
+  /** Per-channel delivery status of the outbound summary (see scan-notifier). */
+  notifications: ScanNotificationStatus
 }
 
 export type AchievementScanMeta = {
@@ -222,6 +225,7 @@ function summarize(startedAt: string, startedMs: number, results: AchievementSca
     changesDetected: results.reduce((sum, r) => sum + r.changesDetected, 0),
     failures: results.reduce((sum, r) => sum + r.failures, 0),
     users: results,
+    notifications: { discord: "skipped", telegram: "skipped" },
   }
 }
 
@@ -254,6 +258,9 @@ async function doRunAchievementScan(
 
   const result = summarize(startedAt, startedMs, results)
   writeScanMeta(result)
+  // Outbound summary (Discord/Telegram) only when something changed; the
+  // notifier never throws, so a delivery problem can't fail the scan.
+  result.notifications = await notifyScanResult(result)
   logger.info(
     {
       usersScanned: result.usersScanned,

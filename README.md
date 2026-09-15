@@ -231,6 +231,12 @@ on a schedule:
    games first, then in-progress, then not started, so a cap still covers what matters most.
    `GET` with the same header returns the last run and whether a scan is in progress.
 
+3. Optionally get told about it: in `/admin/notifications` enable Discord (incoming webhook)
+   and/or Telegram (bot token + chat id, with an optional topic/thread id) and the scan posts a
+   per-game summary (`+N new`, `N retired`, `was 100%`) whenever it detects changes. Secrets are
+   stored encrypted with `SESSION_SECRET`; "Send test" checks a channel end to end. Delivery
+   status is included in the scan response.
+
 Any system cron or hosting scheduler that can run `curl` works (this deployment uses a Dokploy
 schedule). `.github/workflows/achievements-scan.yml` is a manual-only example of doing the same
 from GitHub Actions: add a `schedule` trigger and the `ACHIEVEMENTS_SCAN_URL` and `CRON_SECRET`

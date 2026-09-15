@@ -20,6 +20,14 @@ vi.mock("@/lib/server/logger", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }))
 
+const { notifyScanResultMock } = vi.hoisted(() => ({
+  notifyScanResultMock: vi.fn(async (_summary: unknown) => ({ discord: "sent", telegram: "skipped" })),
+}))
+
+vi.mock("@/lib/server/scan-notifier", () => ({
+  notifyScanResult: notifyScanResultMock,
+}))
+
 const ALLOWED = "76561198023709299"
 const REVOKED = "76561198000000002"
 const NEVER_SYNCED = "76561198000000003"
@@ -201,6 +209,12 @@ describe("runAchievementScan", () => {
     const meta = getLastAchievementScan()
     expect(meta).toMatchObject({ usersScanned: 1, gamesScanned: 2, changesDetected: 1, failures: 0 })
     expect(meta?.finishedAt).not.toBeNull()
+
+    // The outbound summary is dispatched with the finished run and its
+    // delivery status is surfaced on the result.
+    expect(notifyScanResultMock).toHaveBeenCalledTimes(1)
+    expect(notifyScanResultMock.mock.calls[0]?.[0]).toMatchObject({ changesDetected: 1, gamesScanned: 2 })
+    expect(result.notifications).toEqual({ discord: "sent", telegram: "skipped" })
   })
 
   it("counts per-game failures without aborting and respects maxGamesPerUser", async () => {
@@ -300,9 +314,11 @@ describe("runAchievementScan", () => {
     mockSteamApi({ getPlayerAchievements: getPlayer })
 
     const { runAchievementScan } = await import("@/lib/server/achievement-scan")
+    notifyScanResultMock.mockResolvedValueOnce({ discord: "skipped", telegram: "skipped" })
     const result = await runAchievementScan()
     expect(result.usersScanned).toBe(0)
     expect(result.gamesScanned).toBe(0)
     expect(getPlayer).not.toHaveBeenCalled()
+    expect(result.notifications).toEqual({ discord: "skipped", telegram: "skipped" })
   })
 })

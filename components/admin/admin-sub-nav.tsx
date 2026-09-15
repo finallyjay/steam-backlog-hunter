@@ -2,11 +2,12 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Users, Tag } from "lucide-react"
+import { Users, Tag, Bell } from "lucide-react"
 
 const TABS = [
   { href: "/admin", label: "Users", icon: Users },
   { href: "/admin/orphan-names", label: "Orphan names", icon: Tag },
+  { href: "/admin/notifications", label: "Notifications", icon: Bell },
 ] as const
 
 export function AdminSubNav() {
