@@ -10,6 +10,17 @@ import { logger } from "@/lib/server/logger"
 
 const SCAN_CONCURRENCY = 4
 export const MAX_GAMES_PER_USER_CAP = 5000
+// A lease older than this with finished_at still NULL is treated as abandoned
+// (process crashed mid-scan) and may be taken over.
+export const SCAN_LEASE_STALE_MS = 2 * 60 * 60 * 1000
+
+/** Thrown by `runAchievementScan` when another process holds the scan lease. */
+export class ScanInProgressError extends Error {
+  constructor() {
+    super("An achievement scan is already running")
+    this.name = "ScanInProgressError"
+  }
+}
 
 export type AchievementScanUserResult = {
   steamId: string
@@ -49,9 +60,48 @@ type ScanMetaRow = {
 
 let inFlightScan: Promise<AchievementScanResult> | null = null
 
-/** True while a scan started by this process is still running. */
+function leaseCutoffIso(now = Date.now()): string {
+  return new Date(now - SCAN_LEASE_STALE_MS).toISOString()
+}
+
+/**
+ * True while a scan is running: either started by this process, or recorded
+ * in `achievement_scan_meta` by any process sharing the database with
+ * `finished_at` still NULL and a start time within the stale-lease window.
+ */
 export function isAchievementScanRunning(): boolean {
-  return inFlightScan !== null
+  if (inFlightScan !== null) return true
+  const db = getSqliteDatabase()
+  const row = db
+    .prepare(`SELECT 1 FROM achievement_scan_meta WHERE id = 1 AND finished_at IS NULL AND started_at > ?`)
+    .get(leaseCutoffIso())
+  return row !== undefined
+}
+
+/**
+ * Atomically claims the single `achievement_scan_meta` row as "running".
+ * Succeeds when no row exists, the previous scan finished, or the previous
+ * lease is stale. Returns false when another scan holds a live lease.
+ */
+function tryAcquireScanLease(startedAt: string): boolean {
+  const db = getSqliteDatabase()
+  const result = db
+    .prepare(
+      `
+      INSERT INTO achievement_scan_meta (id, started_at, finished_at, users_scanned, games_scanned, changes_detected, failures)
+      VALUES (1, ?, NULL, 0, 0, 0, 0)
+      ON CONFLICT(id) DO UPDATE SET
+        started_at = excluded.started_at,
+        finished_at = NULL,
+        users_scanned = 0,
+        games_scanned = 0,
+        changes_detected = 0,
+        failures = 0
+      WHERE achievement_scan_meta.finished_at IS NOT NULL OR achievement_scan_meta.started_at <= ?
+    `,
+    )
+    .run(startedAt, leaseCutoffIso())
+  return Number(result.changes) === 1
 }
 
 /** Last recorded scan (from any process sharing the database), or null if none ran yet. */
@@ -162,23 +212,10 @@ async function scanUser(steamId: string, startedAt: string, maxGames?: number): 
   }
 }
 
-async function doRunAchievementScan(options?: { maxGamesPerUser?: number }): Promise<AchievementScanResult> {
-  const startedAt = nowIso()
-  const startedMs = Date.now()
-  writeScanMeta({ startedAt, finishedAt: null, usersScanned: 0, gamesScanned: 0, changesDetected: 0, failures: 0 })
-
-  const users = listScanUsers()
-  logger.info({ users: users.length, maxGamesPerUser: options?.maxGamesPerUser ?? null }, "Achievement scan: start")
-
-  const results: AchievementScanUserResult[] = []
-  for (const steamId of users) {
-    results.push(await scanUser(steamId, startedAt, options?.maxGamesPerUser))
-  }
-
-  const finishedAt = nowIso()
-  const result: AchievementScanResult = {
+function summarize(startedAt: string, startedMs: number, results: AchievementScanUserResult[]): AchievementScanResult {
+  return {
     startedAt,
-    finishedAt,
+    finishedAt: nowIso(),
     durationMs: Date.now() - startedMs,
     usersScanned: results.length,
     gamesScanned: results.reduce((sum, r) => sum + r.gamesScanned, 0),
@@ -186,6 +223,36 @@ async function doRunAchievementScan(options?: { maxGamesPerUser?: number }): Pro
     failures: results.reduce((sum, r) => sum + r.failures, 0),
     users: results,
   }
+}
+
+async function doRunAchievementScan(
+  startedAt: string,
+  options?: { maxGamesPerUser?: number },
+): Promise<AchievementScanResult> {
+  const startedMs = Date.now()
+  const users = listScanUsers()
+  logger.info({ users: users.length, maxGamesPerUser: options?.maxGamesPerUser ?? null }, "Achievement scan: start")
+
+  const results: AchievementScanUserResult[] = []
+  try {
+    for (const steamId of users) {
+      results.push(await scanUser(steamId, startedAt, options?.maxGamesPerUser))
+    }
+  } catch (error) {
+    // Release the lease with whatever completed so GET never reports a scan
+    // that is neither running nor finished. Per-game errors are handled in
+    // scanUser; reaching here means a database/bookkeeping failure.
+    const partial = summarize(startedAt, startedMs, results)
+    try {
+      writeScanMeta({ ...partial, failures: partial.failures + 1 })
+    } catch (metaError) {
+      logger.error({ err: metaError }, "Achievement scan: could not finalize scan metadata after failure")
+    }
+    logger.error({ err: error, usersCompleted: results.length }, "Achievement scan: aborted")
+    throw error
+  }
+
+  const result = summarize(startedAt, startedMs, results)
   writeScanMeta(result)
   logger.info(
     {
@@ -204,17 +271,27 @@ async function doRunAchievementScan(options?: { maxGamesPerUser?: number }): Pro
  * Re-syncs achievements for every scannable user so schema changes are
  * detected (and recorded by `persistSchema`) without anyone opening the app.
  *
- * Only one scan runs at a time per process; a concurrent call joins the
- * in-flight run instead of starting another. Per-game failures are counted
- * and logged but never abort the scan. Steam budget: one
- * `GetPlayerAchievements` call per game, plus a schema fetch only when the
- * stored schema is stale (30 days) or the player payload reveals a mismatch.
+ * Only one scan runs at a time: a concurrent call in the same process joins
+ * the in-flight run, and a database lease on `achievement_scan_meta` stops
+ * a second process sharing the SQLite file from starting a duplicate (it
+ * gets `ScanInProgressError`). A lease left open for more than
+ * `SCAN_LEASE_STALE_MS` (crashed process) can be taken over. Per-game
+ * failures are counted and logged but never abort the scan. Steam budget:
+ * one `GetPlayerAchievements` call per game, plus a schema fetch only when
+ * the stored schema is stale (30 days) or the player payload reveals a
+ * mismatch.
  *
  * @param options.maxGamesPerUser - Cap on games visited per user (highest-priority first)
+ * @throws ScanInProgressError when another process holds a live scan lease
  */
 export async function runAchievementScan(options?: { maxGamesPerUser?: number }): Promise<AchievementScanResult> {
   if (inFlightScan) return inFlightScan
-  inFlightScan = doRunAchievementScan(options).finally(() => {
+
+  const startedAt = nowIso()
+  if (!tryAcquireScanLease(startedAt)) {
+    throw new ScanInProgressError()
+  }
+  inFlightScan = doRunAchievementScan(startedAt, options).finally(() => {
     inFlightScan = null
   })
   return inFlightScan

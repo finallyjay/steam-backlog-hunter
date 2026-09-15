@@ -7,6 +7,7 @@ import {
   isAchievementScanRunning,
   MAX_GAMES_PER_USER_CAP,
   runAchievementScan,
+  ScanInProgressError,
 } from "@/lib/server/achievement-scan"
 import { rateLimit } from "@/lib/server/rate-limit"
 import { logger } from "@/lib/server/logger"
@@ -74,7 +75,7 @@ export async function GET(request: NextRequest) {
  * @returns {AchievementScanResult} Per-user and total counts for the run
  * @throws 400 - Invalid body
  * @throws 401 - Missing or wrong secret
- * @throws 409 - A scan is already running
+ * @throws 409 - A scan is already running (in this process or, via the database lease, in another)
  * @throws 429 - Too many requests
  * @throws 503 - CRON_SECRET not configured
  */
@@ -119,6 +120,9 @@ export async function POST(request: NextRequest) {
     const result = await runAchievementScan({ maxGamesPerUser })
     return NextResponse.json(result)
   } catch (error) {
+    if (error instanceof ScanInProgressError) {
+      return NextResponse.json({ error: "A scan is already running" }, { status: 409 })
+    }
     logger.error({ err: error, endpoint: "cron/achievements-scan" }, "Achievement scan failed")
     return NextResponse.json({ error: "Achievement scan failed" }, { status: 500 })
   }

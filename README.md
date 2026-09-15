@@ -223,7 +223,7 @@ on a schedule:
 2. Call the endpoint once a day (a 1000-game library is roughly 1000 Steam calls per pass):
 
    ```bash
-   curl -sS -X POST "https://steam.example.com/api/cron/achievements-scan" \
+   curl --fail-with-body -sS -X POST "https://steam.example.com/api/cron/achievements-scan" \
      -H "Authorization: Bearer $CRON_SECRET" -H "Content-Type: application/json" -d '{}'
    ```
 

@@ -21,6 +21,7 @@ vi.mock("@/lib/server/achievement-scan", () => ({
   getLastAchievementScan: vi.fn(),
   isAchievementScanRunning: vi.fn(),
   MAX_GAMES_PER_USER_CAP: 5000,
+  ScanInProgressError: class ScanInProgressError extends Error {},
 }))
 
 vi.mock("@/lib/server/rate-limit", () => ({
@@ -29,7 +30,12 @@ vi.mock("@/lib/server/rate-limit", () => ({
 
 import { NextRequest } from "next/server"
 import { GET, POST } from "@/app/api/cron/achievements-scan/route"
-import { getLastAchievementScan, isAchievementScanRunning, runAchievementScan } from "@/lib/server/achievement-scan"
+import {
+  getLastAchievementScan,
+  isAchievementScanRunning,
+  runAchievementScan,
+  ScanInProgressError,
+} from "@/lib/server/achievement-scan"
 import { rateLimit } from "@/lib/server/rate-limit"
 
 const SECRET = "0123456789abcdef0123456789abcdef"
@@ -127,6 +133,12 @@ describe("POST /api/cron/achievements-scan", () => {
     const response = await POST(post(undefined, SECRET))
     expect(response.status).toBe(409)
     expect(runAchievementScan).not.toHaveBeenCalled()
+  })
+
+  it("returns 409 when another process holds the scan lease", async () => {
+    vi.mocked(runAchievementScan).mockRejectedValue(new ScanInProgressError())
+    const response = await POST(post(undefined, SECRET))
+    expect(response.status).toBe(409)
   })
 
   it("returns 429 when rate limited", async () => {

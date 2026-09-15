@@ -248,6 +248,51 @@ describe("runAchievementScan", () => {
     expect(getPlayer).toHaveBeenCalledTimes(1)
   })
 
+  it("refuses to start while another process holds a live lease, but takes over a stale one", async () => {
+    const db = await openDb()
+    seedProfile(db, ALLOWED, true)
+    seedGame(db, ALLOWED, 1, { unlocked: 1, total: 2 })
+    const getPlayer = vi.fn(async () => payload(ALLOWED, ["A", "B"], ["A"]))
+    mockSteamApi({ getPlayerAchievements: getPlayer })
+    const { runAchievementScan, isAchievementScanRunning, ScanInProgressError, SCAN_LEASE_STALE_MS } =
+      await import("@/lib/server/achievement-scan")
+
+    // Simulate a scan started by another process a minute ago.
+    db.prepare(`INSERT INTO achievement_scan_meta (id, started_at) VALUES (1, ?)`).run(
+      new Date(Date.now() - 60_000).toISOString(),
+    )
+    expect(isAchievementScanRunning()).toBe(true)
+    await expect(runAchievementScan()).rejects.toBeInstanceOf(ScanInProgressError)
+    expect(getPlayer).not.toHaveBeenCalled()
+
+    // Same row, but abandoned long ago: the lease is stale and can be taken.
+    db.prepare(`UPDATE achievement_scan_meta SET started_at = ? WHERE id = 1`).run(
+      new Date(Date.now() - SCAN_LEASE_STALE_MS - 60_000).toISOString(),
+    )
+    expect(isAchievementScanRunning()).toBe(false)
+    const result = await runAchievementScan()
+    expect(result.gamesScanned).toBe(1)
+    expect(isAchievementScanRunning()).toBe(false)
+  })
+
+  it("finalizes the scan record when bookkeeping fails mid-run", async () => {
+    const db = await openDb()
+    seedProfile(db, ALLOWED, true)
+    seedGame(db, ALLOWED, 1, { unlocked: 1, total: 2 })
+    mockSteamApi({ getPlayerAchievements: vi.fn(async () => payload(ALLOWED, ["A", "B"], ["A"])) })
+    const { runAchievementScan, getLastAchievementScan, isAchievementScanRunning } =
+      await import("@/lib/server/achievement-scan")
+
+    // countChangesSince reads this table after the user's games are synced.
+    db.exec("DROP TABLE achievement_changes")
+
+    await expect(runAchievementScan()).rejects.toThrow()
+    expect(isAchievementScanRunning()).toBe(false)
+    const meta = getLastAchievementScan()
+    expect(meta?.finishedAt).not.toBeNull()
+    expect(meta?.failures).toBe(1)
+  })
+
   it("scans nothing when no user qualifies", async () => {
     const db = await openDb()
     seedProfile(db, NEVER_SYNCED, false)
