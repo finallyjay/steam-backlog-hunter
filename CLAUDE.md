@@ -16,6 +16,16 @@ pnpm exec vitest run test/<file>.test.ts  # Run single test file
 
 CI runs: install → lint → test → build (GitHub Actions, on push to main and PRs).
 Pre-commit hooks run oxfmt + oxlint via Husky + lint-staged.
+The `Changelog` workflow fails `feat`/`fix` PRs that do not touch `CHANGELOG.md` (label `skip-changelog` to opt out).
+
+## Releases
+
+Versions follow SemVer and are cut from `CHANGELOG.md` (Keep a Changelog format). Nothing here is automatic: the goal is that a release is always _proposed_ at the right moment.
+
+- Every `feat` or `fix` PR adds an entry under `## [Unreleased]` (`### Added` / `### Changed` / `### Fixed` / `### Security`) in the same PR, referencing the issue number. Dependency-only `chore` PRs do not.
+- After merging a PR, look at `Unreleased`. Propose cutting a version in the same reply when it contains any `### Added` entry, or when it only has fixes but the last tag (`git describe --tags --abbrev=0`) is more than two weeks old. Say which version and why. Never create a tag without the user asking.
+- Version bump: `### Added` or behaviour-changing `### Changed` → minor; only `### Fixed` / `### Security` / dependency bumps → patch; breaking change → major (minor while on `0.x`, and say so).
+- Cutting a version is the `/release` skill (`.claude/skills/release/SKILL.md`): move `Unreleased` to `## [X.Y.Z] - date`, update the compare links, bump `package.json`, PR, then tag `vX.Y.Z` on main after merge. The `Release` workflow publishes the GitHub release from that changelog section.
 
 ## Architecture
 

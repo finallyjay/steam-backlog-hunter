@@ -256,7 +256,9 @@ repository secrets to run it daily.
 4. Pre-commit hooks will run oxfmt and oxlint automatically
 5. Create an issue first, then open a Pull Request that closes it
 
-CI runs `lint → test → build` on all PRs; pull requests are squash-merged.
+CI runs `lint → test → build` on all PRs; pull requests are squash-merged. `feat`/`fix` PRs must add an
+entry under `Unreleased` in [`CHANGELOG.md`](CHANGELOG.md) (the `Changelog` check enforces it; add the
+`skip-changelog` label when there is genuinely nothing to record).
 
 ### Releasing
 
