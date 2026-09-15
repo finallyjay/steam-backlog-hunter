@@ -329,11 +329,12 @@ export function persistExtraGames(steamId: string, lastPlayed: LastPlayedGame[])
 
   const candidates = lastPlayed.filter((game) => {
     if (skip.has(game.appid)) return false
-    // Skip entries that never actually accumulated playtime. Steam seems to
-    // emit some zero-playtime rows for games the user touched only in a
-    // launcher sense (hover / preload); they'd pollute the list.
-    if (!game.playtime_forever || game.playtime_forever <= 0) return false
-    return true
+    // Keep anything the account actually launched, even with zero recorded
+    // minutes (old titles whose playtime Steam never counted still carry a
+    // first/last timestamp). Only drop rows with no playtime *and* no play
+    // timestamps: those are launcher-only touches (hover / preload).
+    const played = (game.playtime_forever ?? 0) > 0 || (game.last_playtime ?? 0) > 0 || (game.first_playtime ?? 0) > 0
+    return played
   })
 
   if (candidates.length === 0) return

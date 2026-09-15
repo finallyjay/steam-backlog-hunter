@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Extras sync no longer drops games the account launched but never accumulated minutes
+  for: rows from `ClientGetLastPlayedTimes` with `playtime_forever = 0` are kept when they
+  carry a first/last play timestamp, and only launcher-only touches (no playtime, no
+  timestamps) are skipped (#345).
+
 ### Changed
 
 - `/admin/notifications` page and channel titles are larger: the page heading now matches

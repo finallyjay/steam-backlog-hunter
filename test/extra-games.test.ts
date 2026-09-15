@@ -67,12 +67,15 @@ describe("persistExtraGames", () => {
       // Extras
       { appid: 111, playtime_forever: 500, first_playtime: 100, last_playtime: 200 },
       { appid: 222, playtime_forever: 50, first_playtime: 300, last_playtime: 400 },
-      // Zero-playtime → skipped (launcher hover)
+      // Zero playtime but actually launched (has a last_playtime) → kept
+      { appid: 444, playtime_forever: 0, last_playtime: 500 },
+      // Zero playtime and no timestamps → skipped (launcher hover)
       { appid: 333, playtime_forever: 0 },
     ])
 
     const extras = getExtraGamesForUser(STEAM_ID)
-    expect(extras.map((e) => e.appid)).toEqual([111, 222])
+    expect(extras.map((e) => e.appid)).toEqual([111, 222, 444])
+    expect(extras[2]).toMatchObject({ appid: 444, playtime_forever: 0, rtime_last_played: 500 })
     // Names remain null until achievements sync fills them in — persistExtraGames
     // itself no longer fetches from the (unreliable) store appdetails API.
     expect(extras[0]).toMatchObject({
