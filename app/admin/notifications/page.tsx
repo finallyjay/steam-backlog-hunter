@@ -160,8 +160,8 @@ export default function NotificationsAdminPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="flex items-center gap-2 text-xl font-semibold">
-          <Bell className="text-accent h-5 w-5" />
+        <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
+          <Bell className="text-accent h-6 w-6" />
           Notifications
         </h1>
         <p className="text-muted-foreground mt-1 text-sm">
@@ -172,8 +172,8 @@ export default function NotificationsAdminPage() {
 
       <SurfaceCard className="space-y-4">
         <div className="flex items-center justify-between gap-4">
-          <h2 className="flex items-center gap-2 font-semibold">
-            <DiscordIcon className="h-4 w-4" />
+          <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+            <DiscordIcon className="h-5 w-5" />
             Discord
           </h2>
           <div className="flex items-center gap-2 text-sm">
@@ -224,8 +224,8 @@ export default function NotificationsAdminPage() {
 
       <SurfaceCard className="space-y-4">
         <div className="flex items-center justify-between gap-4">
-          <h2 className="flex items-center gap-2 font-semibold">
-            <TelegramIcon className="h-4 w-4" />
+          <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+            <TelegramIcon className="h-5 w-5" />
             Telegram
           </h2>
           <div className="flex items-center gap-2 text-sm">
