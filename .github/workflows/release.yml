@@ -1,0 +1,58 @@
+name: Release
+
+# Creates the GitHub release for a pushed `vX.Y.Z` tag, using the matching
+# `## [X.Y.Z]` section of CHANGELOG.md as the release notes. Cutting a version
+# is therefore: update CHANGELOG.md + package.json on a PR, merge, then
+# `git tag vX.Y.Z && git push origin vX.Y.Z`.
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check tag matches package.json version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg="$(node -p "require('./package.json').version")"
+          if [ "$tag" != "$pkg" ]; then
+            echo "::error::Tag v$tag does not match package.json version $pkg"
+            exit 1
+          fi
+
+      - name: Extract release notes from CHANGELOG.md
+        id: notes
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          # Everything between "## [<version>]" and the next "## [" heading.
+          awk -v v="$version" '
+            $0 == "## [" v "]" || index($0, "## [" v "] - ") == 1 { found = 1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md > release-notes.md
+          if [ ! -s release-notes.md ]; then
+            echo "::error::No '## [$version]' section found in CHANGELOG.md"
+            exit 1
+          fi
+          {
+            echo "**Full changelog**: https://github.com/${GITHUB_REPOSITORY}/blob/${GITHUB_REF_NAME}/CHANGELOG.md"
+          } >> release-notes.md
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file release-notes.md \
+            --verify-tag
