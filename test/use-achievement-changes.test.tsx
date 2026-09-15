@@ -73,14 +73,25 @@ describe("useAchievementChanges", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
-  it("sets error on a failed response and stops loading", async () => {
-    globalThis.fetch = vi.fn(async () => err(500)) as unknown as typeof fetch
+  it("sets error on a failed response, stops loading, and retries on the next mount", async () => {
+    let calls = 0
+    globalThis.fetch = vi.fn(async () => {
+      calls++
+      return calls === 1 ? err(500) : ok({ changes: [change({ id: 1 })] })
+    }) as unknown as typeof fetch
     const { useAchievementChanges } = await import("@/hooks/use-achievement-changes")
 
-    const { result } = renderHook(() => useAchievementChanges())
-    await waitFor(() => expect(result.current.loading).toBe(false))
-    expect(result.current.error).toBe("Failed to fetch achievement changes")
-    expect(result.current.changes).toEqual([])
+    const first = renderHook(() => useAchievementChanges())
+    await waitFor(() => expect(first.result.current.loading).toBe(false))
+    expect(first.result.current.error).toBe("Failed to fetch achievement changes")
+    expect(first.result.current.changes).toEqual([])
+    first.unmount()
+
+    // A later consumer (navigation, reload) must not be stuck with the error.
+    const second = renderHook(() => useAchievementChanges())
+    await waitFor(() => expect(second.result.current.changes).toHaveLength(1))
+    expect(second.result.current.error).toBeNull()
+    expect(calls).toBe(2)
   })
 
   it("marks seen optimistically and keeps it when the server accepts", async () => {

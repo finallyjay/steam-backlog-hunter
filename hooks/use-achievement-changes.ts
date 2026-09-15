@@ -14,7 +14,11 @@ type AchievementChangesState = {
   changes: AchievementChangeView[]
   loading: boolean
   error: string | null
-  /** true once the first fetch settled (success or failure). */
+  /**
+   * true once a fetch *succeeded*. A failed fetch leaves this false so the
+   * next consumer mount (navigation, reload) retries instead of pinning the
+   * error for the whole session.
+   */
   loaded: boolean
 }
 
@@ -78,7 +82,7 @@ export async function loadAchievementChanges(options?: { force?: boolean }): Pro
     if (next) {
       emitState({ changes: next, loading: false, error: null, loaded: true })
     } else {
-      emitState({ ...state, loading: false, error: errorMessage, loaded: true })
+      emitState({ ...state, loading: false, error: errorMessage, loaded: false })
     }
   })()
 

@@ -67,7 +67,7 @@ export function LibraryOverview({
   initialPlayed,
 }: LibraryOverviewProps = {}) {
   const { games: ownedGames, loading, error } = useSteamGames("all")
-  const { byAppId: changesByAppId, loading: changesLoading } = useAchievementChanges()
+  const { byAppId: changesByAppId, loading: changesLoading, error: changesError } = useAchievementChanges()
 
   const parsedState = VALID_STATES.includes(initialFilter as GamesState) ? (initialFilter as GamesState) : "all"
   const parsedOrder = VALID_ORDERS.includes(initialOrder as GamesOrder) ? (initialOrder as GamesOrder) : "completed"
@@ -207,6 +207,9 @@ export function LibraryOverview({
   // The new-achievements filter has nothing to match against until the
   // changes store has loaded — show the skeleton instead of a false "no games".
   const listLoading = loading || achievementsLoading || (state === "new-achievements" && changesLoading)
+  // Without the changes store the new-achievements filter has nothing to
+  // match; surface its load failure rather than a misleading "no games".
+  const listError = error ?? (state === "new-achievements" ? changesError : null)
   const totalCount = gamesWithStats.length
   const filteredCount = visibleGames.length
 
@@ -374,8 +377,8 @@ export function LibraryOverview({
             </SurfaceCard>
           ))}
         </div>
-      ) : error ? (
-        <p className="text-destructive py-8 text-center">{error}</p>
+      ) : listError ? (
+        <p className="text-destructive py-8 text-center">{listError}</p>
       ) : visibleGames.length === 0 ? (
         <SurfaceCard variant="empty">
           <p className="text-muted-foreground">No games match the current filters.</p>

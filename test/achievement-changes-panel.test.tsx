@@ -53,12 +53,14 @@ afterEach(() => {
 })
 
 describe("AchievementChangesPanel", () => {
-  it("renders nothing while loading, on error, or without changes", () => {
+  it("renders a skeleton while loading", () => {
     useAchievementChangesMock.mockReturnValueOnce(hookReturn([], { loading: true }))
-    const { container: a } = render(<AchievementChangesPanel />)
-    expect(a).toBeEmptyDOMElement()
-    cleanup()
+    render(<AchievementChangesPanel />)
+    expect(screen.getByTestId("achievement-changes-panel-skeleton")).toBeInTheDocument()
+    expect(screen.queryByTestId("achievement-changes-panel")).not.toBeInTheDocument()
+  })
 
+  it("renders nothing on error or without changes", () => {
     useAchievementChangesMock.mockReturnValueOnce(hookReturn([change({})], { error: "boom" }))
     const { container: b } = render(<AchievementChangesPanel />)
     expect(b).toBeEmptyDOMElement()

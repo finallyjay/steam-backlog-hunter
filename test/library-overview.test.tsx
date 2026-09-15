@@ -616,6 +616,35 @@ describe("LibraryOverview", () => {
     expect(screen.queryByText("No games match the current filters.")).not.toBeInTheDocument()
   })
 
+  it("surfaces the changes load error for the new-achievements filter", () => {
+    useSteamGamesMock.mockReturnValue({
+      games: [buildGame({ appid: 620, name: "Portal 2", unlocked_count: 2, total_count: 3 })],
+      loading: false,
+      isRefreshing: false,
+      lastUpdated: null,
+      error: null,
+      refetch: vi.fn(),
+    })
+    useAchievementChangesMock.mockReturnValue({
+      changes: [],
+      unseen: [],
+      byAppId: new Map(),
+      loading: false,
+      error: "Failed to fetch achievement changes",
+      markSeen: vi.fn(),
+      refetch: vi.fn(),
+    })
+
+    render(<LibraryOverview initialFilter="new-achievements" />)
+    expect(screen.getByText("Failed to fetch achievement changes")).toBeInTheDocument()
+    expect(screen.queryByText("No games match the current filters.")).not.toBeInTheDocument()
+
+    cleanup()
+    // Other filters are unaffected by the changes store failing.
+    render(<LibraryOverview initialFilter="all" />)
+    expect(screen.getByText("Portal 2")).toBeInTheDocument()
+  })
+
   it("offers the new-achievements option in the completion filter", () => {
     render(<LibraryOverview />)
     expect(screen.getByRole("option", { name: "New achievements" })).toBeInTheDocument()

@@ -7,6 +7,7 @@ import { ArrowRight, Bell, Check, CheckCheck } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { AchievementChangeChips } from "@/components/ui/achievement-change-chips"
+import { Skeleton } from "@/components/ui/skeleton"
 import { SurfaceCard } from "@/components/ui/surface-card"
 import { useAchievementChanges } from "@/hooks/use-achievement-changes"
 import type { AchievementChangeView } from "@/lib/types/steam"
@@ -17,7 +18,14 @@ const MAX_ROWS = 8
 // Fixed locale so the string is identical wherever it renders. (The panel
 // only mounts after a client fetch, so it never hydrates server markup, but
 // a deterministic format keeps that true even if a consumer changes.)
-const DETECTED_AT_FORMAT = new Intl.DateTimeFormat("en-US", { day: "numeric", month: "short", year: "numeric" })
+const DETECTED_AT_FORMAT = new Intl.DateTimeFormat("en-US", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+  // detected_at is a UTC ISO timestamp; pin the calendar date to UTC so a
+  // browser west of Greenwich doesn't show the previous day.
+  timeZone: "UTC",
+})
 
 function formatDetectedAt(iso: string): string {
   const date = new Date(iso)
@@ -78,10 +86,12 @@ function ChangeRow({
 /**
  * Dashboard panel listing recently detected achievement changes.
  *
- * Renders nothing while loading, on error, or when the user has no recorded
- * changes at all, so the dashboard stays clean until there is something to
- * say. Unseen rows come first and can be acknowledged one by one or all at
- * once; seen rows stay visible (dimmed) as a short history.
+ * Shows a compact skeleton during the initial fetch so the sections below
+ * don't jump when rows arrive, then renders nothing on error or when the
+ * user has no recorded changes at all, so the dashboard stays clean until
+ * there is something to say. Unseen rows come first and can be acknowledged
+ * one by one or all at once; seen rows stay visible (dimmed) as a short
+ * history.
  */
 export function AchievementChangesPanel() {
   const { changes, unseen, loading, error, markSeen } = useAchievementChanges()
@@ -97,7 +107,31 @@ export function AchievementChangesPanel() {
     return sorted.slice(0, MAX_ROWS)
   }, [changes])
 
-  if (loading || error || changes.length === 0) return null
+  if (loading) {
+    return (
+      <Card className="border-surface-4" data-testid="achievement-changes-panel-skeleton" aria-busy="true">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Bell className="text-accent h-5 w-5" />
+            Achievement changes
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {Array.from({ length: 2 }).map((_, i) => (
+              <SurfaceCard key={i} variant="row" className="flex items-center gap-3">
+                <div className="min-w-0 flex-1 space-y-2">
+                  <Skeleton className="h-4 w-40" />
+                  <Skeleton className="h-3 w-56" />
+                </div>
+              </SurfaceCard>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+  if (error || changes.length === 0) return null
 
   const handleDismiss = async (id: number) => {
     setBusy(true)
