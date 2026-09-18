@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The regular library sync no longer runs the bulk extras discovery. Known extras still get their playtime refreshed from `ClientGetLastPlayedTimes`, and a game played since the previous sync is ingested on its own, but the hundreds of store lookups for everything the account ever launched, and the weekly re-sync of every extra's achievements, are left to the upcoming manual discovery action (#351)
+
 ## [0.11.1] - 2026-09-15
 
 ### Fixed

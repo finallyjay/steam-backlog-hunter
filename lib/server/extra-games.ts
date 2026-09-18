@@ -150,8 +150,15 @@ function decodeBasicHtmlEntities(s: string): string {
  * absent keeps the LEFT JOIN NULL so the next sync can retry. This avoids
  * the old permanent-stick problem where a single transient store failure
  * would brand an app as "App #12345" forever.
+ *
+ * @param options.appIds - Restrict the pass to these extras (the regular
+ *   library sync passes the appids it just ingested). An empty list is a
+ *   no-op; omitting the option scans every nameless extra of the user.
  */
-export async function hydrateMissingExtraNames(steamId: string) {
+export async function hydrateMissingExtraNames(steamId: string, options?: { appIds?: number[] }) {
+  const appIds = options?.appIds
+  if (appIds && appIds.length === 0) return
+
   const db = getSqliteDatabase()
 
   // Bulk-seed `games` from the canonical Steam catalog first. This is a
@@ -175,10 +182,11 @@ export async function hydrateMissingExtraNames(steamId: string) {
           OR ${PLACEHOLDER_NAME_SQL_MATCH}
         )
         AND (g.name_source IS NULL OR g.name_source != 'manual')
+        ${appIds ? `AND e.appid IN (${appIds.map(() => "?").join(",")})` : ""}
       ORDER BY e.playtime_forever DESC
     `,
     )
-    .all(steamId) as Array<{ appid: number }>
+    .all(steamId, ...(appIds ?? [])) as Array<{ appid: number }>
 
   if (rows.length === 0) return
 
@@ -293,16 +301,48 @@ export async function hydrateMissingExtraNames(steamId: string) {
 }
 
 /**
- * Upserts every played-game row that is NOT in the user's owned library and
+ * How `persistExtraGames` treats played-but-unowned apps that are not yet
+ * in `extra_games`.
+ *
+ * - `full`: ingest every candidate. Used by the manual discovery action
+ *   (and by anything that wants the complete picture).
+ * - `incremental`: only ingest candidates played after `since` (ISO
+ *   timestamp of the previous library sync). With `since = null` (profile
+ *   never synced before) nothing new is ingested. Extras that already
+ *   exist are always refreshed regardless of mode.
+ */
+export type ExtrasIngestMode = { kind: "full" } | { kind: "incremental"; since: string | null }
+
+export type PersistExtraGamesResult = {
+  /** Appids inserted into `extra_games` by this call. */
+  added: number[]
+  /** Appids that already existed and were refreshed by this call. */
+  updated: number[]
+}
+
+/**
+ * Upserts played-game rows that are NOT in the user's owned library and
  * NOT a pinned game. These surface refunded, family-shared, delisted and
  * otherwise-unowned games whose playtime Steam still remembers via
  * ClientGetLastPlayedTimes.
  *
+ * Rows already present in `extra_games` are always refreshed (playtime,
+ * last/first played). Which *new* rows get ingested depends on `mode`
+ * (default `full`, see {@link ExtrasIngestMode}): the regular library sync
+ * runs in `incremental` mode so a game played since the last sync shows up
+ * on its own without paying for the bulk discovery of everything the
+ * account ever launched.
+ *
  * Fully isolated from `user_games` so nothing in `extra_games` can leak into
  * library stats / KPIs / insights.
  */
-export function persistExtraGames(steamId: string, lastPlayed: LastPlayedGame[]) {
+export function persistExtraGames(
+  steamId: string,
+  lastPlayed: LastPlayedGame[],
+  mode: ExtrasIngestMode = { kind: "full" },
+): PersistExtraGamesResult {
   const db = getSqliteDatabase()
+  const result: PersistExtraGamesResult = { added: [], updated: [] }
 
   // Self-healing: drop any extras row whose appid is currently owned (in
   // user_games with owned=1). Protects against the case where a previous
@@ -317,7 +357,7 @@ export function persistExtraGames(steamId: string, lastPlayed: LastPlayedGame[])
   `,
   ).run(steamId, steamId)
 
-  if (lastPlayed.length === 0) return
+  if (lastPlayed.length === 0) return result
 
   // Build the skip set: owned library entries + pinned appids. Both sources
   // already live in user_games (pinned games get upserted there during
@@ -326,6 +366,13 @@ export function persistExtraGames(steamId: string, lastPlayed: LastPlayedGame[])
     appid: number
   }>
   const skip = new Set(ownedRows.map((row) => row.appid))
+  const existing = new Set(getExtraAppIds(steamId))
+
+  // Incremental mode: a candidate that is not an extra yet only qualifies
+  // if it was played after the previous sync. Steam reports play times in
+  // unix seconds; `since` is an ISO string from steam_profile.
+  const sinceSeconds =
+    mode.kind === "incremental" ? (mode.since ? Math.floor(Date.parse(mode.since) / 1000) : Infinity) : -Infinity
 
   const candidates = lastPlayed.filter((game) => {
     if (skip.has(game.appid)) return false
@@ -334,10 +381,13 @@ export function persistExtraGames(steamId: string, lastPlayed: LastPlayedGame[])
     // first/last timestamp). Only drop rows with no playtime *and* no play
     // timestamps: those are launcher-only touches (hover / preload).
     const played = (game.playtime_forever ?? 0) > 0 || (game.last_playtime ?? 0) > 0 || (game.first_playtime ?? 0) > 0
-    return played
+    if (!played) return false
+    if (existing.has(game.appid)) return true
+    const playedAt = Math.max(game.last_playtime ?? 0, game.first_playtime ?? 0)
+    return playedAt > sinceSeconds
   })
 
-  if (candidates.length === 0) return
+  if (candidates.length === 0) return result
 
   const now = nowIso()
   const upsert = db.prepare(`
@@ -366,12 +416,16 @@ export function persistExtraGames(steamId: string, lastPlayed: LastPlayedGame[])
         now,
         now,
       )
+      if (existing.has(game.appid)) result.updated.push(game.appid)
+      else result.added.push(game.appid)
     }
     db.exec("COMMIT")
   } catch (error) {
     db.exec("ROLLBACK")
     throw error
   }
+
+  return result
 }
 
 /**
@@ -459,14 +513,20 @@ export function persistExtraAchievements(
 /**
  * Syncs achievements for every extras row that needs refreshing. Uses the
  * same incremental filter as the library path: skip if the stored data is
- * fresh and rtime_last_played hasn't advanced. 7-day staleness floor for
- * rare edge cases where achievements unlock without moving rtime.
+ * fresh and rtime_last_played hasn't advanced.
+ *
+ * @param options.weeklyFloor - Also re-sync rows whose achievements are
+ *   older than 7 days even if rtime hasn't moved (rare edge cases where
+ *   achievements unlock without a play session). Defaults to `true`; the
+ *   regular library sync passes `false` so it only pays for extras that
+ *   were actually played since their last sync.
  *
  * Runs per-game GetPlayerAchievements with concurrency=5.
  * Swallows per-game failures so a single broken entry can't abort the whole
  * extras sync.
  */
-export async function syncExtraAchievements(steamId: string) {
+export async function syncExtraAchievements(steamId: string, options?: { weeklyFloor?: boolean }) {
+  const weeklyFloor = options?.weeklyFloor ?? true
   const db = getSqliteDatabase()
   const rows = db
     .prepare(
@@ -490,7 +550,7 @@ export async function syncExtraAchievements(steamId: string) {
     // Never synced → include.
     if (!row.achievements_synced_at) return true
     // Weekly staleness floor catches edge cases where rtime didn't move.
-    if (isStale(row.achievements_synced_at, ACHIEVEMENTS_STALE_MS)) return true
+    if (weeklyFloor && isStale(row.achievements_synced_at, ACHIEVEMENTS_STALE_MS)) return true
     // Incremental: only re-sync if the game was played after our last sync.
     const syncedAtMs = Date.parse(row.achievements_synced_at)
     const playedAtMs = (row.rtime_last_played ?? 0) * 1000
