@@ -64,6 +64,7 @@ describe("GET /api/steam/extras", () => {
         appid: 111,
         name: "Refunded Game",
         kind: "unknown",
+        kind_source: null,
         image_landscape_url: null,
         image_portrait_url: null,
         image_icon_url: null,

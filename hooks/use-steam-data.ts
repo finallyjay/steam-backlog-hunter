@@ -346,6 +346,8 @@ export type SteamExtraGame = {
   name: string | null
   /** game | demo | dlc | beta | tool | software | other | unknown */
   kind: string
+  /** store | name | manual | null */
+  kind_source: string | null
   image_landscape_url: string | null
   image_portrait_url: string | null
   image_icon_url: string | null

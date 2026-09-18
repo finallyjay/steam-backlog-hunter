@@ -23,11 +23,12 @@ vi.mock("@/app/lib/server-auth", () => ({
 vi.mock("@/lib/server/extra-games", () => ({
   getStoredExtraGame: vi.fn(),
   getExtraAchievementsList: vi.fn(),
+  setExtraKind: vi.fn(),
 }))
 
-import { GET } from "@/app/api/steam/extras/[id]/route"
+import { GET, PATCH } from "@/app/api/steam/extras/[id]/route"
 import { getCurrentUser } from "@/app/lib/server-auth"
-import { getStoredExtraGame, getExtraAchievementsList } from "@/lib/server/extra-games"
+import { getStoredExtraGame, getExtraAchievementsList, setExtraKind } from "@/lib/server/extra-games"
 
 const mockUser = { steamId: "76561198023709299", displayName: "Jay", avatar: "", profileUrl: "" }
 
@@ -35,6 +36,7 @@ beforeEach(() => {
   vi.mocked(getCurrentUser).mockReset()
   vi.mocked(getStoredExtraGame).mockReset()
   vi.mocked(getExtraAchievementsList).mockReset()
+  vi.mocked(setExtraKind).mockReset()
 })
 
 afterEach(() => vi.clearAllMocks())
@@ -69,6 +71,7 @@ describe("GET /api/steam/extras/:id", () => {
       appid: 111,
       name: "Test Game",
       kind: "unknown",
+      kind_source: null,
       image_landscape_url: null,
       image_portrait_url: null,
       image_icon_url: null,
@@ -96,5 +99,56 @@ describe("GET /api/steam/extras/:id", () => {
     })
     const res = await GET(...makeRequest("111"))
     expect(res.status).toBe(500)
+  })
+})
+
+describe("PATCH /api/steam/extras/:id", () => {
+  function patch(id: string, body: unknown) {
+    const request = new Request(`http://localhost/api/steam/extras/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: typeof body === "string" ? body : JSON.stringify(body),
+    })
+    return PATCH(request, { params: Promise.resolve({ id }) })
+  }
+
+  it("returns 401 when unauthenticated", async () => {
+    vi.mocked(getCurrentUser).mockResolvedValue(null)
+    const response = await patch("111", { kind: "demo" })
+    expect(response.status).toBe(401)
+  })
+
+  it("returns 400 for an invalid app id, malformed JSON, missing or unknown kind", async () => {
+    vi.mocked(getCurrentUser).mockResolvedValue(mockUser)
+    expect((await patch("abc", { kind: "demo" })).status).toBe(400)
+    expect((await patch("111", "{not json")).status).toBe(400)
+    expect((await patch("111", {})).status).toBe(400)
+    expect((await patch("111", { kind: "spaceship" })).status).toBe(400)
+    expect(setExtraKind).not.toHaveBeenCalled()
+  })
+
+  it("returns 404 when the app is not one of the user's extras", async () => {
+    vi.mocked(getCurrentUser).mockResolvedValue(mockUser)
+    vi.mocked(setExtraKind).mockReturnValue(null)
+    const response = await patch("111", { kind: "demo" })
+    expect(response.status).toBe(404)
+  })
+
+  it("sets the override and returns the refreshed extra", async () => {
+    vi.mocked(getCurrentUser).mockResolvedValue(mockUser)
+    const game = { appid: 111, name: "X", kind: "demo", kind_source: "manual" }
+    vi.mocked(setExtraKind).mockReturnValue(game as never)
+    const response = await patch("111", { kind: "demo" })
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ game })
+    expect(setExtraKind).toHaveBeenCalledWith(mockUser.steamId, 111, "demo")
+  })
+
+  it("clears the override with kind: null", async () => {
+    vi.mocked(getCurrentUser).mockResolvedValue(mockUser)
+    vi.mocked(setExtraKind).mockReturnValue({ appid: 111, kind: "unknown", kind_source: null } as never)
+    const response = await patch("111", { kind: null })
+    expect(response.status).toBe(200)
+    expect(setExtraKind).toHaveBeenCalledWith(mockUser.steamId, 111, null)
   })
 })

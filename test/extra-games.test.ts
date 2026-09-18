@@ -1481,6 +1481,53 @@ describe("classifyExtraKinds", () => {
   })
 })
 
+describe("setExtraKind", () => {
+  async function seedNamedExtra(appId: number, name: string) {
+    const db = await seedProfile()
+    const now = new Date().toISOString()
+    db.prepare(`INSERT INTO games (appid, name, created_at, updated_at) VALUES (?, ?, ?, ?)`).run(appId, name, now, now)
+    db.prepare(
+      `INSERT INTO extra_games (steam_id, appid, playtime_forever, synced_at, created_at, updated_at)
+       VALUES (?, ?, 10, ?, ?, ?)`,
+    ).run(STEAM_ID, appId, now, now, now)
+    return db
+  }
+
+  it("stores a manual kind that later automatic passes do not overwrite", async () => {
+    await seedNamedExtra(111, "Something Demo")
+    const { setExtraKind, classifyExtraKinds, getStoredExtraGame } = await import("@/lib/server/extra-games")
+    const updated = setExtraKind(STEAM_ID, 111, "game")
+    expect(updated).toMatchObject({ appid: 111, kind: "game", kind_source: "manual" })
+    classifyExtraKinds(STEAM_ID)
+    expect(getStoredExtraGame(STEAM_ID, 111)).toMatchObject({ kind: "game", kind_source: "manual" })
+  })
+
+  it("clearing the override re-applies the name heuristic right away", async () => {
+    await seedNamedExtra(111, "Something Demo")
+    const { setExtraKind } = await import("@/lib/server/extra-games")
+    setExtraKind(STEAM_ID, 111, "game")
+    const cleared = setExtraKind(STEAM_ID, 111, null)
+    expect(cleared).toMatchObject({ kind: "demo", kind_source: "name" })
+  })
+
+  it("returns null for apps that are not the user's extras", async () => {
+    await seedProfile()
+    const { setExtraKind } = await import("@/lib/server/extra-games")
+    expect(setExtraKind(STEAM_ID, 999, "demo")).toBeNull()
+  })
+
+  it("creates the games row for a nameless extra so the override sticks", async () => {
+    const db = await seedProfile()
+    const now = new Date().toISOString()
+    db.prepare(
+      `INSERT INTO extra_games (steam_id, appid, playtime_forever, synced_at, created_at, updated_at)
+       VALUES (?, 222, 10, ?, ?, ?)`,
+    ).run(STEAM_ID, now, now, now)
+    const { setExtraKind } = await import("@/lib/server/extra-games")
+    expect(setExtraKind(STEAM_ID, 222, "tool")).toMatchObject({ appid: 222, kind: "tool", kind_source: "manual" })
+  })
+})
+
 describe("discoverExtraGames", () => {
   const ORIGINAL_FETCH = globalThis.fetch
   afterEach(() => {
