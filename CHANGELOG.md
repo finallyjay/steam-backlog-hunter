@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Per-game achievements refresh for extras: `POST /api/steam/extras/:id/sync` re-asks Steam for a single extra (same calls as the library counterpart) and the extra's page gets an **Update achievements** button (#353)
 - Manual extras discovery: `POST /api/steam/extras/discover` runs the full pass (every game Steam remembers the account played but does not own, achievements, names, images) with a per-user in-flight guard and rate limit, `GET` reports the running state and last run, and the Extras page gets a **Discover extras** button with the last-run time and a completion summary (#352)
 
 ### Changed

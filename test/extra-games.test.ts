@@ -1361,6 +1361,95 @@ describe("getExtraAchievementsList", () => {
   })
 })
 
+describe("syncExtraGameAchievements", () => {
+  async function seedExtra(appId: number) {
+    const db = await seedProfile()
+    const now = new Date().toISOString()
+    db.prepare(
+      `INSERT INTO extra_games (steam_id, appid, playtime_forever, synced_at, created_at, updated_at)
+       VALUES (?, ?, 100, ?, ?, ?)`,
+    ).run(STEAM_ID, appId, now, now, now)
+    return db
+  }
+
+  function mockSteamApi(mocks: {
+    getPlayerAchievements?: ReturnType<typeof vi.fn>
+    getGameSchema?: ReturnType<typeof vi.fn>
+  }) {
+    vi.doMock("@/lib/steam-api", () => ({
+      getOwnedGames: vi.fn().mockResolvedValue([]),
+      getPlayerAchievements: mocks.getPlayerAchievements ?? vi.fn().mockResolvedValue(null),
+      getGameSchema: mocks.getGameSchema ?? vi.fn().mockResolvedValue(null),
+      getLastPlayedTimes: vi.fn().mockResolvedValue([]),
+    }))
+  }
+
+  it("persists progress and name from GetPlayerAchievements without any staleness check", async () => {
+    const getPlayerAchievements = vi.fn().mockResolvedValue({
+      steamID: STEAM_ID,
+      gameName: "Refreshed",
+      success: true,
+      achievements: [
+        { apiname: "A", achieved: 1, unlocktime: 10 },
+        { apiname: "B", achieved: 0 },
+      ],
+    })
+    mockSteamApi({ getPlayerAchievements })
+    const db = await seedExtra(111)
+    // Freshly synced a second ago: the bulk sync would skip it, the per-game refresh must not.
+    db.prepare("UPDATE extra_games SET achievements_synced_at = ?, total_count = 5 WHERE appid = 111").run(
+      new Date().toISOString(),
+    )
+    const { syncExtraGameAchievements, getStoredExtraGame } = await import("@/lib/server/extra-games")
+    await syncExtraGameAchievements(STEAM_ID, 111)
+    expect(getPlayerAchievements).toHaveBeenCalledWith(STEAM_ID, 111)
+    const row = getStoredExtraGame(STEAM_ID, 111)
+    expect(row).toMatchObject({ name: "Refreshed", total_count: 2, unlocked_count: 1 })
+  })
+
+  it("falls back to the schema total when Steam refuses the player call", async () => {
+    mockSteamApi({
+      getGameSchema: vi.fn().mockResolvedValue({
+        gameName: "Schema Only",
+        availableGameStats: { achievements: [{ name: "A" }, { name: "B" }, { name: "C" }] },
+      }),
+    })
+    await seedExtra(222)
+    const { syncExtraGameAchievements, getStoredExtraGame } = await import("@/lib/server/extra-games")
+    await syncExtraGameAchievements(STEAM_ID, 222)
+    expect(getStoredExtraGame(STEAM_ID, 222)).toMatchObject({ name: "Schema Only", total_count: 3, unlocked_count: 0 })
+  })
+
+  it("marks the extra as 0/0 when neither endpoint knows it", async () => {
+    mockSteamApi({})
+    await seedExtra(333)
+    const { syncExtraGameAchievements, getStoredExtraGame } = await import("@/lib/server/extra-games")
+    await syncExtraGameAchievements(STEAM_ID, 333)
+    const row = getStoredExtraGame(STEAM_ID, 333)
+    expect(row?.total_count).toBe(0)
+    expect(row?.achievements_synced_at).not.toBeNull()
+  })
+
+  it("propagates Steam errors to the caller", async () => {
+    mockSteamApi({ getPlayerAchievements: vi.fn().mockRejectedValue(new Error("steam down")) })
+    await seedExtra(444)
+    const { syncExtraGameAchievements } = await import("@/lib/server/extra-games")
+    await expect(syncExtraGameAchievements(STEAM_ID, 444)).rejects.toThrow("steam down")
+  })
+
+  it("does not persist 0/0 when the schema request fails transiently after a null player response", async () => {
+    const getGameSchema = vi.fn().mockRejectedValue(new Error("schema 503"))
+    mockSteamApi({ getGameSchema })
+    await seedExtra(555)
+    const { syncExtraGameAchievements, getStoredExtraGame } = await import("@/lib/server/extra-games")
+    await expect(syncExtraGameAchievements(STEAM_ID, 555)).rejects.toThrow("schema 503")
+    expect(getGameSchema).toHaveBeenCalledWith(555, { throwOnFailure: true })
+    const row = getStoredExtraGame(STEAM_ID, 555)
+    expect(row?.achievements_synced_at).toBeNull()
+    expect(row?.total_count).toBeNull()
+  })
+})
+
 describe("discoverExtraGames", () => {
   const ORIGINAL_FETCH = globalThis.fetch
   afterEach(() => {
