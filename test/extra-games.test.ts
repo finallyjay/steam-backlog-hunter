@@ -157,6 +157,95 @@ describe("persistExtraGames", () => {
   })
 })
 
+describe("persistExtraGames (incremental mode)", () => {
+  const nowSeconds = Math.floor(Date.now() / 1000)
+  const oneDay = 24 * 60 * 60
+
+  it("ingests only candidates played after `since`, and always refreshes existing extras", async () => {
+    await seedProfile()
+    const { persistExtraGames, getExtraGamesForUser } = await import("@/lib/server/extra-games")
+    // Known extra from an earlier full discovery
+    persistExtraGames(STEAM_ID, [{ appid: 111, playtime_forever: 100, last_playtime: nowSeconds - 30 * oneDay }])
+
+    const since = new Date((nowSeconds - 2 * oneDay) * 1000).toISOString()
+    const result = persistExtraGames(
+      STEAM_ID,
+      [
+        { appid: 111, playtime_forever: 150, last_playtime: nowSeconds - 30 * oneDay }, // existing, old → refreshed
+        { appid: 222, playtime_forever: 20, last_playtime: nowSeconds - oneDay }, // new, played yesterday → added
+        { appid: 333, playtime_forever: 500, last_playtime: nowSeconds - 10 * oneDay }, // new, old → skipped
+      ],
+      { kind: "incremental", since },
+    )
+
+    expect(result.added).toEqual([222])
+    expect(result.updated).toEqual([111])
+    const extras = getExtraGamesForUser(STEAM_ID)
+    expect(extras.map((g) => g.appid).sort()).toEqual([111, 222])
+    expect(extras.find((g) => g.appid === 111)?.playtime_forever).toBe(150)
+  })
+
+  it("uses first_playtime when last_playtime is missing", async () => {
+    await seedProfile()
+    const { persistExtraGames } = await import("@/lib/server/extra-games")
+    const since = new Date((nowSeconds - 2 * oneDay) * 1000).toISOString()
+    const result = persistExtraGames(
+      STEAM_ID,
+      [{ appid: 444, playtime_forever: 0, first_playtime: nowSeconds - oneDay }],
+      { kind: "incremental", since },
+    )
+    expect(result.added).toEqual([444])
+  })
+
+  it("ingests nothing new when the profile was never synced (since = null)", async () => {
+    await seedProfile()
+    const { persistExtraGames, getExtraGamesForUser } = await import("@/lib/server/extra-games")
+    persistExtraGames(STEAM_ID, [{ appid: 111, playtime_forever: 100 }])
+
+    const result = persistExtraGames(
+      STEAM_ID,
+      [
+        { appid: 111, playtime_forever: 120, last_playtime: nowSeconds },
+        { appid: 222, playtime_forever: 20, last_playtime: nowSeconds },
+      ],
+      { kind: "incremental", since: null },
+    )
+
+    expect(result.added).toEqual([])
+    expect(result.updated).toEqual([111])
+    expect(getExtraGamesForUser(STEAM_ID).map((g) => g.appid)).toEqual([111])
+  })
+
+  it("full mode (default) ingests every candidate and reports added vs updated", async () => {
+    await seedProfile()
+    const { persistExtraGames } = await import("@/lib/server/extra-games")
+    persistExtraGames(STEAM_ID, [{ appid: 111, playtime_forever: 100 }])
+    const result = persistExtraGames(STEAM_ID, [
+      { appid: 111, playtime_forever: 120 },
+      { appid: 222, playtime_forever: 20, last_playtime: nowSeconds - 100 * oneDay },
+    ])
+    expect(result.added).toEqual([222])
+    expect(result.updated).toEqual([111])
+  })
+
+  it("still self-heals owned rows out of extras before returning early", async () => {
+    const db = await seedProfile()
+    const now = new Date().toISOString()
+    db.prepare(`INSERT INTO games (appid, name, created_at, updated_at) VALUES (620, 'Portal 2', ?, ?)`).run(now, now)
+    db.prepare(
+      `INSERT INTO extra_games (steam_id, appid, playtime_forever, synced_at, created_at, updated_at)
+       VALUES (?, 620, 10, ?, ?, ?)`,
+    ).run(STEAM_ID, now, now, now)
+    db.prepare(
+      `INSERT INTO user_games (steam_id, appid, playtime_forever, owned, created_at, updated_at)
+       VALUES (?, 620, 10, 1, ?, ?)`,
+    ).run(STEAM_ID, now, now)
+    const { persistExtraGames, getExtraGamesForUser } = await import("@/lib/server/extra-games")
+    persistExtraGames(STEAM_ID, [], { kind: "incremental", since: null })
+    expect(getExtraGamesForUser(STEAM_ID)).toEqual([])
+  })
+})
+
 describe("getExtraGamesForUser", () => {
   it("returns [] for a user with no extras", async () => {
     await seedProfile()
@@ -471,6 +560,61 @@ describe("syncExtraAchievements", () => {
     expect(getPlayerAchievements).toHaveBeenCalledWith(STEAM_ID, 111)
   })
 
+  it("re-syncs rows older than 7 days by default (weekly floor)", async () => {
+    const getPlayerAchievements = vi.fn().mockResolvedValue({
+      steamID: STEAM_ID,
+      gameName: "Old Sync",
+      success: true,
+      achievements: [{ apiname: "A", achieved: 1, unlocktime: 1 }],
+    })
+    mockSteamApi({ getPlayerAchievements })
+    const now = Date.now()
+    await seedExtra(111, {
+      achievements_synced_at: new Date(now - 8 * 24 * 60 * 60 * 1000).toISOString(),
+      total_count: 5,
+      rtime_last_played: Math.floor((now - 30 * 24 * 60 * 60 * 1000) / 1000),
+    })
+    const { syncExtraAchievements } = await import("@/lib/server/extra-games")
+    await syncExtraAchievements(STEAM_ID)
+    expect(getPlayerAchievements).toHaveBeenCalledWith(STEAM_ID, 111)
+  })
+
+  it("skips rows older than 7 days when weeklyFloor is false (regular sync path)", async () => {
+    const getPlayerAchievements = vi.fn()
+    mockSteamApi({ getPlayerAchievements })
+    const now = Date.now()
+    await seedExtra(111, {
+      achievements_synced_at: new Date(now - 8 * 24 * 60 * 60 * 1000).toISOString(),
+      total_count: 5,
+      rtime_last_played: Math.floor((now - 30 * 24 * 60 * 60 * 1000) / 1000),
+    })
+    const { syncExtraAchievements } = await import("@/lib/server/extra-games")
+    await syncExtraAchievements(STEAM_ID, { weeklyFloor: false })
+    expect(getPlayerAchievements).not.toHaveBeenCalled()
+  })
+
+  it("still syncs never-synced and recently played rows when weeklyFloor is false", async () => {
+    const getPlayerAchievements = vi.fn().mockResolvedValue({
+      steamID: STEAM_ID,
+      gameName: "Fresh",
+      success: true,
+      achievements: [],
+    })
+    mockSteamApi({ getPlayerAchievements })
+    const now = Date.now()
+    await seedExtra(111) // never synced
+    const db = await import("@/lib/server/sqlite").then((m) => m.getSqliteDatabase())
+    const iso = new Date().toISOString()
+    db.prepare(
+      `INSERT INTO extra_games (steam_id, appid, playtime_forever, rtime_last_played, achievements_synced_at,
+        total_count, synced_at, created_at, updated_at) VALUES (?, 222, 100, ?, ?, 5, ?, ?, ?)`,
+    ).run(STEAM_ID, Math.floor(now / 1000), new Date(now - 10 * 60 * 1000).toISOString(), iso, iso, iso)
+    const { syncExtraAchievements } = await import("@/lib/server/extra-games")
+    await syncExtraAchievements(STEAM_ID, { weeklyFloor: false })
+    const called = getPlayerAchievements.mock.calls.map((c) => c[1]).sort()
+    expect(called).toEqual([111, 222])
+  })
+
   it("swallows per-game errors so one failure does not abort the whole sync", async () => {
     const getPlayerAchievements = vi.fn(async (_steamId: string, appId: number) => {
       if (appId === 111) throw new Error("network")
@@ -542,6 +686,32 @@ describe("hydrateMissingExtraNames", () => {
     await hydrateMissingExtraNames(STEAM_ID)
     expect(fetchSpy).not.toHaveBeenCalled()
     void db
+  })
+
+  it("is a no-op when appIds is an empty list (regular sync with nothing ingested)", async () => {
+    await seedExtraWithoutName(111)
+    const fetchSpy = vi.fn()
+    globalThis.fetch = fetchSpy as unknown as typeof fetch
+    const { hydrateMissingExtraNames } = await import("@/lib/server/extra-games")
+    await hydrateMissingExtraNames(STEAM_ID, { appIds: [] })
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it("only resolves the given appIds when the option is set", async () => {
+    const db = await seedExtraWithoutName(111)
+    const now = new Date().toISOString()
+    db.prepare(
+      `INSERT INTO extra_games (steam_id, appid, playtime_forever, synced_at, created_at, updated_at)
+       VALUES (?, 222, 50, ?, ?, ?)`,
+    ).run(STEAM_ID, now, now, now)
+    mockStoreSingle((appid) => ({ success: true, data: { name: `Resolved ${appid}` } }))
+    const { hydrateMissingExtraNames } = await import("@/lib/server/extra-games")
+    await hydrateMissingExtraNames(STEAM_ID, { appIds: [222] })
+    const rows = db.prepare("SELECT appid, name FROM games WHERE appid IN (111, 222) ORDER BY appid").all() as Array<{
+      appid: number
+      name: string
+    }>
+    expect(rows).toEqual([{ appid: 222, name: "Resolved 222" }])
   })
 
   it("retries rows whose games.name is empty string (no permanent sentinel)", async () => {

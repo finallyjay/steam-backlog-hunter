@@ -80,6 +80,52 @@ describe("ensureOwnedGamesSynced", () => {
     expect(row.name).toBe("Portal 2")
   })
 
+  it("hands the extras pipeline an incremental ingest bounded by the previous sync, then hydrates only the added appids", async () => {
+    mockSteamApi([{ appid: 620, name: "Portal 2" }])
+    const persistExtraGames = vi.fn().mockReturnValue({ added: [222, 333], updated: [111] })
+    const syncExtraAchievements = vi.fn().mockResolvedValue(undefined)
+    const hydrateMissingExtraNames = vi.fn().mockResolvedValue(undefined)
+    vi.doMock("@/lib/server/extra-games", () => ({
+      getExtraAppIds: vi.fn().mockReturnValue([]),
+      persistExtraGames,
+      syncExtraAchievements,
+      hydrateMissingExtraNames,
+    }))
+    const db = await seedBase()
+    const previousSync = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
+    db.prepare(
+      `INSERT INTO steam_profile (steam_id, last_owned_games_sync_at, created_at, updated_at)
+                VALUES (?, ?, ?, ?)`,
+    ).run(STEAM_ID, previousSync, previousSync, previousSync)
+
+    const { ensureOwnedGamesSynced } = await import("@/lib/server/steam-games-sync")
+    await ensureOwnedGamesSynced(STEAM_ID)
+
+    // Bounded by the sync time captured *before* persistOwnedGames stamped the new one.
+    expect(persistExtraGames).toHaveBeenCalledWith(STEAM_ID, [], { kind: "incremental", since: previousSync })
+    expect(syncExtraAchievements).toHaveBeenCalledWith(STEAM_ID, { weeklyFloor: false })
+    expect(hydrateMissingExtraNames).toHaveBeenCalledWith(STEAM_ID, { appIds: [222, 333] })
+  })
+
+  it("passes since = null to the extras ingest on a never-synced profile", async () => {
+    mockSteamApi([{ appid: 620, name: "Portal 2" }])
+    const persistExtraGames = vi.fn().mockReturnValue({ added: [], updated: [] })
+    const hydrateMissingExtraNames = vi.fn().mockResolvedValue(undefined)
+    vi.doMock("@/lib/server/extra-games", () => ({
+      getExtraAppIds: vi.fn().mockReturnValue([]),
+      persistExtraGames,
+      syncExtraAchievements: vi.fn().mockResolvedValue(undefined),
+      hydrateMissingExtraNames,
+    }))
+    await seedBase()
+
+    const { ensureOwnedGamesSynced } = await import("@/lib/server/steam-games-sync")
+    await ensureOwnedGamesSynced(STEAM_ID)
+
+    expect(persistExtraGames).toHaveBeenCalledWith(STEAM_ID, [], { kind: "incremental", since: null })
+    expect(hydrateMissingExtraNames).toHaveBeenCalledWith(STEAM_ID, { appIds: [] })
+  })
+
   it("returns cached games without refetching when the sync is fresh", async () => {
     const getOwnedGames = vi.fn().mockResolvedValue([])
     vi.doMock("@/lib/steam-api", () => ({

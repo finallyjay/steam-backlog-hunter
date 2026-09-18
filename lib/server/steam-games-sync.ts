@@ -298,6 +298,9 @@ export function persistLastPlayedTimes(steamId: string, games: LastPlayedGame[])
 const heavyOwnedGamesSyncInflight = new Map<string, Promise<SteamGame[]>>()
 
 async function runHeavyOwnedGamesSync(steamId: string, existingGames: SteamGame[]): Promise<SteamGame[]> {
+  // Captured before persistOwnedGames stamps the new sync time: it bounds
+  // which newly played apps the incremental extras pass may ingest.
+  const previousSyncAt = getProfileSync(steamId)?.last_owned_games_sync_at ?? null
   const games = await getOwnedGames(steamId)
 
   // Guard against transient Steam API failures: if GetOwnedGames returned
@@ -325,21 +328,26 @@ async function runHeavyOwnedGamesSync(steamId: string, existingGames: SteamGame[
   // first_playtime value that GetOwnedGames never exposes.
   const lastPlayed = await getLastPlayedTimes(steamId)
   persistLastPlayedTimes(steamId, lastPlayed)
-  // Everything in lastPlayed that ISN'T already in user_games (owned + pinned)
-  // lands in extra_games — refunded, family-shared, delisted-but-not-pinned,
-  // etc. Fully isolated from library stats.
-  persistExtraGames(steamId, lastPlayed)
-  // Fetch achievements + names for extras so the Extras page has the same
-  // level of detail as the Library. GetPlayerAchievements.gameName is the
-  // authoritative name source for apps with achievements (delisted or not).
-  await syncExtraAchievements(steamId)
-  // Fallback pass: hydrate names for extras that are still nameless after
-  // the achievement sync — typically live apps without any Steam
-  // achievements (dedicated servers, demos, retired betas) where
-  // GetPlayerAchievements has nothing to return. Uses the public store
-  // appdetails endpoint. Truly delisted no-achievement apps stay nameless
-  // and render as "App #{appid}".
-  await hydrateMissingExtraNames(steamId)
+  // Extras stay incremental here: known extras get their playtime refreshed
+  // and anything played since the previous sync is ingested, but the bulk
+  // discovery of every app the account ever launched (hundreds of store
+  // lookups on a first run) is left to the manual discovery action.
+  const extras = persistExtraGames(steamId, lastPlayed, { kind: "incremental", since: previousSyncAt })
+  logger.info(
+    { steamId, extrasAdded: extras.added.length, extrasUpdated: extras.updated.length },
+    "Sync: incremental extras ingested",
+  )
+  // Achievements only for extras played since their last achievements sync
+  // (plus the ones just ingested). No weekly floor: the manual discovery
+  // covers the rare unlock-without-a-session case.
+  await syncExtraAchievements(steamId, { weeklyFloor: false })
+  // Fallback pass: hydrate names for the extras ingested in this run that
+  // are still nameless after the achievement sync — typically live apps
+  // without any Steam achievements (dedicated servers, demos, retired
+  // betas) where GetPlayerAchievements has nothing to return. Uses the
+  // public store appdetails endpoint. Truly delisted no-achievement apps
+  // stay nameless and render as "App #{appid}".
+  await hydrateMissingExtraNames(steamId, { appIds: extras.added })
   // Probe store appdetails for platform support (windows/mac/linux). Used by
   // the UI to disambiguate same-named games across editions (e.g. GTA III
   // Mac vs Windows). Throttled to 200 fetches per run with a 30-day
