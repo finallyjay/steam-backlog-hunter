@@ -344,6 +344,8 @@ export function useSteamStats() {
 export type SteamExtraGame = {
   appid: number
   name: string | null
+  /** game | demo | dlc | beta | tool | software | other | unknown */
+  kind: string
   image_landscape_url: string | null
   image_portrait_url: string | null
   image_icon_url: string | null

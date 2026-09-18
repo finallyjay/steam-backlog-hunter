@@ -68,6 +68,7 @@ describe("GET /api/steam/extras/:id", () => {
     vi.mocked(getStoredExtraGame).mockReturnValue({
       appid: 111,
       name: "Test Game",
+      kind: "unknown",
       image_landscape_url: null,
       image_portrait_url: null,
       image_icon_url: null,

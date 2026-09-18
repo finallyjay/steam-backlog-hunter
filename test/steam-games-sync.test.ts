@@ -85,11 +85,13 @@ describe("ensureOwnedGamesSynced", () => {
     const persistExtraGames = vi.fn().mockReturnValue({ added: [222, 333], updated: [111] })
     const syncExtraAchievements = vi.fn().mockResolvedValue(undefined)
     const hydrateMissingExtraNames = vi.fn().mockResolvedValue(undefined)
+    const classifyExtraKinds = vi.fn().mockReturnValue(0)
     vi.doMock("@/lib/server/extra-games", () => ({
       getExtraAppIds: vi.fn().mockReturnValue([]),
       persistExtraGames,
       syncExtraAchievements,
       hydrateMissingExtraNames,
+      classifyExtraKinds,
     }))
     const db = await seedBase()
     const previousSync = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
@@ -105,6 +107,7 @@ describe("ensureOwnedGamesSynced", () => {
     expect(persistExtraGames).toHaveBeenCalledWith(STEAM_ID, [], { kind: "incremental", since: previousSync })
     expect(syncExtraAchievements).toHaveBeenCalledWith(STEAM_ID, { weeklyFloor: false })
     expect(hydrateMissingExtraNames).toHaveBeenCalledWith(STEAM_ID, { appIds: [222, 333] })
+    expect(classifyExtraKinds).toHaveBeenCalledWith(STEAM_ID, [222, 333])
   })
 
   it("passes since = null to the extras ingest on a never-synced profile", async () => {
@@ -116,6 +119,7 @@ describe("ensureOwnedGamesSynced", () => {
       persistExtraGames,
       syncExtraAchievements: vi.fn().mockResolvedValue(undefined),
       hydrateMissingExtraNames,
+      classifyExtraKinds: vi.fn().mockReturnValue(0),
     }))
     await seedBase()
 

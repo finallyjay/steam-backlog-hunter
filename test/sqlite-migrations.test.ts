@@ -232,6 +232,49 @@ describe("versioned migrations", () => {
     expect(row.name).toBe("ValveTestApp555")
   })
 
+  it("migration v5 backfills games.kind from the name for extras only", async () => {
+    // Open once so the schema exists, then rewind user_version to 4 and
+    // seed rows that predate the migration.
+    const { getSqliteDatabase } = await import("@/lib/server/sqlite")
+    const db = getSqliteDatabase()
+    const now = new Date().toISOString()
+    db.prepare(`INSERT INTO steam_profile (steam_id, created_at, updated_at) VALUES ('1', ?, ?)`).run(now, now)
+    for (const [appid, name] of [
+      [1, "Source Dedicated Server"],
+      [2, "Portal 2"],
+      [3, "Half-Life Demo"],
+    ] as const) {
+      db.prepare(`INSERT INTO games (appid, name, created_at, updated_at) VALUES (?, ?, ?, ?)`).run(
+        appid,
+        name,
+        now,
+        now,
+      )
+    }
+    // 1 and 2 are extras; 3 is a library-only row and must stay unclassified.
+    for (const appid of [1, 2]) {
+      db.prepare(
+        `INSERT INTO extra_games (steam_id, appid, playtime_forever, synced_at, created_at, updated_at)
+         VALUES ('1', ?, 10, ?, ?, ?)`,
+      ).run(appid, now, now, now)
+    }
+    db.exec("PRAGMA user_version = 4")
+
+    vi.resetModules()
+    await import("@/lib/server/sqlite").then((m) => m.getSqliteDatabase())
+
+    const rows = db.prepare("SELECT appid, kind, kind_source FROM games ORDER BY appid").all() as Array<{
+      appid: number
+      kind: string
+      kind_source: string | null
+    }>
+    expect(rows).toEqual([
+      { appid: 1, kind: "tool", kind_source: "name" },
+      { appid: 2, kind: "unknown", kind_source: null },
+      { appid: 3, kind: "unknown", kind_source: null },
+    ])
+  })
+
   it("migration v4 drops the unused recent_games_snapshot table", async () => {
     const { getSqliteDatabase } = await import("@/lib/server/sqlite")
     const db = getSqliteDatabase()
