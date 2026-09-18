@@ -45,6 +45,7 @@ function createBaseSchema(db: DatabaseSync) {
       last_login_at TEXT,
       last_owned_games_sync_at TEXT,
       last_recent_games_sync_at TEXT,
+      last_extras_discovery_at TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
@@ -366,6 +367,9 @@ function applyAdditiveMigrations(db: DatabaseSync) {
   // produced them (NULL for in-app syncs). See CREATE TABLE comment above.
   addColumnIfMissing(db, "achievement_changes", "scan_started_at", "TEXT")
   db.exec("CREATE INDEX IF NOT EXISTS idx_achievement_changes_scan ON achievement_changes(scan_started_at)")
+  // When the user last ran the manual extras discovery (bulk ingest of every
+  // played-but-unowned app). NULL until they run it once.
+  addColumnIfMissing(db, "steam_profile", "last_extras_discovery_at", "TEXT")
   runVersionedMigrations(db)
 }
 

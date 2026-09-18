@@ -6,6 +6,7 @@ import { AlertCircle, Database, EyeOff, LifeBuoy, RotateCcw, Search, Sparkles } 
 
 import { useCurrentUser } from "@/hooks/use-current-user"
 import { useSteamExtras, useSteamHiddenGames } from "@/hooks/use-steam-data"
+import { DiscoverExtrasButton } from "@/components/extras/discover-extras-button"
 import { PageContainer } from "@/components/ui/page-container"
 import { LoadingMessage } from "@/components/ui/loading-message"
 import { GameCard } from "@/components/ui/game-card"
@@ -105,6 +106,11 @@ export default function ExtrasPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab])
 
+  const handleDiscovered = useCallback(() => {
+    void refetchExtras()
+    void refetchHidden()
+  }, [refetchExtras, refetchHidden])
+
   const filteredExtras = useMemo(() => {
     const visible = extras.filter((g) => !locallyHidden.has(g.appid))
     const q = search.trim().toLowerCase()
@@ -140,7 +146,8 @@ export default function ExtrasPage() {
               Games Steam remembers you played at some point but that aren&apos;t in your main library: refunded,
               family-shared, delisted, or otherwise removed. These <strong>don&apos;t count</strong> in your library
               stats, insights or KPIs — they&apos;re tracked separately so you can still see them without contaminating
-              anything else.
+              anything else. The regular sync only adds games played since your last sync; use{" "}
+              <strong>Discover extras</strong> for the full pass.
             </p>
           </div>
         </div>
@@ -186,6 +193,7 @@ export default function ExtrasPage() {
               ? "Loading\u2026"
               : `${filteredCount}${filteredCount !== totalCount ? ` of ${totalCount}` : ""} games`}
           </p>
+          {tab === "extras" ? <DiscoverExtrasButton onDiscovered={handleDiscovered} /> : null}
         </div>
 
         <hr className="border-surface-4" />
@@ -218,7 +226,8 @@ export default function ExtrasPage() {
             <SurfaceCard variant="empty">
               <p className="text-muted-foreground">No extras yet.</p>
               <p className="text-muted-foreground mt-1 text-sm">
-                After syncing, games Steam remembers you played but no longer own will show up here.
+                Run <strong>Discover extras</strong> to pull in every game Steam remembers you played but don&apos;t
+                own. The regular sync only picks up games played since your last sync.
               </p>
             </SurfaceCard>
           ) : (

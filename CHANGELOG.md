@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Manual extras discovery: `POST /api/steam/extras/discover` runs the full pass (every game Steam remembers the account played but does not own, achievements, names, images) with a per-user in-flight guard and rate limit, `GET` reports the running state and last run, and the Extras page gets a **Discover extras** button with the last-run time and a completion summary (#352)
+
 ### Changed
 
 - The regular library sync no longer runs the bulk extras discovery. Known extras still get their playtime refreshed from `ClientGetLastPlayedTimes`, and a game played since the previous sync is ingested on its own, but the hundreds of store lookups for everything the account ever launched, and the weekly re-sync of every extra's achievements, are left to the manual discovery action coming in #352 (#351)

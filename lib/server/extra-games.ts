@@ -1,10 +1,11 @@
 import "server-only"
 
-import { getGameSchema, getPlayerAchievements, type LastPlayedGame } from "@/lib/steam-api"
+import { getGameSchema, getLastPlayedTimes, getPlayerAchievements, type LastPlayedGame } from "@/lib/steam-api"
 import { ensureSchema } from "@/lib/server/steam-achievements-sync"
 import type { SteamAchievementView } from "@/lib/types/steam"
 import { getSqliteDatabase } from "@/lib/server/sqlite"
-import { isStale, nowIso } from "@/lib/server/steam-store-utils"
+import { ensureGameImages } from "@/lib/server/steam-images"
+import { getProfileSync, isStale, markProfileSync, nowIso, upsertProfile } from "@/lib/server/steam-store-utils"
 import { ACHIEVEMENTS_STALE_MS } from "@/lib/server/steam-achievements-sync"
 import { populateGamesFromSteamCatalog } from "@/lib/server/steam-app-catalog"
 import { isPlaceholderName, PLACEHOLDER_NAME_SQL_MATCH } from "@/lib/server/placeholder-names"
@@ -824,4 +825,82 @@ export async function getExtraAchievementsList(steamId: string, appId: number): 
     hidden: row.hidden ?? 0,
     globalPercent: row.global_percent,
   }))
+}
+
+export type ExtrasDiscoveryResult = {
+  /** ISO timestamp of when the run finished. */
+  discoveredAt: string
+  /** Extras that did not exist before this run. */
+  added: number
+  /** Extras that already existed and had their playtime refreshed. */
+  updated: number
+  /** Extras rows for the user after the run. */
+  total: number
+}
+
+export type ExtrasDiscoveryStatus = {
+  running: boolean
+  lastDiscoveryAt: string | null
+}
+
+// Per-user in-flight promise. A second request while a run is in progress
+// joins it instead of starting another bulk pass against Steam.
+const discoveryInflight = new Map<string, Promise<ExtrasDiscoveryResult>>()
+
+/** True while a manual extras discovery is running for this user in this process. */
+export function isExtrasDiscoveryRunning(steamId: string): boolean {
+  return discoveryInflight.has(steamId)
+}
+
+/** Running flag plus the timestamp of the user's last completed discovery. */
+export function getExtrasDiscoveryStatus(steamId: string): ExtrasDiscoveryStatus {
+  upsertProfile(steamId)
+  return {
+    running: isExtrasDiscoveryRunning(steamId),
+    lastDiscoveryAt: getProfileSync(steamId)?.last_extras_discovery_at ?? null,
+  }
+}
+
+/**
+ * Manual, explicit bulk discovery of extras: everything the account ever
+ * launched that is not in the owned library. This is the expensive pass the
+ * regular sync no longer runs (see `persistExtraGames` incremental mode):
+ * full ingest, achievements with the weekly staleness floor, name hydration
+ * for every nameless extra, and image probes.
+ *
+ * Concurrent calls for the same user share one run.
+ */
+export async function discoverExtraGames(steamId: string): Promise<ExtrasDiscoveryResult> {
+  const existing = discoveryInflight.get(steamId)
+  if (existing) return existing
+
+  const run = runExtrasDiscovery(steamId).finally(() => {
+    discoveryInflight.delete(steamId)
+  })
+  discoveryInflight.set(steamId, run)
+  return run
+}
+
+async function runExtrasDiscovery(steamId: string): Promise<ExtrasDiscoveryResult> {
+  const startedAt = Date.now()
+  upsertProfile(steamId)
+  logger.info({ steamId }, "Extras discovery: start")
+
+  const lastPlayed = await getLastPlayedTimes(steamId)
+  const ingest = persistExtraGames(steamId, lastPlayed, { kind: "full" })
+  logger.info(
+    { steamId, lastPlayed: lastPlayed.length, added: ingest.added.length, updated: ingest.updated.length },
+    "Extras discovery: ingested",
+  )
+
+  await syncExtraAchievements(steamId, { weeklyFloor: true })
+  await hydrateMissingExtraNames(steamId)
+  await ensureGameImages(getExtraAppIds(steamId))
+
+  const discoveredAt = nowIso()
+  markProfileSync(steamId, "last_extras_discovery_at", discoveredAt)
+  const total = getExtraAppIds(steamId).length
+  logger.info({ steamId, total, elapsedMs: Date.now() - startedAt }, "Extras discovery: done")
+
+  return { discoveredAt, added: ingest.added.length, updated: ingest.updated.length, total }
 }

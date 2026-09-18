@@ -1360,3 +1360,95 @@ describe("getExtraAchievementsList", () => {
     expect(ach2.achieved).toBe(0)
   })
 })
+
+describe("discoverExtraGames", () => {
+  const ORIGINAL_FETCH = globalThis.fetch
+  afterEach(() => {
+    globalThis.fetch = ORIGINAL_FETCH
+  })
+
+  function mockPipeline(lastPlayed: Array<{ appid: number; playtime_forever: number; last_playtime?: number }>) {
+    const getLastPlayedTimes = vi.fn().mockResolvedValue(lastPlayed)
+    vi.doMock("@/lib/steam-api", () => ({
+      getOwnedGames: vi.fn().mockResolvedValue([]),
+      getPlayerAchievements: vi.fn().mockResolvedValue({
+        steamID: STEAM_ID,
+        gameName: "Discovered",
+        success: true,
+        achievements: [{ apiname: "A", achieved: 1, unlocktime: 1 }],
+      }),
+      getGameSchema: vi.fn().mockResolvedValue(null),
+      getLastPlayedTimes,
+    }))
+    const ensureGameImages = vi.fn().mockResolvedValue(undefined)
+    vi.doMock("@/lib/server/steam-images", () => ({ ensureGameImages }))
+    vi.doMock("@/lib/server/steam-app-catalog", () => ({
+      populateGamesFromSteamCatalog: vi.fn().mockResolvedValue(0),
+    }))
+    // Name hydration has nothing to resolve once achievements named every
+    // extra, but keep any stray store call harmless.
+    globalThis.fetch = vi.fn(async () => ({ ok: false, status: 404 }) as unknown as Response) as unknown as typeof fetch
+    return { getLastPlayedTimes, ensureGameImages }
+  }
+
+  it("runs the full pass: ingests everything, syncs achievements, probes images and stamps the profile", async () => {
+    const { ensureGameImages } = mockPipeline([
+      { appid: 111, playtime_forever: 100, last_playtime: 1_000_000 }, // old play: still ingested (full mode)
+      { appid: 222, playtime_forever: 20 },
+    ])
+    const db = await seedProfile()
+
+    const { discoverExtraGames, getExtraGamesForUser, getExtrasDiscoveryStatus } =
+      await import("@/lib/server/extra-games")
+    const result = await discoverExtraGames(STEAM_ID)
+
+    expect(result.added).toBe(2)
+    expect(result.updated).toBe(0)
+    expect(result.total).toBe(2)
+    const extras = getExtraGamesForUser(STEAM_ID)
+    expect(extras.map((g) => g.name)).toEqual(["Discovered", "Discovered"])
+    expect(extras.every((g) => g.total_count === 1 && g.unlocked_count === 1)).toBe(true)
+    expect(ensureGameImages).toHaveBeenCalledWith(expect.arrayContaining([111, 222]))
+    const row = db.prepare("SELECT last_extras_discovery_at FROM steam_profile WHERE steam_id = ?").get(STEAM_ID) as {
+      last_extras_discovery_at: string | null
+    }
+    expect(row.last_extras_discovery_at).toBe(result.discoveredAt)
+    expect(getExtrasDiscoveryStatus(STEAM_ID)).toEqual({ running: false, lastDiscoveryAt: result.discoveredAt })
+  })
+
+  it("reports refreshed rows as updated on a second run", async () => {
+    mockPipeline([{ appid: 111, playtime_forever: 100 }])
+    await seedProfile()
+    const { discoverExtraGames } = await import("@/lib/server/extra-games")
+    await discoverExtraGames(STEAM_ID)
+    const second = await discoverExtraGames(STEAM_ID)
+    expect(second).toMatchObject({ added: 0, updated: 1, total: 1 })
+  })
+
+  it("joins an in-flight run for the same user instead of starting another", async () => {
+    const { getLastPlayedTimes } = mockPipeline([{ appid: 111, playtime_forever: 100 }])
+    await seedProfile()
+    const { discoverExtraGames, isExtrasDiscoveryRunning } = await import("@/lib/server/extra-games")
+    const first = discoverExtraGames(STEAM_ID)
+    expect(isExtrasDiscoveryRunning(STEAM_ID)).toBe(true)
+    const second = discoverExtraGames(STEAM_ID)
+    const [a, b] = await Promise.all([first, second])
+    expect(a).toBe(b)
+    expect(getLastPlayedTimes).toHaveBeenCalledTimes(1)
+    expect(isExtrasDiscoveryRunning(STEAM_ID)).toBe(false)
+  })
+
+  it("clears the in-flight flag when the run fails", async () => {
+    mockPipeline([])
+    vi.doMock("@/lib/steam-api", () => ({
+      getOwnedGames: vi.fn(),
+      getPlayerAchievements: vi.fn(),
+      getGameSchema: vi.fn(),
+      getLastPlayedTimes: vi.fn().mockRejectedValue(new Error("steam down")),
+    }))
+    await seedProfile()
+    const { discoverExtraGames, isExtrasDiscoveryRunning } = await import("@/lib/server/extra-games")
+    await expect(discoverExtraGames(STEAM_ID)).rejects.toThrow("steam down")
+    expect(isExtrasDiscoveryRunning(STEAM_ID)).toBe(false)
+  })
+})
