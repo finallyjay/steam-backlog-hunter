@@ -165,8 +165,11 @@ export async function hydrateMissingExtraNames(steamId: string, options?: { appI
   // once-per-week no-op for every user after the first, and covers the
   // entire 200k-app catalog in one shot (Tools / Software / SDK entries
   // included). The per-appid loop below becomes a safety net for the few
-  // apps the catalog genuinely doesn't cover.
-  await populateGamesFromSteamCatalog()
+  // apps the catalog genuinely doesn't cover. Skipped on a restricted pass
+  // (regular sync): that path must stay cheap and limited to its appids.
+  if (!appIds) {
+    await populateGamesFromSteamCatalog()
+  }
 
   const allRows = db
     .prepare(
