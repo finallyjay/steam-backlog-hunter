@@ -1478,6 +1478,9 @@ describe("classifyExtraKinds", () => {
       { appid: 1, kind: "unknown" },
       { appid: 2, kind: "demo" },
     ])
+  })
+})
+
 describe("syncExtraGameAchievements", () => {
   async function seedExtra(appId: number) {
     const db = await seedProfile()
@@ -1552,6 +1555,18 @@ describe("syncExtraGameAchievements", () => {
     await seedExtra(444)
     const { syncExtraGameAchievements } = await import("@/lib/server/extra-games")
     await expect(syncExtraGameAchievements(STEAM_ID, 444)).rejects.toThrow("steam down")
+  })
+
+  it("does not persist 0/0 when the schema request fails transiently after a null player response", async () => {
+    const getGameSchema = vi.fn().mockRejectedValue(new Error("schema 503"))
+    mockSteamApi({ getGameSchema })
+    await seedExtra(555)
+    const { syncExtraGameAchievements, getStoredExtraGame } = await import("@/lib/server/extra-games")
+    await expect(syncExtraGameAchievements(STEAM_ID, 555)).rejects.toThrow("schema 503")
+    expect(getGameSchema).toHaveBeenCalledWith(555, { throwOnFailure: true })
+    const row = getStoredExtraGame(STEAM_ID, 555)
+    expect(row?.achievements_synced_at).toBeNull()
+    expect(row?.total_count).toBeNull()
   })
 })
 

@@ -45,6 +45,7 @@ const mockUser = {
 const extra = {
   appid: 111,
   name: "Extra",
+  kind: "unknown" as const,
   image_landscape_url: null,
   image_portrait_url: null,
   image_icon_url: null,

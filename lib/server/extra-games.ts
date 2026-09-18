@@ -677,6 +677,9 @@ export async function syncExtraAchievements(steamId: string, options?: { weeklyF
  *    so we record the total with 0 unlocked. Placeholder gameNames
  *    ("ValveTestApp43110") are filtered by persistExtraAchievements.
  * 3. Neither knows the game → persist 0/0 so it is not retried on every sync.
+ *    Only a *definitive* schema answer gets here: a transient schema failure
+ *    (network, 5xx, 429) throws instead, so the row stays unsynced and is
+ *    retried on the next pass rather than frozen as "no achievements".
  *
  * No ensureSchema() here on purpose: the extras list only needs aggregate
  * counts, and forcing the schema would hit a FOREIGN KEY failure on
@@ -692,7 +695,7 @@ export async function syncExtraGameAchievements(steamId: string, appId: number):
     return
   }
 
-  const schema = await getGameSchema(appId)
+  const schema = await getGameSchema(appId, { throwOnFailure: true })
   const schemaAchievements = schema?.availableGameStats?.achievements ?? []
   if (schemaAchievements.length > 0) {
     persistExtraAchievements(
