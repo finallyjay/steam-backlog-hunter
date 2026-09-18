@@ -68,6 +68,32 @@ describe("additive migrations on pre-existing tables", () => {
   })
 })
 
+describe("additive migrations on steam_profile", () => {
+  it("adds last_extras_discovery_at to a profile table that predates it", async () => {
+    const { DatabaseSync } = await import("node:sqlite")
+    const legacy = new DatabaseSync(process.env.SQLITE_PATH as string)
+    legacy.exec(`
+      CREATE TABLE steam_profile (
+        steam_id TEXT PRIMARY KEY,
+        persona_name TEXT,
+        avatar_url TEXT,
+        profile_url TEXT,
+        last_login_at TEXT,
+        last_owned_games_sync_at TEXT,
+        last_recent_games_sync_at TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+    `)
+    legacy.close()
+
+    const { getSqliteDatabase } = await import("@/lib/server/sqlite")
+    const db = getSqliteDatabase()
+    const columns = (db.prepare("PRAGMA table_info(steam_profile)").all() as Array<{ name: string }>).map((c) => c.name)
+    expect(columns).toContain("last_extras_discovery_at")
+  })
+})
+
 describe("versioned migrations", () => {
   it("bumps PRAGMA user_version to the latest migration after first open", async () => {
     const { getSqliteDatabase } = await import("@/lib/server/sqlite")

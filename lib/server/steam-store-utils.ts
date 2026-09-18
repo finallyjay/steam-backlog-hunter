@@ -84,7 +84,7 @@ export function upsertProfile(steamId: string, options?: UpsertProfileOptions) {
 
 export function markProfileSync(
   steamId: string,
-  column: "last_owned_games_sync_at" | "last_recent_games_sync_at",
+  column: "last_owned_games_sync_at" | "last_recent_games_sync_at" | "last_extras_discovery_at",
   value: string,
 ) {
   const db = getSqliteDatabase()
@@ -102,7 +102,7 @@ export function getProfileSync(steamId: string) {
   return db
     .prepare(
       `
-    SELECT last_owned_games_sync_at, last_recent_games_sync_at
+    SELECT last_owned_games_sync_at, last_recent_games_sync_at, last_extras_discovery_at
     FROM steam_profile
     WHERE steam_id = ?
   `,
