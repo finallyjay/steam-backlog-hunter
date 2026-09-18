@@ -1,6 +1,6 @@
 "use client"
 
-import { useSteamAchievements, useSteamGames } from "@/hooks/use-steam-data"
+import { invalidateSteamData, useSteamAchievements, useSteamGames } from "@/hooks/use-steam-data"
 import { useAchievementChanges } from "@/hooks/use-achievement-changes"
 import { AchievementChangeChips } from "@/components/ui/achievement-change-chips"
 import { GameHero } from "@/components/ui/game-hero"
@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button"
 import { InputFrame } from "@/components/ui/input-frame"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Check, ExternalLink, Lock, RefreshCw, Search, Sparkles, Trophy } from "lucide-react"
+import { Check, ExternalLink, Lock, RefreshCw, Search, Sparkles, Trophy, Undo2 } from "lucide-react"
 import { formatPlaytime } from "@/lib/utils"
 
 type AchievementTab = "pending" | "unlocked"
@@ -62,6 +62,8 @@ export default function GameDetailPage() {
   const [syncedAchievements, setSyncedAchievements] = useState<SteamAchievementView[] | null>(null)
   const [syncError, setSyncError] = useState<string | null>(null)
   const [search, setSearch] = useState("")
+  const [demoting, setDemoting] = useState(false)
+  const [demoteError, setDemoteError] = useState<string | null>(null)
 
   const game = games.find((g) => g.appid === appId)
 
@@ -74,6 +76,25 @@ export default function GameDetailPage() {
       router.push("/")
     }
   }, [loadingUser, router, user])
+
+  const handleDemote = async () => {
+    setDemoting(true)
+    setDemoteError(null)
+    try {
+      const res = await fetch(`/api/steam/game/${appId}/demote`, { method: "POST" })
+      if (res.ok) {
+        invalidateSteamData()
+        router.push("/extras")
+        return
+      }
+      const data = (await res.json().catch(() => null)) as { error?: string } | null
+      setDemoteError(data?.error ?? "Failed to return the game to extras")
+    } catch {
+      setDemoteError("Network error")
+    } finally {
+      setDemoting(false)
+    }
+  }
 
   const handleSync = async () => {
     setSyncing(true)
@@ -234,6 +255,22 @@ export default function GameDetailPage() {
                 {syncing ? "Syncing..." : "Update achievements"}
               </Button>
               {syncError && <span className="text-destructive text-sm">{syncError}</span>}
+              {game.ownedSource === "manual" && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={handleDemote}
+                    disabled={demoting}
+                    title="You added this game from extras. Return it there and it stops counting in your stats."
+                  >
+                    <Undo2 className="h-4 w-4" />
+                    {demoting ? "Returning..." : "Return to extras"}
+                  </Button>
+                  {demoteError && <span className="text-destructive text-sm">{demoteError}</span>}
+                </>
+              )}
             </div>
           </GameHero>
         )}

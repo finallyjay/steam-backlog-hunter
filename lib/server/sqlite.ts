@@ -99,6 +99,11 @@ function createBaseSchema(db: DatabaseSync) {
       rtime_last_played INTEGER,
       rtime_first_played INTEGER,
       owned INTEGER NOT NULL DEFAULT 1,
+      -- 'auto': ownership decided by Steam (GetOwnedGames); the sync marks
+      -- and unmarks it. 'manual': the user promoted an extra into the
+      -- library; the sync never touches the row, and it flips back to
+      -- 'auto' only if Steam starts reporting the game as owned.
+      owned_source TEXT NOT NULL DEFAULT 'auto',
       last_seen_in_owned_games_at TEXT,
       achievements_synced_at TEXT,
       unlocked_count INTEGER,
@@ -382,6 +387,8 @@ function applyAdditiveMigrations(db: DatabaseSync) {
   // App classification for extras. See CREATE TABLE comment above.
   addColumnIfMissing(db, "games", "kind", "TEXT NOT NULL DEFAULT 'unknown'")
   addColumnIfMissing(db, "games", "kind_source", "TEXT")
+  // Manual ownership. See CREATE TABLE comment above.
+  addColumnIfMissing(db, "user_games", "owned_source", "TEXT NOT NULL DEFAULT 'auto'")
   runVersionedMigrations(db)
 }
 

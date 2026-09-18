@@ -37,6 +37,8 @@ export interface SteamGame {
   perfect_game?: boolean
   platforms?: { windows: boolean; mac: boolean; linux: boolean } | null
   releaseYear?: number | null
+  /** 'manual' when the user promoted the game from extras; 'auto' when Steam reports it as owned. */
+  ownedSource?: "auto" | "manual"
 }
 
 export interface SteamAchievement {
