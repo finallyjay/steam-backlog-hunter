@@ -168,7 +168,7 @@ export async function hydrateMissingExtraNames(steamId: string, options?: { appI
   // apps the catalog genuinely doesn't cover.
   await populateGamesFromSteamCatalog()
 
-  const rows = db
+  const allRows = db
     .prepare(
       `
       SELECT e.appid
@@ -182,11 +182,16 @@ export async function hydrateMissingExtraNames(steamId: string, options?: { appI
           OR ${PLACEHOLDER_NAME_SQL_MATCH}
         )
         AND (g.name_source IS NULL OR g.name_source != 'manual')
-        ${appIds ? `AND e.appid IN (${appIds.map(() => "?").join(",")})` : ""}
       ORDER BY e.playtime_forever DESC
     `,
     )
-    .all(steamId, ...(appIds ?? [])) as Array<{ appid: number }>
+    .all(steamId) as Array<{ appid: number }>
+
+  // Filter in memory rather than with an IN (...) clause: a first-run
+  // ingest can hand us thousands of appids, which would blow past SQLite's
+  // bound-variable limit.
+  const wanted = appIds ? new Set(appIds) : null
+  const rows = wanted ? allRows.filter((row) => wanted.has(row.appid)) : allRows
 
   if (rows.length === 0) return
 
@@ -383,8 +388,11 @@ export function persistExtraGames(
     const played = (game.playtime_forever ?? 0) > 0 || (game.last_playtime ?? 0) > 0 || (game.first_playtime ?? 0) > 0
     if (!played) return false
     if (existing.has(game.appid)) return true
+    // Inclusive: Steam reports whole seconds while `since` carries
+    // milliseconds, so a session started within the sync's own second must
+    // not fall through the gap.
     const playedAt = Math.max(game.last_playtime ?? 0, game.first_playtime ?? 0)
-    return playedAt > sinceSeconds
+    return playedAt >= sinceSeconds
   })
 
   if (candidates.length === 0) return result
@@ -552,9 +560,11 @@ export async function syncExtraAchievements(steamId: string, options?: { weeklyF
     // Weekly staleness floor catches edge cases where rtime didn't move.
     if (weeklyFloor && isStale(row.achievements_synced_at, ACHIEVEMENTS_STALE_MS)) return true
     // Incremental: only re-sync if the game was played after our last sync.
-    const syncedAtMs = Date.parse(row.achievements_synced_at)
-    const playedAtMs = (row.rtime_last_played ?? 0) * 1000
-    return playedAtMs > syncedAtMs
+    // Compared in whole seconds (Steam's precision), inclusively, so a play
+    // that lands in the same second as the sync is not missed; the worst
+    // case is one extra request for that game on the next run.
+    const syncedAtSeconds = Math.floor(Date.parse(row.achievements_synced_at) / 1000)
+    return (row.rtime_last_played ?? 0) >= syncedAtSeconds
   })
 
   if (stale.length === 0) return
