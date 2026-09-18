@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { Database, ExternalLink, LifeBuoy, Lock, Search, Trophy } from "lucide-react"
+import { Database, ExternalLink, LifeBuoy, Lock, RefreshCw, Search, Trophy } from "lucide-react"
 
 import { useCurrentUser } from "@/hooks/use-current-user"
 import { LoadingMessage } from "@/components/ui/loading-message"
@@ -71,6 +71,8 @@ export default function ExtraGameDetailPage() {
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<AchievementTab>("pending")
   const [search, setSearch] = useState("")
+  const [syncing, setSyncing] = useState(false)
+  const [syncError, setSyncError] = useState<string | null>(null)
 
   // Reset fetch state during render when navigating to a different extra
   // (React's "adjust state on prop change" pattern) so the fetch effect
@@ -112,6 +114,26 @@ export default function ExtraGameDetailPage() {
     }
     void run()
   }, [load])
+
+  const handleSync = async () => {
+    setSyncing(true)
+    setSyncError(null)
+    try {
+      const res = await fetch(`/api/steam/extras/${appId}/sync`, { method: "POST" })
+      if (res.ok) {
+        const data = (await res.json()) as ExtraDetailResponse
+        setGame(data.game)
+        setAchievements(data.achievements ?? [])
+      } else {
+        const data = (await res.json().catch(() => null)) as { error?: string } | null
+        setSyncError(data?.error ?? "Sync failed")
+      }
+    } catch {
+      setSyncError("Network error")
+    } finally {
+      setSyncing(false)
+    }
+  }
 
   useEffect(() => {
     window.scrollTo(0, 0)
@@ -199,6 +221,11 @@ export default function ExtraGameDetailPage() {
               )}
 
               <div className="flex flex-wrap items-center gap-3 pt-1">
+                <Button variant="outline" size="sm" className="gap-2" onClick={handleSync} disabled={syncing}>
+                  <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
+                  {syncing ? "Syncing..." : "Update achievements"}
+                </Button>
+                {syncError && <span className="text-destructive text-sm">{syncError}</span>}
                 <a href={`https://store.steampowered.com/app/${game.appid}`} target="_blank" rel="noopener noreferrer">
                   <Button variant="outline" size="sm" className="gap-2">
                     <ExternalLink className="h-4 w-4" />
@@ -265,7 +292,7 @@ export default function ExtraGameDetailPage() {
             )}
 
             {total === 0 && !loading && (
-              <EmptyState message="This game has no achievements or they haven't been synced yet." />
+              <EmptyState message="This game has no achievements or they haven't been synced yet. Use Update achievements to ask Steam again." />
             )}
           </>
         ) : null}
