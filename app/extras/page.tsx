@@ -14,12 +14,22 @@ import { InputFrame } from "@/components/ui/input-frame"
 import { Skeleton } from "@/components/ui/skeleton"
 import { SurfaceCard } from "@/components/ui/surface-card"
 import { getSteamHeaderImageUrl } from "@/lib/steam-image-urls"
+import { appKindLabel, filterByKind, isGameLikeKind } from "@/lib/app-kind-labels"
+import { Switch } from "@/components/ui/switch"
 
 type Tab = "extras" | "hidden"
 
-function ExtraGameActions({ appid }: { appid: number }) {
+function ExtraGameActions({ appid, kind }: { appid: number; kind: string }) {
   return (
     <div className="flex items-center gap-1.5">
+      {!isGameLikeKind(kind) && (
+        <span
+          className="bg-surface-3 text-muted-foreground rounded-full px-2 py-0.5 text-xs"
+          title="Classified from the Steam store or the app name"
+        >
+          {appKindLabel(kind)}
+        </span>
+      )}
       <a
         href={`https://steamdb.info/app/${appid}/`}
         target="_blank"
@@ -53,6 +63,8 @@ export default function ExtrasPage() {
   const [search, setSearch] = useState("")
   const [locallyHidden, setLocallyHidden] = useState<Set<number>>(new Set())
   const [locallyRestored, setLocallyRestored] = useState<Set<number>>(new Set())
+  // Demos, tools, betas and other non-game kinds are hidden by default.
+  const [showAllKinds, setShowAllKinds] = useState(false)
 
   useEffect(() => {
     window.scrollTo(0, 0)
@@ -111,12 +123,15 @@ export default function ExtrasPage() {
     void refetchHidden()
   }, [refetchExtras, refetchHidden])
 
+  const visibleExtras = useMemo(() => extras.filter((g) => !locallyHidden.has(g.appid)), [extras, locallyHidden])
+  const kindFilteredExtras = useMemo(() => filterByKind(visibleExtras, showAllKinds), [visibleExtras, showAllKinds])
+  const nonGameCount = visibleExtras.length - filterByKind(visibleExtras, false).length
+
   const filteredExtras = useMemo(() => {
-    const visible = extras.filter((g) => !locallyHidden.has(g.appid))
     const q = search.trim().toLowerCase()
-    if (!q) return visible
-    return visible.filter((g) => (g.name || `app #${g.appid}`).toLowerCase().includes(q))
-  }, [extras, search, locallyHidden])
+    if (!q) return kindFilteredExtras
+    return kindFilteredExtras.filter((g) => (g.name || `app #${g.appid}`).toLowerCase().includes(q))
+  }, [kindFilteredExtras, search])
 
   const filteredHidden = useMemo(() => {
     const visible = hidden.filter((g) => !locallyRestored.has(g.appid))
@@ -127,7 +142,7 @@ export default function ExtrasPage() {
 
   const loading = tab === "extras" ? loadingExtras : loadingHidden
   const error = tab === "extras" ? extrasError : hiddenError
-  const totalCount = tab === "extras" ? extras.length - locallyHidden.size : hidden.length - locallyRestored.size
+  const totalCount = tab === "extras" ? kindFilteredExtras.length : hidden.length - locallyRestored.size
   const filteredCount = tab === "extras" ? filteredExtras.length : filteredHidden.length
 
   if (loadingUser) return <LoadingMessage />
@@ -196,6 +211,20 @@ export default function ExtrasPage() {
           {tab === "extras" ? <DiscoverExtrasButton onDiscovered={handleDiscovered} /> : null}
         </div>
 
+        {tab === "extras" && (
+          <label className="text-muted-foreground flex w-fit cursor-pointer items-center gap-2 text-sm">
+            <Switch checked={showAllKinds} onCheckedChange={setShowAllKinds} aria-label="Show demos, tools and betas" />
+            <span>
+              Show demos, tools, betas &amp; other non-games
+              {nonGameCount > 0 && (
+                <span className="bg-surface-4 text-muted-foreground ml-1.5 rounded-full px-1.5 py-0.5 text-xs">
+                  {nonGameCount}
+                </span>
+              )}
+            </span>
+          </label>
+        )}
+
         <hr className="border-surface-4" />
 
         {error ? (
@@ -224,7 +253,9 @@ export default function ExtrasPage() {
         ) : tab === "extras" ? (
           filteredExtras.length === 0 ? (
             <SurfaceCard variant="empty">
-              <p className="text-muted-foreground">No extras yet.</p>
+              <p className="text-muted-foreground">
+                {visibleExtras.length > 0 && !showAllKinds ? "Only non-game extras here." : "No extras yet."}
+              </p>
               <p className="text-muted-foreground mt-1 text-sm">
                 Run <strong>Discover extras</strong> to pull in every game Steam remembers you played but don&apos;t
                 own. The regular sync only picks up games played since your last sync.
@@ -247,7 +278,7 @@ export default function ExtrasPage() {
                   serverUnlocked={game.unlocked_count ?? 0}
                   serverPerfect={game.perfect_game === 1}
                   onHide={handleHide}
-                  actions={<ExtraGameActions appid={game.appid} />}
+                  actions={<ExtraGameActions appid={game.appid} kind={game.kind} />}
                 />
               ))}
             </div>

@@ -15,11 +15,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { GameHero } from "@/components/ui/game-hero"
 import { AchievementRow } from "@/components/ui/achievement-row"
 import { formatPlaytime } from "@/lib/utils"
+import { appKindLabel, isGameLikeKind } from "@/lib/app-kind-labels"
 import type { SteamAchievementView } from "@/lib/types/steam"
 
 type ExtraGameDetail = {
   appid: number
   name: string | null
+  kind?: string
   image_landscape_url: string | null
   image_portrait_url: string | null
   image_icon_url: string | null
@@ -181,6 +183,11 @@ export default function ExtraGameDetailPage() {
                 <div className="flex items-center gap-2">
                   <h1 className="text-2xl font-bold">{gameName}</h1>
                   <span className="bg-surface-3 text-muted-foreground rounded-full px-2 py-0.5 text-xs">Extra</span>
+                  {!isGameLikeKind(game.kind) && (
+                    <span className="bg-surface-3 text-muted-foreground rounded-full px-2 py-0.5 text-xs">
+                      {appKindLabel(game.kind)}
+                    </span>
+                  )}
                 </div>
               }
             >
