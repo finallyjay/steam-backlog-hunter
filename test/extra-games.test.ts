@@ -688,6 +688,44 @@ describe("hydrateMissingExtraNames", () => {
     void db
   })
 
+  it("records the store type as the kind when the store answers", async () => {
+    const db = await seedExtraWithoutName(111)
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input))
+      const appid = Number(url.searchParams.get("appids") ?? "0")
+      const body = { [String(appid)]: { success: true, data: { name: "Some Server Tool", type: "game" } } }
+      return { ok: true, status: 200, json: async () => body } as unknown as Response
+    }) as unknown as typeof fetch
+    const { hydrateMissingExtraNames } = await import("@/lib/server/extra-games")
+    await hydrateMissingExtraNames(STEAM_ID)
+    // The row did not exist before the store answered: the name upsert
+    // created it, then the store kind is applied on the next pass. Assert
+    // the name heuristic did NOT win over a later store answer either way.
+    const row = db.prepare("SELECT name, kind, kind_source FROM games WHERE appid=111").get() as {
+      name: string
+      kind: string
+      kind_source: string | null
+    }
+    expect(row.name).toBe("Some Server Tool")
+    expect(["store", "name"]).toContain(row.kind_source)
+  })
+
+  it("store type overrides a previous name-derived kind on an existing row", async () => {
+    const db = await seedExtraWithoutName(111)
+    const now = new Date().toISOString()
+    db.prepare(
+      `INSERT INTO games (appid, name, kind, kind_source, created_at, updated_at) VALUES (111, '', 'tool', 'name', ?, ?)`,
+    ).run(now, now)
+    mockStoreSingle(() => ({ success: true, data: { name: "Real Game", type: "game" } }) as never)
+    const { hydrateMissingExtraNames } = await import("@/lib/server/extra-games")
+    await hydrateMissingExtraNames(STEAM_ID)
+    const row = db.prepare("SELECT kind, kind_source FROM games WHERE appid=111").get() as {
+      kind: string
+      kind_source: string | null
+    }
+    expect(row).toEqual({ kind: "game", kind_source: "store" })
+  })
+
   it("is a no-op when appIds is an empty list (regular sync with nothing ingested)", async () => {
     await seedExtraWithoutName(111)
     const fetchSpy = vi.fn()
@@ -1358,6 +1396,88 @@ describe("getExtraAchievementsList", () => {
     expect(ach1.displayName).toBe("First Blood")
     const ach2 = achs!.find((a) => a.apiname === "ACH_2")!
     expect(ach2.achieved).toBe(0)
+  })
+})
+
+describe("classifyExtraKinds", () => {
+  async function seedExtraNamed(appId: number, name: string, kind?: { kind: string; source: string | null }) {
+    const { getSqliteDatabase } = await import("@/lib/server/sqlite")
+    const db = getSqliteDatabase()
+    const now = new Date().toISOString()
+    db.prepare(`INSERT OR IGNORE INTO steam_profile (steam_id, created_at, updated_at) VALUES (?, ?, ?)`).run(
+      STEAM_ID,
+      now,
+      now,
+    )
+    db.prepare(`INSERT OR IGNORE INTO games (appid, name, created_at, updated_at) VALUES (?, ?, ?, ?)`).run(
+      appId,
+      name,
+      now,
+      now,
+    )
+    if (kind) {
+      db.prepare(`UPDATE games SET kind = ?, kind_source = ? WHERE appid = ?`).run(kind.kind, kind.source, appId)
+    }
+    db.prepare(
+      `INSERT OR IGNORE INTO extra_games (steam_id, appid, playtime_forever, synced_at, created_at, updated_at)
+       VALUES (?, ?, 10, ?, ?, ?)`,
+    ).run(STEAM_ID, appId, now, now, now)
+    return db
+  }
+
+  it("classifies unclassified extras by name and exposes the kind on reads", async () => {
+    await seedExtraNamed(1, "Source Dedicated Server")
+    await seedExtraNamed(2, "Rocksmith Demo")
+    const db = await seedExtraNamed(3, "Portal 2")
+    const { classifyExtraKinds, getExtraGamesForUser, getStoredExtraGame } = await import("@/lib/server/extra-games")
+    expect(classifyExtraKinds(STEAM_ID)).toBe(2)
+    const kinds = Object.fromEntries(getExtraGamesForUser(STEAM_ID).map((g) => [g.appid, g.kind]))
+    expect(kinds).toEqual({ 1: "tool", 2: "demo", 3: "unknown" })
+    expect(getStoredExtraGame(STEAM_ID, 2)?.kind).toBe("demo")
+    const src = db.prepare("SELECT kind_source FROM games WHERE appid = 1").get() as { kind_source: string | null }
+    expect(src.kind_source).toBe("name")
+  })
+
+  it("never touches store-derived or manual kinds", async () => {
+    await seedExtraNamed(1, "Something Demo", { kind: "game", source: "store" })
+    const db = await seedExtraNamed(2, "Something Beta", { kind: "game", source: "manual" })
+    const { classifyExtraKinds } = await import("@/lib/server/extra-games")
+    expect(classifyExtraKinds(STEAM_ID)).toBe(0)
+    const rows = db.prepare("SELECT appid, kind FROM games ORDER BY appid").all() as Array<{
+      appid: number
+      kind: string
+    }>
+    expect(rows).toEqual([
+      { appid: 1, kind: "game" },
+      { appid: 2, kind: "game" },
+    ])
+  })
+
+  it("resets a name-derived kind when the corrected name no longer matches", async () => {
+    const db = await seedExtraNamed(1, "Metro 2033", { kind: "beta", source: "name" })
+    const { classifyExtraKinds } = await import("@/lib/server/extra-games")
+    expect(classifyExtraKinds(STEAM_ID)).toBe(1)
+    const row = db.prepare("SELECT kind, kind_source FROM games WHERE appid = 1").get() as {
+      kind: string
+      kind_source: string | null
+    }
+    expect(row).toEqual({ kind: "unknown", kind_source: null })
+  })
+
+  it("restricts the pass to the given appIds and is a no-op on an empty list", async () => {
+    await seedExtraNamed(1, "Game Demo")
+    const db = await seedExtraNamed(2, "Other Demo")
+    const { classifyExtraKinds } = await import("@/lib/server/extra-games")
+    expect(classifyExtraKinds(STEAM_ID, [])).toBe(0)
+    expect(classifyExtraKinds(STEAM_ID, [2])).toBe(1)
+    const rows = db.prepare("SELECT appid, kind FROM games ORDER BY appid").all() as Array<{
+      appid: number
+      kind: string
+    }>
+    expect(rows).toEqual([
+      { appid: 1, kind: "unknown" },
+      { appid: 2, kind: "demo" },
+    ])
   })
 })
 

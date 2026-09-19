@@ -5,6 +5,7 @@ import { ensureGameImages } from "@/lib/server/steam-images"
 import { getSqliteDatabase } from "@/lib/server/sqlite"
 import { ensurePinnedGamesSynced } from "@/lib/server/pinned-games"
 import {
+  classifyExtraKinds,
   getExtraAppIds,
   hydrateMissingExtraNames,
   persistExtraGames,
@@ -348,6 +349,7 @@ async function runHeavyOwnedGamesSync(steamId: string, existingGames: SteamGame[
   // public store appdetails endpoint. Truly delisted no-achievement apps
   // stay nameless and render as "App #{appid}".
   await hydrateMissingExtraNames(steamId, { appIds: extras.added })
+  classifyExtraKinds(steamId, extras.added)
   // Probe store appdetails for platform support (windows/mac/linux). Used by
   // the UI to disambiguate same-named games across editions (e.g. GTA III
   // Mac vs Windows). Throttled to 200 fetches per run with a 30-day

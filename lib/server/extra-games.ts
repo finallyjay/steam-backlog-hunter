@@ -9,11 +9,14 @@ import { getProfileSync, isStale, markProfileSync, nowIso, upsertProfile } from 
 import { ACHIEVEMENTS_STALE_MS } from "@/lib/server/steam-achievements-sync"
 import { populateGamesFromSteamCatalog } from "@/lib/server/steam-app-catalog"
 import { isPlaceholderName, PLACEHOLDER_NAME_SQL_MATCH } from "@/lib/server/placeholder-names"
+import { kindFromName, kindFromStoreType, type AppKind } from "@/lib/server/app-kind"
 import { logger } from "@/lib/server/logger"
 
 export type ExtraGame = {
   appid: number
   name: string | null
+  /** Coarse app classification, see lib/server/app-kind.ts. */
+  kind: AppKind
   image_landscape_url: string | null
   image_portrait_url: string | null
   image_icon_url: string | null
@@ -207,6 +210,22 @@ export async function hydrateMissingExtraNames(steamId: string, options?: { appI
       updated_at = excluded.updated_at
   `)
 
+  // Store-derived kinds win over the name heuristic but never over a
+  // manual override. The games row may not exist yet when the store
+  // answers before any name source did; upsertGame below creates it in
+  // that case, so this UPDATE is retried after the name write.
+  const setStoreKind = db.prepare(`
+    UPDATE games
+    SET kind = ?, kind_source = 'store', updated_at = ?
+    WHERE appid = ? AND (kind_source IS NULL OR kind_source != 'manual')
+  `)
+
+  const setNameKind = db.prepare(`
+    UPDATE games
+    SET kind = ?, kind_source = 'name', updated_at = ?
+    WHERE appid = ? AND kind_source IS NULL
+  `)
+
   let consecutiveStoreFailures = 0
   let consecutiveSupportFailures = 0
   let consecutiveCommunityFailures = 0
@@ -241,6 +260,10 @@ export async function hydrateMissingExtraNames(steamId: string, options?: { appI
         if (candidate && !isPlaceholderName(candidate)) {
           resolvedName = candidate
         }
+        // The store's `type` is the most reliable classification we get;
+        // record it whenever the store answers, independently of the name.
+        const storeKind = entry?.success ? kindFromStoreType(entry.data?.type) : null
+        if (storeKind) setStoreKind.run(storeKind, nowIso(), appid)
       }
     } catch (error) {
       consecutiveStoreFailures++
@@ -303,10 +326,61 @@ export async function hydrateMissingExtraNames(steamId: string, options?: { appI
     if (resolvedName) {
       const now = nowIso()
       upsertGame.run(appid, resolvedName, now, now)
+      // Apply the heuristic to the freshly resolved name unless the store
+      // already classified this app in this iteration.
+      const nameKind = kindFromName(resolvedName)
+      if (nameKind) setNameKind.run(nameKind, now, appid)
     }
 
     await new Promise((resolve) => setTimeout(resolve, STORE_DELAY_MS))
   }
+}
+
+/**
+ * Applies the name heuristic (`kindFromName`) to the user's extras whose
+ * kind is not yet known or was itself derived from the name. Store-derived
+ * and manual kinds are left alone. A name that no longer matches any rule
+ * resets a previous name-derived kind back to unknown, so a corrected
+ * name never keeps a stale classification.
+ *
+ * @param appIds - Restrict to these extras (regular sync passes the ones
+ *   it just ingested). Empty list is a no-op; omitted means all extras.
+ */
+export function classifyExtraKinds(steamId: string, appIds?: number[]): number {
+  if (appIds && appIds.length === 0) return 0
+  const db = getSqliteDatabase()
+  const rows = db
+    .prepare(
+      `
+      SELECT g.appid, g.name, g.kind, g.kind_source
+      FROM extra_games e
+      INNER JOIN games g ON g.appid = e.appid
+      WHERE e.steam_id = ?
+        AND (g.kind_source IS NULL OR g.kind_source = 'name')
+    `,
+    )
+    .all(steamId) as Array<{ appid: number; name: string; kind: string; kind_source: string | null }>
+  const wanted = appIds ? new Set(appIds) : null
+  const update = db.prepare(`UPDATE games SET kind = ?, kind_source = ?, updated_at = ? WHERE appid = ?`)
+  const now = nowIso()
+  let changed = 0
+  db.exec("BEGIN")
+  try {
+    for (const row of rows) {
+      if (wanted && !wanted.has(row.appid)) continue
+      const next = kindFromName(row.name)
+      const nextKind = next ?? "unknown"
+      const nextSource = next ? "name" : null
+      if (nextKind === row.kind && nextSource === row.kind_source) continue
+      update.run(nextKind, nextSource, now, row.appid)
+      changed++
+    }
+    db.exec("COMMIT")
+  } catch (error) {
+    db.exec("ROLLBACK")
+    throw error
+  }
+  return changed
 }
 
 /**
@@ -650,6 +724,7 @@ export function getExtraGamesForUser(steamId: string): ExtraGame[] {
       SELECT
         e.appid,
         g.name,
+        COALESCE(g.kind, 'unknown') AS kind,
         g.image_landscape_url,
         g.image_portrait_url,
         g.image_icon_url,
@@ -729,6 +804,7 @@ export function getStoredExtraGame(steamId: string, appId: number): ExtraGame | 
       SELECT
         e.appid,
         g.name,
+        COALESCE(g.kind, 'unknown') AS kind,
         g.image_landscape_url,
         g.image_portrait_url,
         g.image_icon_url,
@@ -895,6 +971,7 @@ async function runExtrasDiscovery(steamId: string): Promise<ExtrasDiscoveryResul
 
   await syncExtraAchievements(steamId, { weeklyFloor: true })
   await hydrateMissingExtraNames(steamId)
+  classifyExtraKinds(steamId)
   await ensureGameImages(getExtraAppIds(steamId))
 
   const discoveredAt = nowIso()

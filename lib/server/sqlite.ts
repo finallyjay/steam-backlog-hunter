@@ -1,4 +1,5 @@
 import "server-only"
+import { kindFromName } from "@/lib/server/app-kind"
 
 import { accessSync, constants, mkdirSync } from "node:fs"
 import { DatabaseSync } from "node:sqlite"
@@ -73,6 +74,14 @@ function createBaseSchema(db: DatabaseSync) {
       -- store appdetails. NULL means we haven't probed this appid yet.
       platforms TEXT,
       platforms_synced_at TEXT,
+      -- Coarse app classification (game / demo / dlc / beta / tool /
+      -- software / other / unknown), see lib/server/app-kind.ts. Shared
+      -- across users like the name. kind_source tracks provenance:
+      -- 'store' (appdetails type), 'name' (heuristic, recomputed when the
+      -- name changes), 'manual' (user override, never overwritten), NULL
+      -- (never classified).
+      kind TEXT NOT NULL DEFAULT 'unknown',
+      kind_source TEXT,
       -- Release year parsed from store appdetails. NULL means either we
       -- haven't probed yet OR Steam reports an empty release_date (a
       -- common signal that a duplicate-named appid is a stripped legacy
@@ -370,6 +379,9 @@ function applyAdditiveMigrations(db: DatabaseSync) {
   // When the user last ran the manual extras discovery (bulk ingest of every
   // played-but-unowned app). NULL until they run it once.
   addColumnIfMissing(db, "steam_profile", "last_extras_discovery_at", "TEXT")
+  // App classification for extras. See CREATE TABLE comment above.
+  addColumnIfMissing(db, "games", "kind", "TEXT NOT NULL DEFAULT 'unknown'")
+  addColumnIfMissing(db, "games", "kind_source", "TEXT")
   runVersionedMigrations(db)
 }
 
@@ -485,6 +497,31 @@ const MIGRATIONS: Array<{ version: number; name: string; run: (db: DatabaseSync)
      */
     run(db) {
       db.exec(`DROP TABLE IF EXISTS recent_games_snapshot;`)
+    },
+  },
+  {
+    version: 5,
+    name: "classify-extras-by-name",
+    /**
+     * Backfills `games.kind` for every app that is someone's extra, using
+     * the name heuristic only (no network inside a migration). Later
+     * store lookups may upgrade the source to 'store'; manual overrides
+     * are untouched because the migration only looks at unclassified rows.
+     */
+    run(db) {
+      const rows = db
+        .prepare(
+          `SELECT DISTINCT g.appid, g.name
+           FROM games g
+           INNER JOIN extra_games e ON e.appid = g.appid
+           WHERE g.kind_source IS NULL`,
+        )
+        .all() as Array<{ appid: number; name: string }>
+      const update = db.prepare(`UPDATE games SET kind = ?, kind_source = 'name' WHERE appid = ?`)
+      for (const row of rows) {
+        const kind = kindFromName(row.name)
+        if (kind) update.run(kind, row.appid)
+      }
     },
   },
 ]
