@@ -44,6 +44,7 @@ export type GameRow = {
   perfect_game: number | null
   platforms: string | null
   release_year: number | null
+  owned_source?: string | null
 }
 
 function parsePlatforms(raw: string | null): SteamGame["platforms"] {
@@ -81,6 +82,7 @@ export function mapRowToSteamGame(row: GameRow): SteamGame {
     perfect_game: row.perfect_game === 1,
     platforms: parsePlatforms(row.platforms),
     releaseYear: row.release_year,
+    ownedSource: row.owned_source === "manual" ? "manual" : "auto",
   }
 }
 
@@ -107,7 +109,8 @@ export function getStoredOwnedGames(steamId: string): SteamGame[] {
       ug.total_count,
       ug.perfect_game,
       g.platforms,
-      g.release_year
+      g.release_year,
+      ug.owned_source
     FROM user_games ug
     INNER JOIN games g ON g.appid = ug.appid
     WHERE ug.steam_id = ? AND ug.owned = 1
@@ -140,7 +143,8 @@ export function getStoredGame(steamId: string, appId: number): SteamGame | null 
       g.image_portrait_url,
       g.has_community_visible_stats,
       g.platforms,
-      g.release_year
+      g.release_year,
+      ug.owned_source
     FROM user_games ug
     INNER JOIN games g ON g.appid = ug.appid
     WHERE ug.steam_id = ? AND ug.appid = ? AND ug.owned = 1
@@ -193,14 +197,19 @@ export function persistOwnedGames(steamId: string, games: SteamGame[]) {
       playtime_2weeks = excluded.playtime_2weeks,
       rtime_last_played = excluded.rtime_last_played,
       owned = 1,
+      -- Steam now reports it: ownership is Steam's call again, even if
+      -- the user had promoted it manually before buying it.
+      owned_source = 'auto',
       last_seen_in_owned_games_at = excluded.last_seen_in_owned_games_at,
       updated_at = excluded.updated_at
   `)
 
+  // Only Steam-managed rows are swept; manually promoted games keep their
+  // ownership regardless of what GetOwnedGames returns.
   const markMissingAsUnowned = db.prepare(`
     UPDATE user_games
     SET owned = 0, updated_at = ?
-    WHERE steam_id = ?
+    WHERE steam_id = ? AND owned_source = 'auto'
   `)
 
   db.exec("BEGIN")
@@ -423,7 +432,8 @@ export async function getRecentlyPlayedGamesForUser(steamId: string, options?: {
       ug.total_count,
       ug.perfect_game,
       g.platforms,
-      g.release_year
+      g.release_year,
+      ug.owned_source
     FROM user_games ug
     INNER JOIN games g ON g.appid = ug.appid
     WHERE ug.steam_id = ? AND ug.owned = 1 AND ug.rtime_last_played > 0

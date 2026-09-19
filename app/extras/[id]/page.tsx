@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { Database, ExternalLink, LifeBuoy, Lock, Search, Trophy } from "lucide-react"
+import { Database, ExternalLink, LibraryBig, LifeBuoy, Lock, Search, Trophy } from "lucide-react"
 
 import { useCurrentUser } from "@/hooks/use-current-user"
+import { invalidateSteamData } from "@/hooks/use-steam-data"
 import { LoadingMessage } from "@/components/ui/loading-message"
 import { EmptyState } from "@/components/ui/empty-state"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -76,6 +77,8 @@ export default function ExtraGameDetailPage() {
   const [activeTab, setActiveTab] = useState<AchievementTab>("pending")
   const [search, setSearch] = useState("")
   const [savingKind, setSavingKind] = useState(false)
+  const [promoting, setPromoting] = useState(false)
+  const [promoteError, setPromoteError] = useState<string | null>(null)
 
   // Reset fetch state during render when navigating to a different extra
   // (React's "adjust state on prop change" pattern) so the fetch effect
@@ -117,6 +120,25 @@ export default function ExtraGameDetailPage() {
     }
     void run()
   }, [load])
+
+  const handlePromote = async () => {
+    setPromoting(true)
+    setPromoteError(null)
+    try {
+      const res = await fetch(`/api/steam/extras/${appId}/promote`, { method: "POST" })
+      if (res.ok) {
+        invalidateSteamData()
+        router.push(`/game/${appId}`)
+        return
+      }
+      const data = (await res.json().catch(() => null)) as { error?: string } | null
+      setPromoteError(data?.error ?? "Failed to add the game to the library")
+    } catch {
+      setPromoteError("Network error")
+    } finally {
+      setPromoting(false)
+    }
+  }
 
   // "auto" clears the override so the automatic classification applies again.
   const handleKindChange = async (value: string) => {
@@ -252,6 +274,11 @@ export default function ExtraGameDetailPage() {
               )}
 
               <div className="flex flex-wrap items-center gap-3 pt-1">
+                <Button variant="outline" size="sm" className="gap-2" onClick={handlePromote} disabled={promoting}>
+                  <LibraryBig className="h-4 w-4" />
+                  {promoting ? "Adding..." : "Add to library"}
+                </Button>
+                {promoteError && <span className="text-destructive text-sm">{promoteError}</span>}
                 <a href={`https://store.steampowered.com/app/${game.appid}`} target="_blank" rel="noopener noreferrer">
                   <Button variant="outline" size="sm" className="gap-2">
                     <ExternalLink className="h-4 w-4" />

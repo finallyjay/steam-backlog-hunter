@@ -227,6 +227,48 @@ describe("ensureOwnedGamesSynced", () => {
     expect(p2.owned).toBe(1)
   })
 
+  it("keeps manually owned games through the sweep and hands ownership back to Steam when it reports them", async () => {
+    mockSteamApi([
+      { appid: 620, name: "Portal 2" },
+      { appid: 700, name: "Bought Later" },
+    ])
+    const db = await seedBase()
+    const oldIso = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
+    db.prepare(
+      `INSERT INTO steam_profile (steam_id, last_owned_games_sync_at, created_at, updated_at)
+                VALUES (?, ?, ?, ?)`,
+    ).run(STEAM_ID, oldIso, oldIso, oldIso)
+    for (const [appid, name] of [
+      [440, "TF2 (manual)"],
+      [700, "Bought Later"],
+    ] as const) {
+      db.prepare(`INSERT INTO games (appid, name, created_at, updated_at) VALUES (?, ?, ?, ?)`).run(
+        appid,
+        name,
+        oldIso,
+        oldIso,
+      )
+      db.prepare(
+        `INSERT INTO user_games (steam_id, appid, playtime_forever, owned, owned_source, created_at, updated_at)
+                  VALUES (?, ?, 500, 1, 'manual', ?, ?)`,
+      ).run(STEAM_ID, appid, oldIso, oldIso)
+    }
+
+    const { ensureOwnedGamesSynced } = await import("@/lib/server/steam-games-sync")
+    const games = await ensureOwnedGamesSynced(STEAM_ID)
+
+    const rows = db
+      .prepare("SELECT appid, owned, owned_source FROM user_games WHERE steam_id = ? ORDER BY appid")
+      .all(STEAM_ID)
+    expect(rows).toEqual([
+      { appid: 440, owned: 1, owned_source: "manual" }, // not in GetOwnedGames: survives the sweep
+      { appid: 620, owned: 1, owned_source: "auto" },
+      { appid: 700, owned: 1, owned_source: "auto" }, // Steam reports it now: back to auto
+    ])
+    expect(games.find((g) => g.appid === 440)?.ownedSource).toBe("manual")
+    expect(games.find((g) => g.appid === 700)?.ownedSource).toBe("auto")
+  })
+
   it("forces a refetch when forceRefresh is true, even if the cache is fresh", async () => {
     const getOwnedGames = vi.fn().mockResolvedValue([])
     vi.doMock("@/lib/steam-api", () => ({

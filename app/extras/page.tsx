@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
-import { AlertCircle, Database, EyeOff, LifeBuoy, RotateCcw, Search, Sparkles } from "lucide-react"
+import { AlertCircle, Database, EyeOff, LibraryBig, LifeBuoy, RotateCcw, Search, Sparkles } from "lucide-react"
 
 import { useCurrentUser } from "@/hooks/use-current-user"
-import { useSteamExtras, useSteamHiddenGames } from "@/hooks/use-steam-data"
+import { useToast } from "@/hooks/use-toast"
+import { invalidateSteamData, useSteamExtras, useSteamHiddenGames } from "@/hooks/use-steam-data"
 import { DiscoverExtrasButton } from "@/components/extras/discover-extras-button"
 import { PageContainer } from "@/components/ui/page-container"
 import { LoadingMessage } from "@/components/ui/loading-message"
@@ -19,9 +20,30 @@ import { Switch } from "@/components/ui/switch"
 
 type Tab = "extras" | "hidden"
 
-function ExtraGameActions({ appid, kind }: { appid: number; kind: string }) {
+function ExtraGameActions({
+  appid,
+  kind,
+  onPromote,
+}: {
+  appid: number
+  kind: string
+  onPromote: (appId: number) => void
+}) {
   return (
     <div className="flex items-center gap-1.5">
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          e.preventDefault()
+          onPromote(appid)
+        }}
+        className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors hover:bg-white/5"
+        title="Count this game in your library stats and achievement scan"
+      >
+        <LibraryBig className="h-3 w-3" />
+        <span>Add to library</span>
+      </button>
       {!isGameLikeKind(kind) && (
         <span
           className="bg-surface-3 text-muted-foreground rounded-full px-2 py-0.5 text-xs"
@@ -57,6 +79,7 @@ function ExtraGameActions({ appid, kind }: { appid: number; kind: string }) {
 export default function ExtrasPage() {
   const { user, loading: loadingUser } = useCurrentUser()
   const router = useRouter()
+  const { toast } = useToast()
   const { games: extras, loading: loadingExtras, error: extrasError, refetch: refetchExtras } = useSteamExtras()
   const { games: hidden, loading: loadingHidden, error: hiddenError, refetch: refetchHidden } = useSteamHiddenGames()
   const [tab, setTab] = useState<Tab>("extras")
@@ -117,6 +140,34 @@ export default function ExtrasPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab])
+
+  const handlePromote = useCallback(
+    async (appId: number) => {
+      try {
+        const res = await fetch(`/api/steam/extras/${appId}/promote`, { method: "POST" })
+        if (!res.ok) {
+          const data = (await res.json().catch(() => null)) as { error?: string } | null
+          throw new Error(data?.error ?? "Failed to add the game to the library")
+        }
+        const data = (await res.json()) as { game: { name?: string } }
+        // Drop it from the local list right away; the library picks it up on
+        // its next load.
+        setLocallyHidden((prev) => new Set([...prev, appId]))
+        invalidateSteamData()
+        toast({
+          title: "Added to library",
+          description: `${data.game?.name || `App #${appId}`} now counts in your stats. You can return it to extras from its game page.`,
+        })
+      } catch (error) {
+        toast({
+          title: "Could not add to library",
+          description: error instanceof Error ? error.message : "Unknown error",
+          variant: "destructive",
+        })
+      }
+    },
+    [toast],
+  )
 
   const handleDiscovered = useCallback(() => {
     void refetchExtras()
@@ -278,7 +329,7 @@ export default function ExtrasPage() {
                   serverUnlocked={game.unlocked_count ?? 0}
                   serverPerfect={game.perfect_game === 1}
                   onHide={handleHide}
-                  actions={<ExtraGameActions appid={game.appid} kind={game.kind} />}
+                  actions={<ExtraGameActions appid={game.appid} kind={game.kind} onPromote={handlePromote} />}
                 />
               ))}
             </div>
