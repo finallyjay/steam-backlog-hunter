@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-09-20
+
 ### Added
 
 - Promote an extra to the library per user: **Add to library** on the extra's card and page (`POST /api/steam/extras/:id/promote`) makes it count for stats, insights and the achievement scan, syncs its achievements and keeps it through library syncs (`user_games.owned_source = 'manual'`); **Return to extras** on the game page (`POST /api/steam/game/:id/demote`) reverses it. If Steam later reports the game as owned, ownership goes back to Steam (#357)
@@ -146,7 +148,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Platforms sync now requests `filters=platforms` (the `basic` filter excludes the field),
   so windows/mac/linux support is populated correctly.
 
-[Unreleased]: https://github.com/finallyjay/steam-backlog-hunter/compare/v0.11.1...HEAD
+[Unreleased]: https://github.com/finallyjay/steam-backlog-hunter/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/finallyjay/steam-backlog-hunter/compare/v0.11.1...v0.12.0
 [0.11.1]: https://github.com/finallyjay/steam-backlog-hunter/compare/v0.11.0...v0.11.1
 [0.11.0]: https://github.com/finallyjay/steam-backlog-hunter/compare/v0.10.15...v0.11.0
 [0.10.15]: https://github.com/finallyjay/steam-backlog-hunter/compare/v0.10.14...v0.10.15
