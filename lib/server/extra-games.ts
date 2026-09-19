@@ -17,6 +17,8 @@ export type ExtraGame = {
   name: string | null
   /** Coarse app classification, see lib/server/app-kind.ts. */
   kind: AppKind
+  /** Provenance of `kind`: 'store' | 'name' | 'manual' | null. */
+  kind_source: string | null
   image_landscape_url: string | null
   image_portrait_url: string | null
   image_icon_url: string | null
@@ -725,6 +727,7 @@ export function getExtraGamesForUser(steamId: string): ExtraGame[] {
         e.appid,
         g.name,
         COALESCE(g.kind, 'unknown') AS kind,
+        g.kind_source,
         g.image_landscape_url,
         g.image_portrait_url,
         g.image_icon_url,
@@ -805,6 +808,7 @@ export function getStoredExtraGame(steamId: string, appId: number): ExtraGame | 
         e.appid,
         g.name,
         COALESCE(g.kind, 'unknown') AS kind,
+        g.kind_source,
         g.image_landscape_url,
         g.image_portrait_url,
         g.image_icon_url,
@@ -980,4 +984,41 @@ async function runExtrasDiscovery(steamId: string): Promise<ExtrasDiscoveryResul
   logger.info({ steamId, total, elapsedMs: Date.now() - startedAt }, "Extras discovery: done")
 
   return { discoveredAt, added: ingest.added.length, updated: ingest.updated.length, total }
+}
+
+/**
+ * User override of an extra's kind. `kind = null` clears the override:
+ * the row goes back to unclassified and the name heuristic is re-applied
+ * immediately (a later store answer may upgrade it to 'store').
+ *
+ * The kind lives on the shared `games` row, so the override is global
+ * (a demo is a demo for everyone); the caller restricts it to apps that
+ * are among the user's extras.
+ *
+ * @returns The refreshed extra, or null when the app is not one of the
+ *   user's extras.
+ */
+export function setExtraKind(steamId: string, appId: number, kind: AppKind | null): ExtraGame | null {
+  const db = getSqliteDatabase()
+  if (!getStoredExtraGame(steamId, appId)) return null
+
+  const now = nowIso()
+  // The games row may be absent for a nameless extra; create it so the
+  // override has somewhere to live.
+  db.prepare(`INSERT OR IGNORE INTO games (appid, name, created_at, updated_at) VALUES (?, '', ?, ?)`).run(
+    appId,
+    now,
+    now,
+  )
+  if (kind) {
+    db.prepare(`UPDATE games SET kind = ?, kind_source = 'manual', updated_at = ? WHERE appid = ?`).run(
+      kind,
+      now,
+      appId,
+    )
+  } else {
+    db.prepare(`UPDATE games SET kind = 'unknown', kind_source = NULL, updated_at = ? WHERE appid = ?`).run(now, appId)
+    classifyExtraKinds(steamId, [appId])
+  }
+  return getStoredExtraGame(steamId, appId)
 }

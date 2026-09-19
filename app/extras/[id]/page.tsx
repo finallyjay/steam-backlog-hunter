@@ -15,13 +15,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { GameHero } from "@/components/ui/game-hero"
 import { AchievementRow } from "@/components/ui/achievement-row"
 import { formatPlaytime } from "@/lib/utils"
-import { appKindLabel, isGameLikeKind } from "@/lib/app-kind-labels"
+import { APP_KIND_LABELS, appKindLabel, isGameLikeKind } from "@/lib/app-kind-labels"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import type { SteamAchievementView } from "@/lib/types/steam"
 
 type ExtraGameDetail = {
   appid: number
   name: string | null
   kind?: string
+  kind_source?: string | null
   image_landscape_url: string | null
   image_portrait_url: string | null
   image_icon_url: string | null
@@ -73,6 +75,7 @@ export default function ExtraGameDetailPage() {
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<AchievementTab>("pending")
   const [search, setSearch] = useState("")
+  const [savingKind, setSavingKind] = useState(false)
 
   // Reset fetch state during render when navigating to a different extra
   // (React's "adjust state on prop change" pattern) so the fetch effect
@@ -114,6 +117,26 @@ export default function ExtraGameDetailPage() {
     }
     void run()
   }, [load])
+
+  // "auto" clears the override so the automatic classification applies again.
+  const handleKindChange = async (value: string) => {
+    setSavingKind(true)
+    try {
+      const res = await fetch(`/api/steam/extras/${appId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind: value === "auto" ? null : value }),
+      })
+      if (res.ok) {
+        const data = (await res.json()) as { game: ExtraGameDetail }
+        setGame(data.game)
+      }
+    } catch {
+      // keep the previous value
+    } finally {
+      setSavingKind(false)
+    }
+  }
 
   useEffect(() => {
     window.scrollTo(0, 0)
@@ -192,6 +215,29 @@ export default function ExtraGameDetailPage() {
               }
             >
               <div className="text-muted-foreground text-sm">{formatPlaytime(game.playtime_forever / 60)} played</div>
+
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-muted-foreground">Kind</span>
+                <Select
+                  value={game.kind_source === "manual" ? (game.kind ?? "unknown") : "auto"}
+                  onValueChange={(v) => void handleKindChange(v)}
+                  disabled={savingKind}
+                >
+                  <SelectTrigger className="h-8 w-44" aria-label="Kind">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">Auto ({appKindLabel(game.kind)})</SelectItem>
+                    {Object.entries(APP_KIND_LABELS)
+                      .filter(([value]) => value !== "unknown")
+                      .map(([value, label]) => (
+                        <SelectItem key={value} value={value}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
               {total > 0 && (
                 <div className="space-y-2">
