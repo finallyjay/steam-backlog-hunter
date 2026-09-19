@@ -34,6 +34,7 @@ import { POST } from "@/app/api/steam/extras/[id]/sync/route"
 import { getCurrentUser } from "@/app/lib/server-auth"
 import { rateLimit } from "@/lib/server/rate-limit"
 import { getExtraAchievementsList, getStoredExtraGame, syncExtraGameAchievements } from "@/lib/server/extra-games"
+import { TransientSteamAPIError } from "@/lib/steam-api"
 
 const mockUser = {
   steamId: "76561198023709299",
@@ -46,6 +47,7 @@ const extra = {
   appid: 111,
   name: "Extra",
   kind: "unknown" as const,
+  kind_source: null,
   image_landscape_url: null,
   image_portrait_url: null,
   image_icon_url: null,
@@ -108,10 +110,17 @@ describe("POST /api/steam/extras/:id/sync", () => {
     expect(syncExtraGameAchievements).toHaveBeenCalledWith(mockUser.steamId, 111)
   })
 
-  it("returns 502 when Steam fails", async () => {
-    vi.mocked(syncExtraGameAchievements).mockRejectedValue(new Error("steam down"))
+  it("returns 502 when Steam is unavailable", async () => {
+    vi.mocked(syncExtraGameAchievements).mockRejectedValue(new TransientSteamAPIError("steam down", new Error("503")))
     const response = await call("111")
     expect(response.status).toBe(502)
     expect(await response.json()).toEqual({ error: "Failed to refresh achievements from Steam" })
+  })
+
+  it("returns 500 when persistence or anything else fails", async () => {
+    vi.mocked(syncExtraGameAchievements).mockRejectedValue(new Error("SQLITE_BUSY"))
+    const response = await call("111")
+    expect(response.status).toBe(500)
+    expect(await response.json()).toEqual({ error: "Failed to refresh achievements" })
   })
 })

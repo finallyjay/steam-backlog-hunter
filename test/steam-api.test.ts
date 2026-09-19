@@ -288,8 +288,8 @@ describe("getGameSchema", () => {
       { ok: false, status: 500, body: {} },
       { ok: false, status: 403, body: {} },
     ])
-    const { getGameSchema } = await import("@/lib/steam-api")
-    await expect(getGameSchema(620, { throwOnFailure: true })).rejects.toThrow()
+    const { getGameSchema, TransientSteamAPIError } = await import("@/lib/steam-api")
+    await expect(getGameSchema(620, { throwOnFailure: true })).rejects.toBeInstanceOf(TransientSteamAPIError)
     expect(await getGameSchema(620, { throwOnFailure: true })).toBeNull()
   })
 

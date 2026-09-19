@@ -402,10 +402,11 @@ export async function getGameSchema(
   appId: number,
   options?: {
     /**
-     * Rethrow transient failures (network, 5xx, 429) instead of swallowing
-     * them into `null`. A definitive "no schema" (400/403) still resolves to
-     * `null`. Callers that persist a "known-empty" sentinel must set this so
-     * a Steam hiccup is not recorded as "this game has no achievements".
+     * Throw a {@link TransientSteamAPIError} on transient failures (network,
+     * 5xx, 429) instead of swallowing them into `null`. A definitive "no
+     * schema" (400/403) still resolves to `null`. Callers that persist a
+     * "known-empty" sentinel must set this so a Steam hiccup is not recorded
+     * as "this game has no achievements".
      */
     throwOnFailure?: boolean
   },
@@ -423,7 +424,9 @@ export async function getGameSchema(
     if (error instanceof SteamAPIError && (error.status === 400 || error.status === 403)) {
       return null
     }
-    if (options?.throwOnFailure) throw error
+    if (options?.throwOnFailure) {
+      throw new TransientSteamAPIError("Transient error fetching game schema", error)
+    }
     logger.error({ err: error, appId }, "Error fetching game schema")
     return null
   }

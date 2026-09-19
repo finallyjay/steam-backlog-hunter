@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { getCurrentUser } from "@/app/lib/server-auth"
 import { rateLimit } from "@/lib/server/rate-limit"
 import { getExtraAchievementsList, getStoredExtraGame, syncExtraGameAchievements } from "@/lib/server/extra-games"
+import { TransientSteamAPIError } from "@/lib/steam-api"
 import { logger } from "@/lib/server/logger"
 
 /**
@@ -19,7 +20,8 @@ import { logger } from "@/lib/server/logger"
  * @throws 401 - Unauthorized
  * @throws 404 - Extra game not found
  * @throws 429 - Too many requests
- * @throws 502 - Steam did not answer
+ * @throws 502 - Steam did not answer (transient Steam failure)
+ * @throws 500 - Server error (persistence or unexpected failure)
  */
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser()
@@ -44,12 +46,17 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
 
   try {
     await syncExtraGameAchievements(user.steamId, appId)
+    const game = getStoredExtraGame(user.steamId, appId)
+    const achievements = await getExtraAchievementsList(user.steamId, appId)
+    return NextResponse.json({ game, achievements: achievements ?? [] })
   } catch (error) {
+    // Only a Steam availability problem is the upstream's fault (502);
+    // persistence or unexpected failures are ours (500).
+    if (error instanceof TransientSteamAPIError) {
+      logger.warn({ err: error, endpoint: "steam/extras/[id]/sync", appId }, "Extra game sync: Steam unavailable")
+      return NextResponse.json({ error: "Failed to refresh achievements from Steam" }, { status: 502 })
+    }
     logger.error({ err: error, endpoint: "steam/extras/[id]/sync", appId }, "Extra game sync error")
-    return NextResponse.json({ error: "Failed to refresh achievements from Steam" }, { status: 502 })
+    return NextResponse.json({ error: "Failed to refresh achievements" }, { status: 500 })
   }
-
-  const game = getStoredExtraGame(user.steamId, appId)
-  const achievements = await getExtraAchievementsList(user.steamId, appId)
-  return NextResponse.json({ game, achievements: achievements ?? [] })
 }
