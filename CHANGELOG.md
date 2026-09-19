@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Extras are classified by kind (`game`, `demo`, `dlc`, `beta`, `tool`, `software`, `other`, `unknown`) on `games.kind` from the store `type` when the store answers and from a name heuristic otherwise, with a one-off backfill for existing extras; `GET /api/steam/extras` and the extra detail expose `kind` (#354)
 - Manual extras discovery: `POST /api/steam/extras/discover` runs the full pass (every game Steam remembers the account played but does not own, achievements, names, images) with a per-user in-flight guard and rate limit, `GET` reports the running state and last run, and the Extras page gets a **Discover extras** button with the last-run time and a completion summary (#352)
 
+### Removed
+
+- Global admin "pinned games" (`pinned_games`, `/api/admin/pinned-games`, the startup seed of six delisted titles): replaced by per-user manual ownership. Migration v6 turns every row a pinned game had marked as owned into `owned_source = 'manual'`, so nothing stops counting, then drops the table (#358)
+
 ### Changed
 
 - The regular library sync no longer runs the bulk extras discovery. Known extras still get their playtime refreshed from `ClientGetLastPlayedTimes`, and a game played since the previous sync is ingested on its own, but the hundreds of store lookups for everything the account ever launched, and the weekly re-sync of every extra's achievements, are left to the manual discovery action coming in #352 (#351)

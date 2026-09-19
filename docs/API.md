@@ -38,9 +38,6 @@ Admin-only routes, gated by `requireAdmin()` (the signed-in user's Steam ID must
 | `POST`   | `/api/admin/users`               | Add an allowed user                                                     |
 | `DELETE` | `/api/admin/users`               | Remove an allowed user                                                  |
 | `PATCH`  | `/api/admin/users`               | Refresh a user's Steam profile data                                     |
-| `GET`    | `/api/admin/pinned-games`        | List globally pinned appids                                             |
-| `POST`   | `/api/admin/pinned-games`        | Add an appid to the global pinned list                                  |
-| `DELETE` | `/api/admin/pinned-games`        | Remove an appid from the global pinned list                             |
 | `GET`    | `/api/admin/orphan-names`        | List appids with a NULL/empty `games.name` referenced by a user         |
 | `PUT`    | `/api/admin/orphan-names/:appid` | Set a manual name for an appid (freezes it as `name_source = 'manual'`) |
 | `DELETE` | `/api/admin/orphan-names/:appid` | Clear a manual name so auto-sync can resolve it again                   |

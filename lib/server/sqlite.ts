@@ -173,12 +173,6 @@ function createBaseSchema(db: DatabaseSync) {
       FOREIGN KEY (appid) REFERENCES games(appid)
     );
 
-    CREATE TABLE IF NOT EXISTS pinned_games (
-      appid INTEGER PRIMARY KEY,
-      reason TEXT,
-      added_at TEXT NOT NULL
-    );
-
     -- Games the user has played at some point but no longer owns in the
     -- traditional sense: refunded, family-shared, delisted, removed from
     -- library, etc. Sourced from ClientGetLastPlayedTimes minus the ids we
@@ -288,34 +282,6 @@ function createBaseSchema(db: DatabaseSync) {
     -- idx_achievement_changes_scan is created in applyAdditiveMigrations, after
     -- the scan_started_at column is guaranteed to exist on older databases.
   `)
-}
-
-/**
- * Seeds pinned_games with known delisted apps that still respond to
- * GetPlayerAchievements.
- *
- * Runs on every database open. INSERT OR IGNORE means editing this list is
- * additive: new entries land on the next startup in both local and
- * production databases without a migration, and existing rows (including
- * any added manually via the admin endpoint) are untouched. Remove an
- * entry here only if you also want it gone in production — the runtime
- * won't re-add it, but it won't delete pre-existing rows either.
- */
-const DEFAULT_PINNED_GAMES: ReadonlyArray<readonly [number, string]> = [
-  [274920, "FaceRig (delisted 2022)"],
-  [245550, "Free to Play (Valve documentary)"],
-  [2158860, "JBMod"],
-  [432150, "They Came From The Moon"],
-  [344040, "Qubburo 2 (appid recycled to Voxelized in current schema)"],
-  [327680, "Grind Zones (delisted)"],
-]
-
-function seedPinnedGames(db: DatabaseSync) {
-  const now = new Date().toISOString()
-  const insert = db.prepare("INSERT OR IGNORE INTO pinned_games (appid, reason, added_at) VALUES (?, ?, ?)")
-  for (const [appid, reason] of DEFAULT_PINNED_GAMES) {
-    insert.run(appid, reason, now)
-  }
 }
 
 /**
@@ -531,6 +497,26 @@ const MIGRATIONS: Array<{ version: number; name: string; run: (db: DatabaseSync)
       }
     },
   },
+  {
+    version: 6,
+    name: "pinned-games-to-manual-ownership",
+    /**
+     * Global admin "pinned games" (delisted titles Steam stopped listing
+     * in GetOwnedGames) are replaced by per-user manual ownership. Every
+     * user_games row a pinned appid had marked as owned becomes
+     * owned_source = 'manual', so it keeps counting exactly as before and
+     * the sweep leaves it alone; then the table goes. Fresh installs never
+     * had the table, so this is a no-op there.
+     */
+    run(db) {
+      const table = db.prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'pinned_games'`).get()
+      if (!table) return
+      const pinned = db.prepare(`SELECT appid FROM pinned_games`).all() as Array<{ appid: number }>
+      const mark = db.prepare(`UPDATE user_games SET owned_source = 'manual' WHERE appid = ? AND owned = 1`)
+      for (const { appid } of pinned) mark.run(appid)
+      db.exec(`DROP TABLE pinned_games`)
+    },
+  },
 ]
 
 function runVersionedMigrations(db: DatabaseSync) {
@@ -563,7 +549,6 @@ export function getSqliteDatabase() {
   createBaseSchema(database)
   applyAdditiveMigrations(database)
   seedAllowedUsersFromEnv(database)
-  seedPinnedGames(database)
 
   return database
 }

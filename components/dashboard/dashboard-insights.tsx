@@ -303,7 +303,7 @@ export function DashboardInsights({ stats, loading = false }: DashboardInsightsP
 
     // "Played" counts any game with either logged playtime OR at least one
     // unlocked achievement — matches the library-overview filter and keeps
-    // delisted/pinned games (FaceRig, Free to Play, …) out of the unplayed
+    // delisted/manually owned games (FaceRig, Free to Play, …) out of the unplayed
     // bucket even though GetOwnedGames reports 0 playtime for them.
     const played = allGames.filter((game) => game.playtime_forever > 0 || (game.unlocked_count ?? 0) > 0).length
     const unplayed = Math.max(allGames.length - played, 0)

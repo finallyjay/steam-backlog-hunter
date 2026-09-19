@@ -275,6 +275,58 @@ describe("versioned migrations", () => {
     ])
   })
 
+  it("migration v6 turns pinned games into manual ownership and drops the table", async () => {
+    const { getSqliteDatabase } = await import("@/lib/server/sqlite")
+    const db = getSqliteDatabase()
+    const now = new Date().toISOString()
+    // Legacy shape: the global pinned table plus rows the old sync had marked owned.
+    db.exec(`CREATE TABLE pinned_games (appid INTEGER PRIMARY KEY, reason TEXT, added_at TEXT NOT NULL)`)
+    db.prepare(`INSERT INTO pinned_games (appid, reason, added_at) VALUES (274920, 'FaceRig', ?)`).run(now)
+    db.prepare(`INSERT INTO steam_profile (steam_id, created_at, updated_at) VALUES ('1', ?, ?)`).run(now, now)
+    db.prepare(`INSERT INTO steam_profile (steam_id, created_at, updated_at) VALUES ('2', ?, ?)`).run(now, now)
+    for (const [appid, name] of [
+      [274920, "FaceRig"],
+      [620, "Portal 2"],
+    ] as const) {
+      db.prepare(`INSERT INTO games (appid, name, created_at, updated_at) VALUES (?, ?, ?, ?)`).run(
+        appid,
+        name,
+        now,
+        now,
+      )
+    }
+    const insert = db.prepare(
+      `INSERT INTO user_games (steam_id, appid, playtime_forever, owned, created_at, updated_at) VALUES (?, ?, 0, ?, ?, ?)`,
+    )
+    insert.run("1", 274920, 1, now, now) // pinned, resolved as owned for user 1
+    insert.run("2", 274920, 0, now, now) // pinned, but Steam never confirmed it for user 2
+    insert.run("1", 620, 1, now, now) // regular Steam-owned game
+    db.exec("PRAGMA user_version = 5")
+
+    vi.resetModules()
+    await import("@/lib/server/sqlite").then((m) => m.getSqliteDatabase())
+
+    const rows = db
+      .prepare("SELECT steam_id, appid, owned, owned_source FROM user_games ORDER BY steam_id, appid")
+      .all()
+    expect(rows).toEqual([
+      { steam_id: "1", appid: 620, owned: 1, owned_source: "auto" },
+      { steam_id: "1", appid: 274920, owned: 1, owned_source: "manual" },
+      { steam_id: "2", appid: 274920, owned: 0, owned_source: "auto" },
+    ])
+    expect(
+      db.prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'pinned_games'`).get(),
+    ).toBeUndefined()
+  })
+
+  it("fresh installs never get a pinned_games table", async () => {
+    const { getSqliteDatabase } = await import("@/lib/server/sqlite")
+    const db = getSqliteDatabase()
+    expect(
+      db.prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'pinned_games'`).get(),
+    ).toBeUndefined()
+  })
+
   it("migration v4 drops the unused recent_games_snapshot table", async () => {
     const { getSqliteDatabase } = await import("@/lib/server/sqlite")
     const db = getSqliteDatabase()

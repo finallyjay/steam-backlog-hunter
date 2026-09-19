@@ -406,10 +406,10 @@ export type PersistExtraGamesResult = {
 }
 
 /**
- * Upserts played-game rows that are NOT in the user's owned library and
- * NOT a pinned game. These surface refunded, family-shared, delisted and
- * otherwise-unowned games whose playtime Steam still remembers via
- * ClientGetLastPlayedTimes.
+ * Upserts played-game rows that are NOT in the user's owned library
+ * (automatically or manually owned). These surface refunded,
+ * family-shared, delisted and otherwise-unowned games whose playtime Steam
+ * still remembers via ClientGetLastPlayedTimes.
  *
  * Rows already present in `extra_games` are always refreshed (playtime,
  * last/first played). Which *new* rows get ingested depends on `mode`
@@ -444,9 +444,8 @@ export function persistExtraGames(
 
   if (lastPlayed.length === 0) return result
 
-  // Build the skip set: owned library entries + pinned appids. Both sources
-  // already live in user_games (pinned games get upserted there during
-  // ensurePinnedGamesSynced), so a single query covers both.
+  // Build the skip set: everything the library treats as owned, whether
+  // Steam reported it or the user promoted it (owned_source = 'manual').
   const ownedRows = db.prepare(`SELECT appid FROM user_games WHERE steam_id = ? AND owned = 1`).all(steamId) as Array<{
     appid: number
   }>

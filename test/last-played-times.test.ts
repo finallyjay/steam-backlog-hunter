@@ -111,7 +111,7 @@ describe("persistLastPlayedTimes", () => {
       `INSERT INTO user_games (steam_id, appid, playtime_forever, rtime_last_played, owned, created_at, updated_at)
        VALUES (?, 620, 100, 1600000000, 1, ?, ?)`,
     ).run(STEAM_ID, now, now)
-    // FaceRig: pinned, playtime=0 placeholder
+    // FaceRig: delisted, playtime=0 placeholder
     db.prepare(
       `INSERT INTO user_games (steam_id, appid, playtime_forever, owned, created_at, updated_at)
        VALUES (?, 274920, 0, 1, ?, ?)`,

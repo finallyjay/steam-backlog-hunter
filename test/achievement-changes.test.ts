@@ -55,7 +55,6 @@ async function seedProfileAndGame() {
     `INSERT INTO user_games (steam_id, appid, playtime_forever, owned, created_at, updated_at)
               VALUES (?, ?, 100, 1, ?, ?)`,
   ).run(STEAM_ID, APPID, now, now)
-  db.prepare("DELETE FROM pinned_games").run()
   return db
 }
 

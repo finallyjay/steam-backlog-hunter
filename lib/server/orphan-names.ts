@@ -6,7 +6,7 @@ import { nowIso } from "@/lib/server/steam-store-utils"
 
 /**
  * A game whose `games.name` is missing or empty and that at least one user
- * has either in their library (owned or pinned) or in their extras list.
+ * has either in their library (owned, automatically or manually) or in their extras list.
  * Surfaced through the admin UI so the operator can fill in a name Valve
  * no longer publishes anywhere (truly dead apps that even the Support
  * wizard can't resolve).

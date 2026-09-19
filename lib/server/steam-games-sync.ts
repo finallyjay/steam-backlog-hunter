@@ -3,7 +3,6 @@ import "server-only"
 import { getLastPlayedTimes, getOwnedGames, type LastPlayedGame, type SteamGame } from "@/lib/steam-api"
 import { ensureGameImages } from "@/lib/server/steam-images"
 import { getSqliteDatabase } from "@/lib/server/sqlite"
-import { ensurePinnedGamesSynced } from "@/lib/server/pinned-games"
 import {
   classifyExtraKinds,
   getExtraAppIds,
@@ -269,9 +268,8 @@ export function persistOwnedGames(steamId: string, games: SteamGame[]) {
  *
  * The endpoint returns every game the account has ever played, including
  * delisted ones (FaceRig, Free to Play, …) that GetOwnedGames hides, so
- * pinned games finally get a real playtime instead of the 0 we write
- * during upsertPinned. It also gives us first_playtime, which isn't
- * exposed anywhere else in the Web API.
+ * manually owned games get a real playtime too. It also gives us
+ * first_playtime, which isn't exposed anywhere else in the Web API.
  */
 export function persistLastPlayedTimes(steamId: string, games: LastPlayedGame[]) {
   if (games.length === 0) return
@@ -329,13 +327,10 @@ async function runHeavyOwnedGamesSync(steamId: string, existingGames: SteamGame[
   }
 
   persistOwnedGames(steamId, games)
-  // Resolve pinned (delisted) games after the main upsert so persistOwnedGames'
-  // markMissingAsUnowned sweep can't flip them back to owned=0.
-  await ensurePinnedGamesSynced(steamId, new Set(games.map((game) => game.appid)))
   // Enrich every matched row with real playtime + first_playtime from the
-  // client-side "last played times" log. Pinned games benefit most from
-  // this (they arrive with playtime=0), but every owned game also gets a
-  // first_playtime value that GetOwnedGames never exposes.
+  // client-side "last played times" log: every owned game (including
+  // manually owned ones Steam no longer lists) gets a first_playtime value
+  // that GetOwnedGames never exposes.
   const lastPlayed = await getLastPlayedTimes(steamId)
   persistLastPlayedTimes(steamId, lastPlayed)
   // Extras stay incremental here: known extras get their playtime refreshed
