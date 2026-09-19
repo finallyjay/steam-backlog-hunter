@@ -655,62 +655,61 @@ export async function syncExtraAchievements(steamId: string, options?: { weeklyF
       if (index >= stale.length) return
       const row = stale[index]
       try {
-        // No ensureSchema() here on purpose: the extras UI only shows
-        // aggregate unlock counts (serverTotal / serverUnlocked), never
-        // per-achievement metadata. Skipping the schema sync avoids a
-        // FOREIGN KEY failure on game_achievements(appid)→games(appid) for
-        // extras whose appid isn't in `games` yet, which on a fresh database
-        // was preventing every extras sync from persisting anything.
-        const playerAchievements = await getPlayerAchievements(steamId, row.appid)
-        if (playerAchievements) {
-          persistExtraAchievements(
-            steamId,
-            row.appid,
-            playerAchievements.gameName,
-            playerAchievements.achievements ?? [],
-          )
-          continue
-        }
-
-        // Fallback: GetPlayerAchievements refuses unowned-but-played
-        // games with "Profile is not public" (even when the profile is
-        // public — it's how Valve signals "you don't own this"). In
-        // that case the schema endpoint still returns the full list of
-        // defined achievements, so we can at least record the total
-        // count. The user's actual unlocked count is unknowable via
-        // the Web API here, so it stays at 0 — the UI shows "0/N (0%)"
-        // instead of a bare "-", which is strictly more honest than
-        // the previous "known-broken" sentinel.
-        //
-        // Schema responses for these apps frequently carry a placeholder
-        // gameName like "ValveTestApp43110" — persistExtraAchievements
-        // filters those out so the hydrate chain can resolve the real
-        // name later via Steam Support.
-        const schema = await getGameSchema(row.appid)
-        const schemaAchievements = schema?.availableGameStats?.achievements ?? []
-        if (schemaAchievements.length > 0) {
-          persistExtraAchievements(
-            steamId,
-            row.appid,
-            schema?.gameName ?? "",
-            // Synthesize a placeholder achievement row per schema entry
-            // with achieved=0 — persistExtraAchievements counts length
-            // as total and only increments unlocked on achieved === 1.
-            schemaAchievements.map((a) => ({ apiname: a.name, achieved: 0 })),
-          )
-          continue
-        }
-
-        // Neither endpoint knows the game — mark as broken (0/0) so we
-        // don't retry on every sync. Matches the pre-fix behaviour for
-        // genuinely achievement-less apps (tools, SDKs, servers).
-        persistExtraAchievements(steamId, row.appid, "", [])
+        await syncExtraGameAchievements(steamId, row.appid)
       } catch (error) {
         logger.warn({ err: error, appId: row.appid }, "Per-extras achievements sync failed — will retry on next sync")
       }
     }
   }
   await Promise.all(Array.from({ length: EXTRAS_ACHIEVEMENTS_CONCURRENCY }, worker))
+}
+
+/**
+ * Fetches and persists the achievements of a single extra from Steam,
+ * unconditionally (no staleness check). Used by the bulk extras sync and
+ * by the per-game refresh on the extra's page.
+ *
+ * Resolution order:
+ * 1. GetPlayerAchievements — the user's real progress plus the game name.
+ * 2. GetSchemaForGame — Steam refuses GetPlayerAchievements for unowned-but-
+ *    played games with "Profile is not public" (how Valve signals "you
+ *    don't own this"); the schema still lists every defined achievement,
+ *    so we record the total with 0 unlocked. Placeholder gameNames
+ *    ("ValveTestApp43110") are filtered by persistExtraAchievements.
+ * 3. Neither knows the game → persist 0/0 so it is not retried on every sync.
+ *    Only a *definitive* schema answer gets here: a transient schema failure
+ *    (network, 5xx, 429) throws instead, so the row stays unsynced and is
+ *    retried on the next pass rather than frozen as "no achievements".
+ *
+ * No ensureSchema() here on purpose: the extras list only needs aggregate
+ * counts, and forcing the schema would hit a FOREIGN KEY failure on
+ * game_achievements(appid)→games(appid) for extras not yet in `games`.
+ *
+ * Throws on network / persistence failures; callers decide whether to
+ * swallow (bulk sync) or surface (per-game refresh).
+ */
+export async function syncExtraGameAchievements(steamId: string, appId: number): Promise<void> {
+  const playerAchievements = await getPlayerAchievements(steamId, appId)
+  if (playerAchievements) {
+    persistExtraAchievements(steamId, appId, playerAchievements.gameName, playerAchievements.achievements ?? [])
+    return
+  }
+
+  const schema = await getGameSchema(appId, { throwOnFailure: true })
+  const schemaAchievements = schema?.availableGameStats?.achievements ?? []
+  if (schemaAchievements.length > 0) {
+    persistExtraAchievements(
+      steamId,
+      appId,
+      schema?.gameName ?? "",
+      // Placeholder rows with achieved=0: persistExtraAchievements counts
+      // length as total and only increments unlocked on achieved === 1.
+      schemaAchievements.map((a) => ({ apiname: a.name, achieved: 0 })),
+    )
+    return
+  }
+
+  persistExtraAchievements(steamId, appId, "", [])
 }
 
 /**

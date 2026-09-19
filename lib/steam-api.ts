@@ -398,7 +398,19 @@ export async function getGlobalAchievementPercentages(appId: number): Promise<Gl
 }
 
 /** Fetches the game schema (achievement and stat definitions) from the Steam API. */
-export async function getGameSchema(appId: number): Promise<GameSchema | null> {
+export async function getGameSchema(
+  appId: number,
+  options?: {
+    /**
+     * Throw a {@link TransientSteamAPIError} on transient failures (network,
+     * 5xx, 429) instead of swallowing them into `null`. A definitive "no
+     * schema" (400/403) still resolves to `null`. Callers that persist a
+     * "known-empty" sentinel must set this so a Steam hiccup is not recorded
+     * as "this game has no achievements".
+     */
+    throwOnFailure?: boolean
+  },
+): Promise<GameSchema | null> {
   try {
     const data = await steamAPIRequest("/ISteamUserStats/GetSchemaForGame/v2/", {
       appid: appId.toString(),
@@ -411,6 +423,9 @@ export async function getGameSchema(appId: number): Promise<GameSchema | null> {
     // lighting up the console.
     if (error instanceof SteamAPIError && (error.status === 400 || error.status === 403)) {
       return null
+    }
+    if (options?.throwOnFailure) {
+      throw new TransientSteamAPIError("Transient error fetching game schema", error)
     }
     logger.error({ err: error, appId }, "Error fetching game schema")
     return null

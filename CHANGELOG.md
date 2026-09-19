@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Users can correct a wrongly classified extra: `PATCH /api/steam/extras/:id` with `{ kind }` (or `null` to go back to automatic), and a Kind selector on the extra's page; manual kinds are never overwritten by later syncs (#356)
 - The Extras page hides demos, DLC, betas, tools, software and other non-game kinds by default, with a switch to show them (count included), a kind pill on the card and on the extra's page; the header count follows the active filter (#355)
 - Extras are classified by kind (`game`, `demo`, `dlc`, `beta`, `tool`, `software`, `other`, `unknown`) on `games.kind` from the store `type` when the store answers and from a name heuristic otherwise, with a one-off backfill for existing extras; `GET /api/steam/extras` and the extra detail expose `kind` (#354)
+- Per-game achievements refresh for extras: `POST /api/steam/extras/:id/sync` re-asks Steam for a single extra (same calls as the library counterpart) and the extra's page gets an **Update achievements** button (#353)
 - Manual extras discovery: `POST /api/steam/extras/discover` runs the full pass (every game Steam remembers the account played but does not own, achievements, names, images) with a per-user in-flight guard and rate limit, `GET` reports the running state and last run, and the Extras page gets a **Discover extras** button with the last-run time and a completion summary (#352)
 
 ### Removed

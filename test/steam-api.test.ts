@@ -283,6 +283,16 @@ describe("getGameSchema", () => {
     expect(loggerMock.error).not.toHaveBeenCalled()
   })
 
+  it("rethrows a 500 when throwOnFailure is set, but still resolves null on 403", async () => {
+    mockFetchSequence([
+      { ok: false, status: 500, body: {} },
+      { ok: false, status: 403, body: {} },
+    ])
+    const { getGameSchema, TransientSteamAPIError } = await import("@/lib/steam-api")
+    await expect(getGameSchema(620, { throwOnFailure: true })).rejects.toBeInstanceOf(TransientSteamAPIError)
+    expect(await getGameSchema(620, { throwOnFailure: true })).toBeNull()
+  })
+
   it("logs on 500 and returns null", async () => {
     mockFetchSequence([{ ok: false, status: 500, body: {} }])
     const { getGameSchema } = await import("@/lib/steam-api")
