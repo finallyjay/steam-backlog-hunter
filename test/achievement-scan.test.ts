@@ -53,7 +53,6 @@ type Db = ReturnType<(typeof import("@/lib/server/sqlite"))["getSqliteDatabase"]
 async function openDb(): Promise<Db> {
   const { getSqliteDatabase } = await import("@/lib/server/sqlite")
   const db = getSqliteDatabase()
-  db.prepare("DELETE FROM pinned_games").run()
   return db
 }
 

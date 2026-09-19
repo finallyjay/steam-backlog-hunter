@@ -37,7 +37,6 @@ const STEAM_ID = "76561198023709299"
 async function seedFreshProfile(iso?: string) {
   const { getSqliteDatabase } = await import("@/lib/server/sqlite")
   const db = getSqliteDatabase()
-  db.prepare("DELETE FROM pinned_games").run()
   const now = iso ?? new Date().toISOString()
   db.prepare(
     `INSERT INTO steam_profile (steam_id, last_owned_games_sync_at, created_at, updated_at)

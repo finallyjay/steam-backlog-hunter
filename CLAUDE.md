@@ -46,14 +46,14 @@ Next.js 16 App Router with React 19, TypeScript strict mode, Tailwind CSS 4, sha
 - `lib/server/manual-ownership.ts` — `promoteExtraToLibrary` / `demoteManualGame`: per-user manual ownership (`user_games.owned_source` `'auto'` | `'manual'`); the `persistOwnedGames` sweep only unmarks `'auto'` rows and a Steam-reported game always flips back to `'auto'`
 - `lib/server/app-kind.ts` — coarse app classification (`AppKind`) from the store `type` or a name heuristic; stored on `games.kind` with `kind_source` provenance (`store` / `name` / `manual`). Extras are classified after each ingest (`classifyExtraKinds`); migration v5 backfilled existing extras by name
 - `lib/server/steam-store.ts` — barrel re-export of the above modules
-- `lib/server/sqlite.ts` — database schema and migrations (Node.js built-in `DatabaseSync`); tables: `steam_profile`, `games`, `user_games`, `stats_snapshot`, `hidden_games`, `allowed_users`, `game_achievements`, `user_achievements`, `pinned_games`, `extra_games`, `extra_game_achievements`, `app_catalog_meta`, `achievement_changes`, `achievement_scan_meta`, `notification_settings`
+- `lib/server/sqlite.ts` — database schema and migrations (Node.js built-in `DatabaseSync`); tables: `steam_profile`, `games`, `user_games`, `stats_snapshot`, `hidden_games`, `allowed_users`, `game_achievements`, `user_achievements`, `extra_games`, `extra_game_achievements`, `app_catalog_meta`, `achievement_changes`, `achievement_scan_meta`, `notification_settings`
 - `lib/steam-api.ts` — direct Steam Web API calls (shared between server and client for types/utilities)
 
 ### API routes (`app/api/`)
 
 - `auth/steam/` — Steam OpenID 2.0 login flow with CSRF nonce, whitelist enforcement, rate limiting; fetches level and badges at login
 - `steam/games`, `steam/games/hide`, `steam/achievements`, `steam/achievements/changes`, `steam/stats`, `steam/sync`, `steam/game/[id]`, `steam/game/[id]/sync`, `steam/extras`, `steam/extras/[id]`, `steam/extras/[id]/promote`, `steam/game/[id]/demote`, `steam/extras/discover` — data endpoints; all require authenticated session via `steam_user` httpOnly cookie. `extras/discover` is the manual full extras pass (the regular sync only ingests extras played since the previous sync)
-- `admin/users`, `admin/pinned-games`, `admin/orphan-names`, `admin/notifications` (+ `/test`) — admin-only endpoints gated by `requireAdmin()`
+- `admin/users`, `admin/orphan-names`, `admin/notifications` (+ `/test`) — admin-only endpoints gated by `requireAdmin()`
 - `cron/achievements-scan` — `POST` runs the scan, `GET` reports the last run; no session, authenticated with `Authorization: Bearer $CRON_SECRET` (503 when unset). Triggered by an external scheduler (Dokploy schedule in production); `.github/workflows/achievements-scan.yml` is a manual-only example
 - `health/` — infrastructure health check (no auth)
 

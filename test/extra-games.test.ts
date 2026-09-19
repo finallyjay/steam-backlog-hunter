@@ -50,7 +50,7 @@ describe("persistExtraGames", () => {
     expect(getExtraGamesForUser(STEAM_ID)).toEqual([])
   })
 
-  it("upserts unowned + non-pinned games with playtime > 0", async () => {
+  it("upserts unowned + non-owned games with playtime > 0", async () => {
     const db = await seedProfile()
     const now = new Date().toISOString()
     // An owned game (must be skipped)
@@ -119,13 +119,13 @@ describe("persistExtraGames", () => {
     expect(extras[0].rtime_last_played).toBe(3000) // updated
   })
 
-  it("also skips pinned-resolved games (which land in user_games with owned=1)", async () => {
+  it("also skips manually owned games (which live in user_games with owned=1)", async () => {
     const db = await seedProfile()
     const now = new Date().toISOString()
     db.prepare(`INSERT INTO games (appid, name, created_at, updated_at) VALUES (274920, 'FaceRig', ?, ?)`).run(now, now)
     db.prepare(
-      `INSERT INTO user_games (steam_id, appid, playtime_forever, owned, created_at, updated_at)
-       VALUES (?, 274920, 569, 1, ?, ?)`,
+      `INSERT INTO user_games (steam_id, appid, playtime_forever, owned, owned_source, created_at, updated_at)
+       VALUES (?, 274920, 569, 1, 'manual', ?, ?)`,
     ).run(STEAM_ID, now, now)
     const { persistExtraGames, getExtraGamesForUser } = await import("@/lib/server/extra-games")
     persistExtraGames(STEAM_ID, [{ appid: 274920, playtime_forever: 569 }])

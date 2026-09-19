@@ -267,9 +267,8 @@ export async function getOwnedGames(steamId: string): Promise<SteamGame[]> {
  * would cache that false conclusion for up to 7 days (ACHIEVEMENTS_STALE_MS)
  * over what is most likely a momentary blip. Callers should catch this,
  * avoid persisting anything, and let the next sync retry — see
- * `getAchievementsForGame` in steam-achievements-sync.ts, the per-game
- * workers in steam-stats-compute.ts and extra-games.ts, and
- * ensurePinnedGamesSynced in pinned-games.ts.
+ * `getAchievementsForGame` in steam-achievements-sync.ts and the per-game
+ * workers in steam-stats-compute.ts and extra-games.ts.
  */
 export class TransientSteamAPIError extends Error {
   constructor(

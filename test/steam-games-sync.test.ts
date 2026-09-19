@@ -60,8 +60,6 @@ function mockSteamApi(
 async function seedBase() {
   const { getSqliteDatabase } = await import("@/lib/server/sqlite")
   const db = getSqliteDatabase()
-  // Clear the pinned seed so its extra lookups don't interfere with these tests
-  db.prepare("DELETE FROM pinned_games").run()
   return db
 }
 

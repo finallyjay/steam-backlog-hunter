@@ -49,8 +49,6 @@ async function seedProfileAndGame() {
     `INSERT INTO user_games (steam_id, appid, playtime_forever, owned, created_at, updated_at)
               VALUES (?, ?, 100, 1, ?, ?)`,
   ).run(STEAM_ID, APPID, now, now)
-  // Keep pinned empty to avoid contaminating fetch counts
-  db.prepare("DELETE FROM pinned_games").run()
   // Mark owned-games sync as fresh so ensureOwnedGamesSynced is a no-op
   db.prepare("UPDATE steam_profile SET last_owned_games_sync_at = ? WHERE steam_id = ?").run(now, STEAM_ID)
   return db

@@ -125,13 +125,13 @@ describe("DashboardInsights", () => {
     expect(screen.getByText(/2 of 3 games have been launched/)).toBeInTheDocument()
   })
 
-  it("counts pinned games with unlocks as 'played' in the library-state insight", () => {
+  it("counts manually owned games with unlocks as 'played' in the library-state insight", () => {
     // Regression: a FaceRig-style entry with 0 playtime but unlocked
     // achievements must still be counted as played, not dumped into the
     // 'unplayed' slice of the donut.
     useSteamGamesMock.mockReturnValue(
       hookReturn([
-        { playtime_forever: 0, unlocked_count: 37 }, // FaceRig — pinned
+        { playtime_forever: 0, unlocked_count: 37 }, // FaceRig — manually owned, delisted
         { playtime_forever: 0, unlocked_count: 0 }, // genuine shelf-dust
         { playtime_forever: 100, unlocked_count: 0 }, // played, no unlocks yet
       ]),

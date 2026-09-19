@@ -245,7 +245,7 @@ async function doSyncAchievementsForStats(
  *
  * Pass `skipOwnedGamesSync: true` when the caller has already force-synced
  * owned games earlier in the same request — avoids repeating the heavy
- * pipeline (pinned/extras/hydrate/images) three times inside a single
+ * pipeline (extras/hydrate/images) three times inside a single
  * `synchronizeUserData` call.
  */
 export async function getStatsForUser(
