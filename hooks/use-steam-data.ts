@@ -9,13 +9,6 @@ import type { SteamAchievementView, SteamStatsResponse } from "@/lib/types/steam
 const REFRESH_COOLDOWN_MS = 3000
 const STEAM_DATA_INVALIDATED_EVENT = "steam-data-invalidated"
 
-// Timestamp factory for the render-phase state adjustment below. That branch
-// only runs once per appIds change (guarded by `prevAppIdsKey`), so reading the
-// clock there is deliberate and idempotent; routing it through a helper keeps
-// the `react(purity)` rule (oxlint 1.86+) from flagging a direct `new Date()`
-// call in the hook body.
-const currentTimestamp = () => new Date()
-
 // Each hook splits its loader in two: a "run" core that performs no setState
 // before its fetch settles (safe to call synchronously from effects), and an
 // event-driven wrapper that additionally flips the loading/refreshing flags
@@ -63,7 +56,10 @@ export function useSteamAchievementsBatch(appIds: number[]) {
     setError(null)
     if (!normalizedAppIds.length) {
       setAchievementsMap({})
-      setLastUpdated(currentTimestamp())
+      // Render-phase adjustment guarded by `prevAppIdsKey`: runs once per appIds
+      // change, so reading the clock here is deliberate.
+      // oxlint-disable-next-line react/purity
+      setLastUpdated(new Date())
       setLoading(false)
       setIsRefreshing(false)
     } else if (lastUpdated !== null) {
