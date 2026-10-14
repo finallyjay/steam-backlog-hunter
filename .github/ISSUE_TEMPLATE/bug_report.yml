@@ -42,7 +42,7 @@ body:
     attributes:
       label: Environment
       description: Where were you running the app?
-      placeholder: "Local dev (pnpm dev, Node 24.13, macOS), or deployed instance"
+      placeholder: "Local dev (pnpm dev, Node 26.11, macOS), or deployed instance"
     validations:
       required: false
 

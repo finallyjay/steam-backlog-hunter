@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The runtime moves to Node 26: `.nvmrc` and `engines` (`>=26 <27`) now require it, so CI and container builds that read either pick it up (#377)
+
 ## [0.12.0] - 2026-09-20
 
 ### Added
