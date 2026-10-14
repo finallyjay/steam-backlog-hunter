@@ -2,12 +2,15 @@ import { type NextRequest, NextResponse } from "next/server"
 import { getCurrentUser } from "@/app/lib/server-auth"
 import { getOwnedGamesForUser, getRecentlyPlayedGamesForUser } from "@/lib/server/steam-store"
 import { logger } from "@/lib/server/logger"
+import { refreshUserDataInBackgroundIfStale } from "@/lib/server/background-refresh"
 
 /**
  * GET /api/steam/games
  *
  * Returns owned or recently played games for the authenticated user.
- * Supports forced refresh to bypass cache staleness thresholds.
+ * Supports forced refresh to bypass cache staleness thresholds. Without it,
+ * answers from the stored library and starts a background refresh when it
+ * is stale; only a user with nothing stored yet waits for the Steam sync.
  *
  * @query type - Game list type: "all" for full library, "recent" for recently played (string, default "recent")
  * @query refresh - Force refresh from Steam API: "1" to enable (string, optional)
@@ -27,11 +30,15 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get("type") || "recent"
     const forceRefresh = searchParams.get("refresh") === "1" || searchParams.get("force") === "1"
 
+    const options = { forceRefresh, allowStale: !forceRefresh }
     let games
     if (type === "all") {
-      games = await getOwnedGamesForUser(user.steamId, { forceRefresh })
+      games = await getOwnedGamesForUser(user.steamId, options)
     } else {
-      games = await getRecentlyPlayedGamesForUser(user.steamId, { forceRefresh })
+      games = await getRecentlyPlayedGamesForUser(user.steamId, options)
+    }
+    if (!forceRefresh) {
+      refreshUserDataInBackgroundIfStale(user.steamId)
     }
 
     return NextResponse.json({ games })

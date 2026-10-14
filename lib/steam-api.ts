@@ -131,6 +131,9 @@ const MAX_RETRY_AFTER_WAIT_MS = 60_000
 // predictable regardless of how many retries Valve's Retry-After values add
 // up to.
 const MAX_TOTAL_RETRY_WAIT_MS = 60_000
+// Per-attempt timeout. Without it a Steam Web API call that never answers
+// keeps the whole sync (and anything awaiting it) pending indefinitely.
+const STEAM_REQUEST_TIMEOUT_MS = 15_000
 
 class SteamAPIError extends Error {
   constructor(
@@ -196,6 +199,7 @@ async function steamAPIRequest(endpoint: string, params: Record<string, string>)
     try {
       const response = await fetch(url.toString(), {
         cache: "no-store",
+        signal: AbortSignal.timeout(STEAM_REQUEST_TIMEOUT_MS),
       })
 
       // Explicit rate-limit handling: back off and retry rather than letting

@@ -9,7 +9,12 @@ vi.mock("@/lib/steam-stats", () => ({
   getUserStats: vi.fn(),
 }))
 
+vi.mock("@/lib/server/background-refresh", () => ({
+  refreshUserDataInBackgroundIfStale: vi.fn(),
+}))
+
 import { GET } from "@/app/api/steam/stats/route"
+import { refreshUserDataInBackgroundIfStale } from "@/lib/server/background-refresh"
 import { getCurrentUser } from "@/app/lib/server-auth"
 import { getUserStats } from "@/lib/steam-stats"
 
@@ -42,10 +47,12 @@ describe("GET /api/steam/stats", () => {
       perfectGames: 0,
     })
 
+    vi.mocked(refreshUserDataInBackgroundIfStale).mockClear()
     const response = await GET(new Request("http://localhost/api/steam/stats?refresh=1"))
 
     expect(response.status).toBe(200)
-    expect(getUserStats).toHaveBeenCalledWith("76561198023709299", { forceRefresh: true })
+    expect(getUserStats).toHaveBeenCalledWith("76561198023709299", { forceRefresh: true, allowStale: false })
+    expect(refreshUserDataInBackgroundIfStale).not.toHaveBeenCalled()
   })
 
   it("returns stats data in response body", async () => {
