@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.1] - 2026-10-14
+
 ### Fixed
 
 - The dashboard no longer sits on its skeleton after logging in with stale data: `GET /api/steam/stats`, `/api/steam/games` and `/api/steam/game/:id` answer from the stored data and refresh it in the background (deduplicated per user, at most one start every five minutes) instead of running the Steam sync inline; only a user with nothing stored yet waits for it. `GET /api/steam/sync` reports `backgroundSyncing`, and the header Sync button shows the background refresh and reloads the views when it finishes. Outbound Steam requests now time out instead of hanging (#381)
@@ -158,7 +160,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Platforms sync now requests `filters=platforms` (the `basic` filter excludes the field),
   so windows/mac/linux support is populated correctly.
 
-[Unreleased]: https://github.com/finallyjay/steam-backlog-hunter/compare/v0.13.0...HEAD
+[Unreleased]: https://github.com/finallyjay/steam-backlog-hunter/compare/v0.13.1...HEAD
+[0.13.1]: https://github.com/finallyjay/steam-backlog-hunter/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/finallyjay/steam-backlog-hunter/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/finallyjay/steam-backlog-hunter/compare/v0.11.1...v0.12.0
 [0.11.1]: https://github.com/finallyjay/steam-backlog-hunter/compare/v0.11.0...v0.11.1
