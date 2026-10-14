@@ -93,7 +93,7 @@ Whitelist-based, multi-user ready. `STEAM_WHITELIST_IDS` (comma-separated Steam6
 - All API routes and public functions have JSDoc documentation
 - Schema evolution in `sqlite.ts` has three layers: `createBaseSchema` (`CREATE TABLE IF NOT EXISTS`, latest shape for fresh installs), `addColumnIfMissing`/`applyAdditiveMigrations` (additive column changes for existing databases), and the versioned `MIGRATIONS` array tracked via `PRAGMA user_version` (one-off data backfills, run once each). Add new columns to both the `CREATE TABLE` and `applyAdditiveMigrations`; append new data migrations to `MIGRATIONS` — never modify or reorder existing entries
 - All changes go through issue → branch → PR → merge (never commit directly to main)
-- The `nextjs-agent-rules` block at the end of this file is managed by `next dev` (Next.js 16.3+): it is committed on purpose so it does not reappear as an uncommitted change on every dev start. When a Next.js upgrade rewrites it, commit the update in the same PR
+- The `nextjs-agent-rules` block at the end of this file and in `AGENTS.md` is managed by `next dev` (Next.js 16.3+; `AGENTS.md` since 16.4): both are committed on purpose so they do not reappear as uncommitted changes on every dev start. When a Next.js upgrade rewrites them, commit the update in the same PR
 - The "tracked games" concept has been removed — stats are computed from games with achievements (total_count > 0)
 
 <!-- BEGIN:nextjs-agent-rules -->
