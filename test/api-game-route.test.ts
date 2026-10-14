@@ -24,6 +24,10 @@ vi.mock("@/lib/server/steam-store", () => ({
   getStoredGameForUser: vi.fn(),
 }))
 
+vi.mock("@/lib/server/background-refresh", () => ({
+  refreshUserDataInBackgroundIfStale: vi.fn(),
+}))
+
 import { GET } from "@/app/api/steam/game/[id]/route"
 import { getCurrentUser } from "@/app/lib/server-auth"
 import { getStoredGameForUser } from "@/lib/server/steam-store"

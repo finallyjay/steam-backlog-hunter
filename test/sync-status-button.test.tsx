@@ -219,4 +219,49 @@ describe("SyncStatusButton", () => {
     })
     await waitFor(() => expect(screen.getByRole("button")).not.toBeDisabled())
   })
+
+  it("tracks a background refresh and invalidates client data when it finishes", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    let backgroundSyncing = true
+    mockFetchSequence(async () =>
+      ok({ lastOwnedGamesSyncAt: null, lastRecentGamesSyncAt: null, lastStatsSyncAt: null, backgroundSyncing }),
+    )
+
+    try {
+      render(<SyncStatusButton />)
+      await waitFor(() => expect(screen.getByRole("button")).toBeDisabled())
+      expect(screen.getByRole("button")).toHaveTextContent(/Syncing/)
+      expect(invalidateSpy).not.toHaveBeenCalled()
+
+      backgroundSyncing = false
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5000)
+      })
+
+      await waitFor(() => expect(screen.getByRole("button")).not.toBeDisabled())
+      expect(invalidateSpy).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("does not poll or invalidate when no background refresh is running", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const fetchSpy = vi.fn(async () =>
+      ok({ lastOwnedGamesSyncAt: null, lastRecentGamesSyncAt: null, lastStatsSyncAt: null, backgroundSyncing: false }),
+    )
+    globalThis.fetch = fetchSpy as unknown as typeof fetch
+
+    try {
+      render(<SyncStatusButton />)
+      await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1))
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(15000)
+      })
+      expect(fetchSpy).toHaveBeenCalledTimes(1)
+      expect(invalidateSpy).not.toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 })

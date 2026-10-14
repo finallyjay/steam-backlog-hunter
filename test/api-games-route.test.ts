@@ -26,7 +26,12 @@ vi.mock("@/lib/server/steam-store", () => ({
   getRecentlyPlayedGamesForUser: vi.fn(),
 }))
 
+vi.mock("@/lib/server/background-refresh", () => ({
+  refreshUserDataInBackgroundIfStale: vi.fn(),
+}))
+
 import { GET } from "@/app/api/steam/games/route"
+import { refreshUserDataInBackgroundIfStale } from "@/lib/server/background-refresh"
 import { getCurrentUser } from "@/app/lib/server-auth"
 import { getOwnedGamesForUser, getRecentlyPlayedGamesForUser } from "@/lib/server/steam-store"
 
@@ -60,7 +65,11 @@ describe("GET /api/steam/games", () => {
 
     expect(response.status).toBe(200)
     expect(body.games).toEqual(mockGames)
-    expect(getRecentlyPlayedGamesForUser).toHaveBeenCalledWith(mockUser.steamId, { forceRefresh: false })
+    expect(getRecentlyPlayedGamesForUser).toHaveBeenCalledWith(mockUser.steamId, {
+      forceRefresh: false,
+      allowStale: true,
+    })
+    expect(refreshUserDataInBackgroundIfStale).toHaveBeenCalledWith(mockUser.steamId)
   })
 
   it("returns all games when type=all", async () => {
@@ -77,18 +86,23 @@ describe("GET /api/steam/games", () => {
 
     expect(response.status).toBe(200)
     expect(body.games).toEqual(mockGames)
-    expect(getOwnedGamesForUser).toHaveBeenCalledWith(mockUser.steamId, { forceRefresh: false })
+    expect(getOwnedGamesForUser).toHaveBeenCalledWith(mockUser.steamId, { forceRefresh: false, allowStale: true })
   })
 
   it("passes force refresh when refresh=1", async () => {
     vi.mocked(getCurrentUser).mockResolvedValue(mockUser)
+    vi.mocked(refreshUserDataInBackgroundIfStale).mockClear()
     vi.mocked(getRecentlyPlayedGamesForUser).mockResolvedValue([] as never)
 
     const request = new NextRequest("http://localhost/api/steam/games?refresh=1")
     const response = await GET(request)
 
     expect(response.status).toBe(200)
-    expect(getRecentlyPlayedGamesForUser).toHaveBeenCalledWith(mockUser.steamId, { forceRefresh: true })
+    expect(getRecentlyPlayedGamesForUser).toHaveBeenCalledWith(mockUser.steamId, {
+      forceRefresh: true,
+      allowStale: false,
+    })
+    expect(refreshUserDataInBackgroundIfStale).not.toHaveBeenCalled()
   })
 
   it("returns 500 when the underlying store call throws", async () => {

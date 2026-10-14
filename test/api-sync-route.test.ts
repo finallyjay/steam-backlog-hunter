@@ -29,7 +29,12 @@ vi.mock("@/lib/server/steam-store", () => ({
   synchronizeUserData: vi.fn(),
 }))
 
+vi.mock("@/lib/server/background-refresh", () => ({
+  refreshUserDataInBackgroundIfStale: vi.fn(),
+}))
+
 import { GET, POST } from "@/app/api/steam/sync/route"
+import { refreshUserDataInBackgroundIfStale } from "@/lib/server/background-refresh"
 import { getCurrentUser } from "@/app/lib/server-auth"
 import { rateLimit } from "@/lib/server/rate-limit"
 import { getUserSyncStatus, synchronizeUserData } from "@/lib/server/steam-store"
@@ -59,10 +64,12 @@ describe("GET /api/steam/sync", () => {
       lastRecentGamesSyncAt: null,
       lastStatsSyncAt: null,
     })
+    vi.mocked(refreshUserDataInBackgroundIfStale).mockReturnValue(true)
     const response = await GET()
     expect(response.status).toBe(200)
-    const body = (await response.json()) as { lastOwnedGamesSyncAt: string }
+    const body = (await response.json()) as { lastOwnedGamesSyncAt: string; backgroundSyncing: boolean }
     expect(body.lastOwnedGamesSyncAt).toBe("2026-04-11T10:00:00.000Z")
+    expect(body.backgroundSyncing).toBe(true)
   })
 
   it("returns 500 if getUserSyncStatus throws", async () => {

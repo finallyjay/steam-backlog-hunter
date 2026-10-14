@@ -5,14 +5,17 @@ import { rateLimit } from "@/lib/server/rate-limit"
 import { getUserSyncStatus, synchronizeUserData } from "@/lib/server/steam-store"
 import { invalidateStatsCache } from "@/lib/steam-stats"
 import { logger } from "@/lib/server/logger"
+import { refreshUserDataInBackgroundIfStale } from "@/lib/server/background-refresh"
 
 /**
  * GET /api/steam/sync
  *
  * Returns the current sync status timestamps for the authenticated user.
- * Includes last sync time for games, achievements, and profile data.
+ * Includes last sync time for games, achievements, and profile data, and
+ * whether a background refresh is running (starting one if the stored data
+ * is stale, so a client polling this endpoint never misses it).
  *
- * @returns {{ lastSync: string, ... }} Sync status timestamps
+ * @returns {{ lastOwnedGamesSyncAt: string | null, lastRecentGamesSyncAt: string | null, lastStatsSyncAt: string | null, backgroundSyncing: boolean }} Sync status
  * @throws 401 - Unauthorized
  * @throws 500 - Server error
  */
@@ -23,7 +26,8 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    return NextResponse.json(getUserSyncStatus(user.steamId))
+    const backgroundSyncing = refreshUserDataInBackgroundIfStale(user.steamId)
+    return NextResponse.json({ ...getUserSyncStatus(user.steamId), backgroundSyncing })
   } catch (error) {
     logger.error({ err: error, endpoint: "steam/sync" }, "Steam sync status API error")
     return NextResponse.json({ error: "Failed to load Steam sync status" }, { status: 500 })

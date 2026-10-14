@@ -76,6 +76,7 @@ async function fetchSupportGameName(appId: number): Promise<NameFetchResult> {
     const response = await fetch(`https://help.steampowered.com/en/wizard/HelpWithGame/?appid=${appId}`, {
       cache: "no-store",
       redirect: "follow",
+      signal: AbortSignal.timeout(10_000),
     })
     if (response.status === 429) return { kind: "rate_limited" }
     if (!response.ok) return { kind: "error" }
@@ -106,6 +107,7 @@ async function fetchCommunityGameName(appId: number): Promise<NameFetchResult> {
     const response = await fetch(`https://steamcommunity.com/app/${appId}`, {
       cache: "no-store",
       redirect: "follow",
+      signal: AbortSignal.timeout(10_000),
     })
     if (response.status === 429) return { kind: "rate_limited" }
     if (!response.ok) return { kind: "error" }
@@ -248,7 +250,7 @@ export async function hydrateMissingExtraNames(steamId: string, options?: { appI
       const url = new URL("https://store.steampowered.com/api/appdetails")
       url.searchParams.set("appids", String(appid))
       url.searchParams.set("filters", "basic")
-      const response = await fetch(url.toString(), { cache: "no-store" })
+      const response = await fetch(url.toString(), { cache: "no-store", signal: AbortSignal.timeout(10_000) })
 
       if (!response.ok) {
         consecutiveStoreFailures++

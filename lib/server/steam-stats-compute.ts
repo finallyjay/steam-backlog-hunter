@@ -16,7 +16,7 @@ import {
 } from "@/lib/server/steam-achievements-sync"
 
 export const OWNED_GAMES_STALE_MS = 24 * 60 * 60 * 1000
-const STATS_STALE_MS = 15 * 60 * 1000
+export const STATS_STALE_MS = 15 * 60 * 1000
 const ACHIEVEMENTS_SYNC_CONCURRENCY = 5
 
 type StatsSnapshotRow = {
@@ -239,9 +239,31 @@ async function doSyncAchievementsForStats(
   await Promise.all(Array.from({ length: ACHIEVEMENTS_SYNC_CONCURRENCY }, worker))
 }
 
+function statsFromSnapshot(steamId: string, snapshot: StatsSnapshotRow): SteamStatsResponse {
+  const db = getSqliteDatabase()
+  const achCount = db
+    .prepare(
+      "SELECT COUNT(*) as c FROM user_games ug WHERE ug.steam_id = ? AND ug.owned = 1 AND ug.total_count > 0 AND NOT EXISTS (SELECT 1 FROM hidden_games hg WHERE hg.steam_id = ug.steam_id AND hg.appid = ug.appid)",
+    )
+    .get(steamId) as { c: number }
+  return {
+    totalGames: snapshot.total_games,
+    gamesWithAchievements: achCount.c,
+    totalAchievements: snapshot.total_achievements,
+    pendingAchievements: snapshot.pending_achievements,
+    startedGames: snapshot.started_games,
+    averageCompletion: snapshot.library_average_completion,
+    totalPlaytime: Number((snapshot.total_playtime_minutes / 60).toFixed(1)),
+    perfectGames: snapshot.perfect_games,
+  }
+}
+
 /**
  * Computes aggregate stats for a user (games, achievements, playtime, completion).
  * Returns a cached snapshot if fresh, otherwise syncs achievements and recomputes.
+ *
+ * Pass `allowStale: true` from request handlers to serve any stored
+ * snapshot without syncing (pair it with a background refresh).
  *
  * Pass `skipOwnedGamesSync: true` when the caller has already force-synced
  * owned games earlier in the same request — avoids repeating the heavy
@@ -250,31 +272,25 @@ async function doSyncAchievementsForStats(
  */
 export async function getStatsForUser(
   steamId: string,
-  options?: { forceRefresh?: boolean; skipOwnedGamesSync?: boolean },
+  options?: { forceRefresh?: boolean; skipOwnedGamesSync?: boolean; allowStale?: boolean },
 ) {
   const forceRefresh = options?.forceRefresh ?? false
+
+  // Stale-while-revalidate read path: any stored snapshot is served as is
+  // and the caller schedules the refresh in the background. Only a user with
+  // no snapshot yet (first login) falls through to the inline sync below.
+  if (!forceRefresh && options?.allowStale) {
+    const snapshot = getStoredStatsSnapshot(steamId)
+    if (snapshot) return statsFromSnapshot(steamId, snapshot)
+  }
+
   if (!options?.skipOwnedGamesSync) {
     await ensureOwnedGamesSynced(steamId, { forceRefresh })
   }
 
   const snapshot = getStoredStatsSnapshot(steamId)
   if (!forceRefresh && snapshot && !isStale(snapshot.computed_at, STATS_STALE_MS)) {
-    const db = getSqliteDatabase()
-    const achCount = db
-      .prepare(
-        "SELECT COUNT(*) as c FROM user_games ug WHERE ug.steam_id = ? AND ug.owned = 1 AND ug.total_count > 0 AND NOT EXISTS (SELECT 1 FROM hidden_games hg WHERE hg.steam_id = ug.steam_id AND hg.appid = ug.appid)",
-      )
-      .get(steamId) as { c: number }
-    return {
-      totalGames: snapshot.total_games,
-      gamesWithAchievements: achCount.c,
-      totalAchievements: snapshot.total_achievements,
-      pendingAchievements: snapshot.pending_achievements,
-      startedGames: snapshot.started_games,
-      averageCompletion: snapshot.library_average_completion,
-      totalPlaytime: Number((snapshot.total_playtime_minutes / 60).toFixed(1)),
-      perfectGames: snapshot.perfect_games,
-    }
+    return statsFromSnapshot(steamId, snapshot)
   }
 
   await syncAchievementsForStats(steamId, forceRefresh, { skipOwnedGamesSync: options?.skipOwnedGamesSync })

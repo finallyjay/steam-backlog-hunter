@@ -70,6 +70,7 @@ async function fetchStoreImages(appId: number): Promise<{ landscape: string | nu
   try {
     const response = await fetch(`https://store.steampowered.com/api/appdetails?appids=${appId}`, {
       cache: "no-store",
+      signal: AbortSignal.timeout(10_000),
     })
     if (!response.ok) return { landscape: null, portrait: null }
 

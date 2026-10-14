@@ -369,13 +369,27 @@ async function runHeavyOwnedGamesSync(steamId: string, existingGames: SteamGame[
   return finalGames
 }
 
-export async function ensureOwnedGamesSynced(steamId: string, options?: { forceRefresh?: boolean }) {
+/**
+ * Options for the owned-games read path.
+ *
+ * `allowStale` serves whatever is stored without touching Steam, as long as
+ * the user has a stored library: request handlers pair it with
+ * `refreshUserDataInBackgroundIfStale` so a stale library never blocks a
+ * response. A user with nothing stored yet still syncs inline.
+ */
+export type OwnedGamesReadOptions = { forceRefresh?: boolean; allowStale?: boolean }
+
+export async function ensureOwnedGamesSynced(steamId: string, options?: OwnedGamesReadOptions) {
   const forceRefresh = options?.forceRefresh ?? false
   upsertProfile(steamId)
 
   const syncInfo = getProfileSync(steamId)
   const shouldRefresh = forceRefresh || isStale(syncInfo?.last_owned_games_sync_at, OWNED_GAMES_STALE_MS)
   const existingGames = getStoredOwnedGames(steamId)
+
+  if (!forceRefresh && options?.allowStale && existingGames.length > 0) {
+    return existingGames
+  }
 
   if (!shouldRefresh && existingGames.length > 0) {
     await ensureGameImages(existingGames.map((game) => game.appid))
@@ -398,12 +412,12 @@ export async function ensureOwnedGamesSynced(steamId: string, options?: { forceR
 }
 
 /** Returns all owned games for a user, syncing from Steam if needed. */
-export async function getOwnedGamesForUser(steamId: string, options?: { forceRefresh?: boolean }) {
+export async function getOwnedGamesForUser(steamId: string, options?: OwnedGamesReadOptions) {
   return ensureOwnedGamesSynced(steamId, options)
 }
 
 /** Returns recently played games for a user, ordered by last played time descending. */
-export async function getRecentlyPlayedGamesForUser(steamId: string, options?: { forceRefresh?: boolean }) {
+export async function getRecentlyPlayedGamesForUser(steamId: string, options?: OwnedGamesReadOptions) {
   await ensureOwnedGamesSynced(steamId, options)
 
   const db = getSqliteDatabase()
@@ -443,7 +457,7 @@ export async function getRecentlyPlayedGamesForUser(steamId: string, options?: {
 }
 
 /** Returns a single game for a user, syncing owned games first if needed. */
-export async function getStoredGameForUser(steamId: string, appId: number, options?: { forceRefresh?: boolean }) {
+export async function getStoredGameForUser(steamId: string, appId: number, options?: OwnedGamesReadOptions) {
   await ensureOwnedGamesSynced(steamId, options)
   return getStoredGame(steamId, appId)
 }

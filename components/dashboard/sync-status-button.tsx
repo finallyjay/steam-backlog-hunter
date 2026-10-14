@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { RefreshCw } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -11,7 +11,12 @@ type SyncStatusResponse = {
   lastOwnedGamesSyncAt: string | null
   lastRecentGamesSyncAt: string | null
   lastStatsSyncAt: string | null
+  /** A server-side stale-while-revalidate refresh is running. */
+  backgroundSyncing?: boolean
 }
+
+// How often the header polls the sync status while a background refresh runs.
+const BACKGROUND_SYNC_POLL_MS = 5000
 
 type SyncResultResponse = {
   syncedAt: string
@@ -81,13 +86,32 @@ export function useSyncStatus() {
     formatTimestamp(status?.lastOwnedGamesSyncAt ?? null) ??
     formatTimestamp(status?.lastRecentGamesSyncAt ?? null)
 
-  return { label, loading, reload: loadStatus }
+  return { label, loading, backgroundSyncing: status?.backgroundSyncing ?? false, reload: loadStatus }
 }
 
 export function SyncStatusButton() {
   const [syncing, setSyncing] = useState(false)
   const { toast } = useToast()
-  const { reload } = useSyncStatus()
+  const { reload, backgroundSyncing } = useSyncStatus()
+  const wasBackgroundSyncingRef = useRef(false)
+
+  // While the server refreshes stale data in the background, poll the status
+  // and invalidate the client data once it finishes so every view picks up
+  // the fresh rows without a manual sync.
+  useEffect(() => {
+    if (!backgroundSyncing) {
+      if (wasBackgroundSyncingRef.current) {
+        wasBackgroundSyncingRef.current = false
+        invalidateSteamData()
+      }
+      return
+    }
+    wasBackgroundSyncingRef.current = true
+    const interval = window.setInterval(() => void reload(), BACKGROUND_SYNC_POLL_MS)
+    return () => window.clearInterval(interval)
+  }, [backgroundSyncing, reload])
+
+  const busy = syncing || backgroundSyncing
 
   async function handleSync() {
     try {
@@ -125,12 +149,12 @@ export function SyncStatusButton() {
       variant="ghost"
       size="sm"
       onClick={() => void handleSync()}
-      disabled={syncing}
+      disabled={busy}
       aria-label="Sync Steam data"
       className="text-muted-foreground hover:text-foreground hover:bg-surface-3 gap-1.5"
     >
-      <RefreshCw className={`h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`} />
-      <span className="hidden sm:inline">{syncing ? "Syncing..." : "Sync"}</span>
+      <RefreshCw className={`h-3.5 w-3.5 ${busy ? "animate-spin" : ""}`} />
+      <span className="hidden sm:inline">{busy ? "Syncing..." : "Sync"}</span>
     </Button>
   )
 }

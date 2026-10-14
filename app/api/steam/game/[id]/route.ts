@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server"
 import { getCurrentUser } from "@/app/lib/server-auth"
 import { getStoredGameForUser } from "@/lib/server/steam-store"
+import { refreshUserDataInBackgroundIfStale } from "@/lib/server/background-refresh"
 
 /**
  * GET /api/steam/game/:id
  *
  * Returns a single game by its Steam application ID for the authenticated user.
  * Retrieves stored game data including playtime and achievement progress.
+ * Answers from the stored library and starts a background refresh when it
+ * is stale.
  *
  * @param id - Steam application ID (number, required)
  * @returns {{ game: Game }} The requested game
@@ -26,7 +29,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Valid App ID required" }, { status: 400 })
   }
 
-  const game = await getStoredGameForUser(user.steamId, appId)
+  const game = await getStoredGameForUser(user.steamId, appId, { allowStale: true })
+  refreshUserDataInBackgroundIfStale(user.steamId)
 
   if (!game) {
     return NextResponse.json({ error: "Game not found" }, { status: 404 })

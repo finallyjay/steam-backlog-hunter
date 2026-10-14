@@ -2,12 +2,17 @@ import { NextResponse } from "next/server"
 import { getCurrentUser } from "@/app/lib/server-auth"
 import { getUserStats } from "@/lib/steam-stats"
 import { logger } from "@/lib/server/logger"
+import { refreshUserDataInBackgroundIfStale } from "@/lib/server/background-refresh"
 
 /**
  * GET /api/steam/stats
  *
  * Returns aggregated achievement and game statistics for the authenticated user.
  * Includes totals, completion rates, and historical snapshots.
+ *
+ * Without `refresh`, answers from the stored snapshot and starts a
+ * background refresh when it is stale; only a user with no snapshot yet
+ * waits for the Steam sync.
  *
  * @query refresh - Force refresh from Steam API: "1" to enable (string, optional)
  * @query force - Alias for refresh (string, optional)
@@ -25,7 +30,10 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const forceRefresh = searchParams.get("refresh") === "1" || searchParams.get("force") === "1"
 
-    const stats = await getUserStats(user.steamId, { forceRefresh })
+    const stats = await getUserStats(user.steamId, { forceRefresh, allowStale: !forceRefresh })
+    if (!forceRefresh) {
+      refreshUserDataInBackgroundIfStale(user.steamId)
+    }
     return NextResponse.json(stats)
   } catch (error) {
     logger.error({ err: error, endpoint: "steam/stats" }, "Steam stats API error")

@@ -86,7 +86,8 @@ async function fetchCatalogFromSteam(): Promise<Map<number, string> | null> {
       url.searchParams.set("max_results", "50000")
       if (lastAppid > 0) url.searchParams.set("last_appid", String(lastAppid))
 
-      const response = await fetch(url.toString(), { cache: "no-store" })
+      // Pages carry up to 50k entries, hence the more generous timeout.
+      const response = await fetch(url.toString(), { cache: "no-store", signal: AbortSignal.timeout(30_000) })
       if (!response.ok) {
         logger.warn(
           { status: response.status, pages, entriesSoFar: map.size },

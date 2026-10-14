@@ -116,7 +116,7 @@ export async function syncGamePlatforms(steamId: string) {
       // dedicated filter values we actually consume; this stays ≈90%
       // smaller than the unfiltered payload.
       url.searchParams.set("filters", "platforms,release_date")
-      const response = await fetch(url.toString(), { cache: "no-store" })
+      const response = await fetch(url.toString(), { cache: "no-store", signal: AbortSignal.timeout(10_000) })
 
       if (!response.ok) {
         consecutiveFailures++
