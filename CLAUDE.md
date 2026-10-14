@@ -29,7 +29,7 @@ Versions follow SemVer and are cut from `CHANGELOG.md` (Keep a Changelog format)
 
 ## Architecture
 
-Next.js 16 App Router with React 19, TypeScript strict mode, Tailwind CSS 4, shadcn/ui (new-york style) + Radix UI primitives. Uses pnpm (pinned in `packageManager`) and Node 24 (`.nvmrc`).
+Next.js 16 App Router with React 19, TypeScript strict mode, Tailwind CSS 4, shadcn/ui (new-york style) + Radix UI primitives. Uses pnpm (pinned in `packageManager`) and Node 26 (`.nvmrc`).
 
 ### Data flow
 

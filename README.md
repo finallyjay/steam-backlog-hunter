@@ -54,7 +54,7 @@ A self-hosted dashboard for tracking your Steam library, monitoring achievement 
 
 ## Prerequisites
 
-- Node.js 24 (see `.nvmrc`; `engines` requires `>=24 <25`)
+- Node.js 26 (see `.nvmrc`; `engines` requires `>=26 <27`)
 - pnpm (see `packageManager` in `package.json` — Corepack picks it up automatically)
 
 ## Getting Started
