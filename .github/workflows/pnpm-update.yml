@@ -1,9 +1,10 @@
 name: pnpm update
 
 # Monthly: move pnpm to the newest release within major 12 (the range in
-# devEngines.packageManager and the exact version locked in pnpm-lock.yaml)
-# and open a PR. PRs opened with GITHUB_TOKEN don't trigger other workflows,
-# so CI is dispatched explicitly on the PR branch.
+# devEngines.packageManager, the exact pin in packageManager — read by Railpack
+# on Dokploy — and the exact version locked in pnpm-lock.yaml) and open a PR.
+# `pnpm self-update` rewrites all three together. PRs opened with GITHUB_TOKEN
+# don't trigger other workflows, so CI is dispatched explicitly on the PR branch.
 
 on:
   schedule:
@@ -57,5 +58,5 @@ jobs:
           git push origin "$branch"
           gh pr create --base main --head "$branch" \
             --title "chore: bump pnpm to $version" \
-            --body "Automated monthly update of pnpm within major 12 (\`pnpm self-update 12\`): bumps \`devEngines.packageManager\` and the version locked in \`pnpm-lock.yaml\`. CI was dispatched on this branch."
+            --body "Automated monthly update of pnpm within major 12 (\`pnpm self-update 12\`): bumps \`devEngines.packageManager\`, \`packageManager\` and the version locked in \`pnpm-lock.yaml\`. CI was dispatched on this branch."
           gh workflow run ci.yml --ref "$branch"

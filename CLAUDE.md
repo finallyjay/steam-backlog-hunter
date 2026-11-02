@@ -29,7 +29,7 @@ Versions follow SemVer and are cut from `CHANGELOG.md` (Keep a Changelog format)
 
 ## Architecture
 
-Next.js 16 App Router with React 19, TypeScript strict mode, Tailwind CSS 4, shadcn/ui (new-york style) + Radix UI primitives. Uses pnpm 12 (range in `devEngines.packageManager`, exact version locked in `pnpm-lock.yaml`) and Node 26 (`.nvmrc`).
+Next.js 16 App Router with React 19, TypeScript strict mode, Tailwind CSS 4, shadcn/ui (new-york style) + Radix UI primitives. Uses pnpm 12 (range in `devEngines.packageManager`, exact version locked in `pnpm-lock.yaml`; `packageManager` mirrors that exact version because Railpack on Dokploy only reads that field — keep both, `pnpm self-update` updates them together) and Node 26 (`.nvmrc`).
 
 ### Data flow
 
