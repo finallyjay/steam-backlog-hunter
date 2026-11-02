@@ -50,12 +50,12 @@ A self-hosted dashboard for tracking your Steam library, monitoring achievement 
 | Testing         | [Vitest](https://vitest.dev/) + Testing Library                                                                   |
 | Linting         | [oxlint](https://oxc.rs/docs/guide/usage/linter) + [oxfmt](https://oxc.rs/docs/guide/usage/formatter)             |
 | CI/CD           | GitHub Actions                                                                                                    |
-| Package Manager | pnpm (version pinned in `packageManager`)                                                                         |
+| Package Manager | pnpm 12 (range in `devEngines.packageManager`)                                                                  |
 
 ## Prerequisites
 
 - Node.js 26 (see `.nvmrc`; `engines` requires `>=26 <27`)
-- pnpm (see `packageManager` in `package.json`; Corepack picks it up once installed with `npm install -g corepack && corepack enable`, since Node 25+ no longer bundles it)
+- pnpm 12 (any 12.x: pnpm switches itself to the exact version locked in `pnpm-lock.yaml`)
 
 ## Getting Started
 
