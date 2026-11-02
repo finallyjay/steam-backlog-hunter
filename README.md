@@ -5,7 +5,7 @@
 [![Release](https://img.shields.io/github/v/release/finallyjay/steam-backlog-hunter?logo=github&label=release)](https://github.com/finallyjay/steam-backlog-hunter/releases/latest)
 [![Next.js](https://img.shields.io/github/package-json/dependency-version/finallyjay/steam-backlog-hunter/next?logo=nextdotjs&logoColor=white&label=Next.js)](package.json)
 [![TypeScript](https://img.shields.io/github/package-json/dependency-version/finallyjay/steam-backlog-hunter/dev/typescript?logo=typescript&logoColor=white&label=TypeScript)](package.json)
-[![Node.js](https://img.shields.io/badge/Node.js-24-5FA04E?logo=nodedotjs&logoColor=white)](.nvmrc)
+[![Node.js](https://img.shields.io/badge/Node.js-26-5FA04E?logo=nodedotjs&logoColor=white)](.nvmrc)
 [![pnpm](https://img.shields.io/badge/pnpm-12-F69220?logo=pnpm&logoColor=white)](package.json)
 [![License](https://img.shields.io/github/license/finallyjay/steam-backlog-hunter?label=license)](LICENSE)
 
@@ -55,7 +55,7 @@ A self-hosted dashboard for tracking your Steam library, monitoring achievement 
 ## Prerequisites
 
 - Node.js 26 (see `.nvmrc`; `engines` requires `>=26 <27`)
-- pnpm (see `packageManager` in `package.json` — Corepack picks it up automatically)
+- pnpm (see `packageManager` in `package.json`; Corepack picks it up once installed with `npm install -g corepack && corepack enable`, since Node 25+ no longer bundles it)
 
 ## Getting Started
 
