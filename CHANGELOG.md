@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Container builds on Dokploy (Railpack) work again: `package.json` declares `packageManager` with the exact pnpm 12 version next to the `devEngines.packageManager` range (Railpack only reads `packageManager` and otherwise falls back to pnpm 9), and a new `railpack.json` starts the app with `node .next/standalone/server.js`, since the runtime image ships no pnpm (#397)
+
 ## [0.13.1] - 2026-10-14
 
 ### Fixed
