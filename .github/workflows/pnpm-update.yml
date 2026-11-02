@@ -1,0 +1,61 @@
+name: pnpm update
+
+# Monthly: move pnpm to the newest release within major 12 (the range in
+# devEngines.packageManager and the exact version locked in pnpm-lock.yaml)
+# and open a PR. PRs opened with GITHUB_TOKEN don't trigger other workflows,
+# so CI is dispatched explicitly on the PR branch.
+
+on:
+  schedule:
+    - cron: "0 6 1 * *"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "pnpm version, range or major to update to"
+        default: "12"
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+concurrency:
+  group: pnpm-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6.1.0
+
+      - name: Update pnpm
+        env:
+          VERSION: ${{ inputs.version || '12' }}
+        run: pnpm self-update "$VERSION" --yes
+
+      - name: Open pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if git diff --quiet; then
+            echo "pnpm is already up to date."
+            exit 0
+          fi
+          version=$(node -p "require('./package.json').devEngines.packageManager.version.replace(/^\^/, '')")
+          branch="chore/pnpm-$version"
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null; then
+            echo "Branch $branch already exists."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git commit -am "chore: bump pnpm to $version"
+          git push origin "$branch"
+          gh pr create --base main --head "$branch" \
+            --title "chore: bump pnpm to $version" \
+            --body "Automated monthly update of pnpm within major 12 (\`pnpm self-update 12\`): bumps \`devEngines.packageManager\` and the version locked in \`pnpm-lock.yaml\`. CI was dispatched on this branch."
+          gh workflow run ci.yml --ref "$branch"

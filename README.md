@@ -50,7 +50,7 @@ A self-hosted dashboard for tracking your Steam library, monitoring achievement 
 | Testing         | [Vitest](https://vitest.dev/) + Testing Library                                                                   |
 | Linting         | [oxlint](https://oxc.rs/docs/guide/usage/linter) + [oxfmt](https://oxc.rs/docs/guide/usage/formatter)             |
 | CI/CD           | GitHub Actions                                                                                                    |
-| Package Manager | pnpm 12 (range in `devEngines.packageManager`)                                                                  |
+| Package Manager | pnpm 12 (range in `devEngines.packageManager`)                                                                    |
 
 ## Prerequisites
 
