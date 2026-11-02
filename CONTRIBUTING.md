@@ -4,7 +4,7 @@ This is a personal project, but contributions are welcome. This guide captures t
 
 ## Setup
 
-Requires **Node 26** (see `.nvmrc`) and **pnpm** (the exact version is pinned in `packageManager` in `package.json` — Corepack picks it up once installed with `npm install -g corepack && corepack enable`, since Node 25+ no longer bundles it).
+Requires **Node 26** (see `.nvmrc`) and **pnpm 12** (any 12.x: pnpm switches itself to the exact version locked in `pnpm-lock.yaml`).
 
 ```bash
 pnpm install
