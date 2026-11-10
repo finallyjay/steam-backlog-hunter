@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Container builds on Dokploy (Railpack) work again: `package.json` declares `packageManager` with the exact pnpm 12 version next to the `devEngines.packageManager` range (Railpack only reads `packageManager` and otherwise falls back to pnpm 9), and a new `railpack.json` starts the app with `node .next/standalone/server.js`, since the runtime image ships no pnpm (#397)
 
+### Security
+
+- The test toolchain's `vite` (pulled in by `vitest`) moves from 8.0.16 to 8.3.7, clearing the open vite advisories (fixed in 8.1.6) (#403)
+
 ## [0.13.1] - 2026-10-14
 
 ### Fixed
