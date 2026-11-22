@@ -63,7 +63,7 @@ A self-hosted dashboard for tracking your Steam library, monitoring achievement 
 # Clone and install
 git clone https://github.com/finallyjay/steam-backlog-hunter.git
 cd steam-backlog-hunter
-nvm use
+# Node 26 (see .nvmrc) with pnpm 12
 pnpm install
 
 # Configure environment
