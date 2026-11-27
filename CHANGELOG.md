@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Container builds on Dokploy (Railpack) work again: `package.json` declares `packageManager` with the exact pnpm 12 version next to the `devEngines.packageManager` range (Railpack only reads `packageManager` and otherwise falls back to pnpm 9), and a new `railpack.json` starts the app with `node .next/standalone/server.js`, since the runtime image ships no pnpm (#397)
+- The Extras page refreshes the destination tab and clears pending hide/restore state from the tab click instead of an effect, which oxlint 1.95's `react/set-state-in-effect` rule rejects; behaviour is unchanged (#409)
 
 ### Security
 
