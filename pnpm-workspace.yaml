@@ -3,9 +3,3 @@
 allowBuilds:
   sharp: true
 
-# Both were published less than 24h before their bump on 2026-09-13, inside
-# pnpm's built-in minimumReleaseAge window. Drop this whole block once they
-# have aged (zod 4.6.4 is the younger one: published 2026-09-13 00:12 UTC).
-minimumReleaseAgeExclude:
-  - tailwind-merge@3.7.0
-  - zod@4.6.4
