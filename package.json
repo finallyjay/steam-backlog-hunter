@@ -19,7 +19,7 @@
       "oxfmt",
       "oxlint --fix"
     ],
-    "*.{json,md,css}": [
+    "*.{json,md,css,yaml,yml}": [
       "oxfmt"
     ]
   },
