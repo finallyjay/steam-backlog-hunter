@@ -129,17 +129,20 @@ export default function ExtrasPage() {
     }
   }, [])
 
-  useEffect(() => {
-    if (tab === "hidden" && (locallyHidden.size > 0 || locallyRestored.size > 0)) {
+  // Refresh the destination tab when local hide/restore changes are pending,
+  // from the click handler rather than an effect (react/set-state-in-effect).
+  const changeTab = (next: Tab) => {
+    if (next === tab) return
+    setTab(next)
+    if (next === "hidden" && (locallyHidden.size > 0 || locallyRestored.size > 0)) {
       void refetchHidden()
       setLocallyRestored(new Set())
     }
-    if (tab === "extras" && locallyHidden.size > 0) {
+    if (next === "extras" && locallyHidden.size > 0) {
       void refetchExtras()
       setLocallyHidden(new Set())
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab])
+  }
 
   const handlePromote = useCallback(
     async (appId: number) => {
@@ -221,7 +224,7 @@ export default function ExtrasPage() {
         <div className="border-surface-4 flex gap-1 rounded-lg border p-1">
           <button
             type="button"
-            onClick={() => setTab("extras")}
+            onClick={() => changeTab("extras")}
             className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${tab === "extras" ? "bg-surface-3 text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-surface-2"}`}
           >
             <Sparkles className="h-3.5 w-3.5" />
@@ -229,7 +232,7 @@ export default function ExtrasPage() {
           </button>
           <button
             type="button"
-            onClick={() => setTab("hidden")}
+            onClick={() => changeTab("hidden")}
             className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${tab === "hidden" ? "bg-surface-3 text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-surface-2"}`}
           >
             <EyeOff className="h-3.5 w-3.5" />
