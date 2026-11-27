@@ -2,4 +2,3 @@
 # Next.js image optimization and needs its platform binary built.
 allowBuilds:
   sharp: true
-
